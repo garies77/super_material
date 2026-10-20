@@ -94,8 +94,8 @@ class ProductResource extends Resource
                     TextInput::make('alt_text')->label('Alt Text')->placeholder('Keterangan aksesibilitas'),
                 ]),
                 Section::make('Fallback Gambar Cepat')->columns(2)->collapsed()->schema([
-                    FileUpload::make('image')->label('Gambar utama cepat')->image()->directory('products'),
-                    FileUpload::make('gallery')->label('Galeri foto cepat')->image()->multiple()->reorderable()->directory('products'),
+                    FileUpload::make('image')->label('Gambar utama cepat')->image()->disk('public')->directory('products')->visibility('public'),
+                    FileUpload::make('gallery')->label('Galeri foto cepat')->image()->multiple()->reorderable()->disk('public')->directory('products')->visibility('public'),
                 ]),
             ]),
 

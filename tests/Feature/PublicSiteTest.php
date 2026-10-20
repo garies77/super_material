@@ -131,3 +131,26 @@ it('renders article category and tag listing feeds', function () {
         ->assertSee('Terpopuler');
 });
 
+it('renders hero campaign bundling banner on home page when active', function () {
+    \App\Models\Setting::put('hero_banner_active', '1');
+    \App\Models\Setting::put('hero_banner_style', 'card');
+    \App\Models\Setting::put('hero_banner_image', 'banners/bundling-renovasi-oktober.jpg');
+    \App\Models\Setting::put('hero_banner_badge', 'Promo Bundling Spesial');
+    \App\Models\Setting::put('hero_banner_title', 'Paket Bundling Renovasi Hemat s.d. 30%');
+
+    $this->get('/')
+        ->assertOk()
+        ->assertSee('Promo Bundling Spesial')
+        ->assertSee('Paket Bundling Renovasi Hemat s.d. 30%')
+        ->assertSee('storage/banners/bundling-renovasi-oktober.jpg');
+});
+
+it('hides hero campaign banner when inactive', function () {
+    \App\Models\Setting::put('hero_banner_active', '0');
+
+    $this->get('/')
+        ->assertOk()
+        ->assertDontSee('storage/banners/bundling-renovasi-oktober.jpg');
+});
+
+

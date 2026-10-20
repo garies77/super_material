@@ -31,6 +31,14 @@ class DatabaseSeeder extends Seeder
             'site_description' => 'Bandingkan produk, baca panduan memilih, lalu beli lewat Shopee, Tokopedia, Lazada, TikTok Shop, atau konsultasi langsung via WhatsApp.',
             'whatsapp_number' => '081234567890',
             'org_name' => 'Supermaterial',
+            'hero_banner_active' => '1',
+            'hero_banner_style' => 'card',
+            'hero_banner_image' => 'banners/bundling-renovasi-oktober.jpg',
+            'hero_banner_badge' => 'Promo Bundling Spesial',
+            'hero_banner_title' => 'Paket Bundling Renovasi Hemat s.d. 30%',
+            'hero_banner_desc' => 'Dapatkan paket semen portland + cat premium + pelapis anti bocor hemat lebih dari 30%. Berlaku terbatas.',
+            'hero_banner_cta_text' => 'Lihat Promo Bundling',
+            'hero_banner_cta_url' => '/produk',
         ] as $k => $v) {
             Setting::put($k, $v);
         }

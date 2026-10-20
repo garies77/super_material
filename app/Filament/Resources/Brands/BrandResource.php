@@ -45,7 +45,7 @@ class BrandResource extends Resource
             TextInput::make('name')->label('Nama')->required()->maxLength(255)->live(onBlur: true)
                 ->afterStateUpdated(fn (Set $set, ?string $state, string $operation) => $operation === 'create' ? $set('slug', Str::slug($state)) : null),
             TextInput::make('slug')->required()->unique(ignoreRecord: true)->maxLength(255),
-            FileUpload::make('logo')->image()->directory('brands'),
+            FileUpload::make('logo')->image()->disk('public')->directory('brands')->visibility('public'),
         ]);
     }
 

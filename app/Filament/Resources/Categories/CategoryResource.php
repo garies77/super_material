@@ -66,7 +66,7 @@ class CategoryResource extends Resource
                 Select::make('parent_id')->label('Induk')->searchable()
                     ->options(fn (?Category $record) => self::parentOptions($record?->id))
                     ->placeholder('— Kategori utama —'),
-                FileUpload::make('image')->label('Gambar')->image()->directory('categories'),
+                FileUpload::make('image')->label('Gambar')->image()->disk('public')->directory('categories')->visibility('public'),
                 Textarea::make('intro')->label('Teks pengantar (di atas daftar produk)')->rows(3)->columnSpanFull(),
                 RichEditor::make('bottom_content')->label('Teks pendukung (di bawah daftar produk)')->columnSpanFull(),
                 TextInput::make('whatsapp_number')->label('Nomor WhatsApp kategori')->helperText('Kosong = pakai nomor global.'),

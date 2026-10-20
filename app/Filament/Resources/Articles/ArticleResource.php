@@ -67,7 +67,7 @@ class ArticleResource extends Resource
             ]),
 
             Section::make('Gambar Utama & Foto')->columns(2)->schema([
-                FileUpload::make('image')->label('Foto Utama (16:9)')->image()->directory('articles')->columnSpanFull(),
+                FileUpload::make('image')->label('Foto Utama (16:9)')->image()->disk('public')->directory('articles')->visibility('public')->columnSpanFull(),
                 TextInput::make('image_caption')->label('Keterangan Foto')->placeholder('Contoh: Suasana pengaplikasian semen instan untuk dinding bata ringan'),
                 TextInput::make('image_credit')->label('Kredit Foto')->placeholder('Contoh: Dok. Supermaterial / Antara'),
             ]),

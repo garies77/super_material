@@ -26,7 +26,7 @@ class SeoFields
         ];
 
         if ($withImage) {
-            array_splice($fields, 3, 0, [FileUpload::make('og_image')->label('Gambar Open Graph')->image()->directory('og')]);
+            array_splice($fields, 3, 0, [FileUpload::make('og_image')->label('Gambar Open Graph')->image()->disk('public')->directory('og')->visibility('public')]);
         }
 
         return Section::make('SEO')->icon('heroicon-o-magnifying-glass')->collapsed()->schema($fields)->columns(1);

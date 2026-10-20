@@ -4,8 +4,11 @@ namespace App\Filament\Pages;
 
 use App\Models\Setting;
 use BackedEnum;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
@@ -35,12 +38,62 @@ class SiteSettings extends Page implements HasSchemas
 
     public function mount(): void
     {
-        $this->form->fill(Setting::all_());
+        $settings = Setting::all_();
+        if (isset($settings['hero_banner_active'])) {
+            $settings['hero_banner_active'] = Setting::getBool('hero_banner_active');
+        }
+        $this->form->fill($settings);
     }
 
     public function form(Schema $schema): Schema
     {
         return $schema->statePath('data')->components([
+            Section::make('Hero & Banner Kampanye Beranda')
+                ->description('Kelola gambar banner hero pada halaman utama. Sangat fleksibel untuk kampanye bundling bulanan, diskon seasonal, atau promo khusus.')
+                ->collapsible()
+                ->columns(2)
+                ->schema([
+                    Toggle::make('hero_banner_active')
+                        ->label('Aktifkan Banner Kampanye Hero')
+                        ->helperText('Tampilkan materi visual kampanye bundling / promo di area hero beranda.')
+                        ->default(true),
+                    Select::make('hero_banner_style')
+                        ->label('Gaya Tampilan Hero')
+                        ->options([
+                            'card' => 'Showcase Card di Samping Form Pencarian (Direkomendasikan - 2 Kolom)',
+                            'banner' => 'Banner Strip Lebar di Atas Kategori',
+                            'background' => 'Latar Belakang Gambar Hero Penuh (Dark Overlay)',
+                        ])
+                        ->default('card'),
+                    FileUpload::make('hero_banner_image')
+                        ->label('Gambar Banner / Poster Kampanye')
+                        ->image()
+                        ->disk('public')
+                        ->directory('banners')
+                        ->visibility('public')
+                        ->helperText('Unggah gambar materi kampanye bundling atau flyer promo (JPG, PNG, WebP). Bebas diganti kapan saja.')
+                        ->columnSpanFull(),
+                    TextInput::make('hero_banner_badge')
+                        ->label('Teks Label / Badge Promo')
+                        ->placeholder('Contoh: Promo Bundling Bulan Ini')
+                        ->helperText('Muncul sebagai badge sorotan beranimasi.'),
+                    TextInput::make('hero_banner_title')
+                        ->label('Judul Kampanye')
+                        ->placeholder('Contoh: Paket Bundling Renovasi Rumah Hemat 30%'),
+                    Textarea::make('hero_banner_desc')
+                        ->label('Deskripsi Singkat Kampanye')
+                        ->placeholder('Contoh: Beli paket semen + cat tembok + pelapis anti bocor hemat lebih dari 30%.')
+                        ->rows(2)
+                        ->columnSpanFull(),
+                    TextInput::make('hero_banner_cta_text')
+                        ->label('Teks Tombol Aksi (CTA)')
+                        ->placeholder('Contoh: Lihat Paket Bundling / Pesan via WhatsApp'),
+                    TextInput::make('hero_banner_cta_url')
+                        ->label('Link URL Tujuan (CTA)')
+                        ->placeholder('Contoh: /produk atau link WhatsApp atau URL halaman promo')
+                        ->helperText('Bisa berupa link halaman (/produk) atau link WhatsApp / marketplace.')
+                        ->columnSpanFull(),
+                ]),
             Section::make('Umum')->columns(2)->schema([
                 TextInput::make('site_tagline')->label('Tagline')->columnSpanFull(),
                 Textarea::make('site_description')->label('Deskripsi situs (beranda)')->rows(3)->columnSpanFull(),
