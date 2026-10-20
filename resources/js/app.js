@@ -86,3 +86,39 @@ document.querySelectorAll('[data-thumb]').forEach((btn) => {
         btn.classList.add('ring-2', 'ring-brand-500');
     });
 });
+
+// Tombol Salin Tautan Berita / Artikel
+document.querySelectorAll('[data-copy-link]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+        const url = btn.dataset.copyLink || window.location.href;
+        try {
+            await navigator.clipboard.writeText(url);
+            const parent = btn.parentElement;
+            const tooltip = parent?.querySelector('[data-copy-tooltip]');
+            if (tooltip) {
+                tooltip.classList.remove('hidden');
+                setTimeout(() => tooltip.classList.add('hidden'), 2500);
+            }
+        } catch (err) {
+            console.error('Gagal menyalin URL', err);
+        }
+    });
+});
+
+// Penanganan navigasi daftar isi (TOC) & in-page anchor
+document.addEventListener('click', (e) => {
+    const link = e.target.closest('a[href^="#"]');
+    if (!link) return;
+
+    const href = link.getAttribute('href');
+    if (!href || href === '#' || href.length < 2) return;
+
+    const id = decodeURIComponent(href.slice(1));
+    const target = document.getElementById(id);
+    if (target) {
+        e.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        history.pushState(null, '', href);
+    }
+});
+

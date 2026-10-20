@@ -105,17 +105,16 @@
                         <span>Bagikan:</span>
                         <div class="flex items-center gap-2" id="share-bar-top">
                             {{-- Salin Tautan --}}
-                            <div class="relative inline-block" x-data="{ copied: false }">
+                            <div class="relative inline-block">
                                 <button type="button"
-                                        @click="navigator.clipboard.writeText('{{ $article->url() }}'); copied = true; setTimeout(() => copied = false, 2500)"
+                                        data-copy-link="{{ $article->url() }}"
                                         class="flex h-9 items-center gap-1.5 rounded-full border border-ink-200 bg-white px-3 text-xs font-semibold text-ink-700 shadow-xs transition hover:border-brand-500 hover:text-brand-600 hover:bg-brand-50/50"
                                         title="Salin Tautan">
                                     <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
                                     <span>Salin</span>
                                 </button>
-                                <span x-show="copied" x-cloak style="display: none;"
-                                      x-transition
-                                      class="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-ink-950 px-2 py-1 text-[11px] font-medium text-white shadow-md">
+                                <span data-copy-tooltip
+                                      class="hidden absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-ink-950 px-2 py-1 text-[11px] font-medium text-white shadow-md z-20">
                                     URL berhasil disalin!
                                 </span>
                             </div>
@@ -174,30 +173,31 @@
 
                 {{-- 6. Daftar Isi Otomatis (Dapat Dilipat / Accordion) --}}
                 @if(count($toc) >= 3)
-                    <div class="my-6 rounded-2xl border border-ink-200 bg-white p-5 shadow-xs" x-data="{ open: true }">
-                        <div class="flex items-center justify-between cursor-pointer select-none" @click="open = !open">
+                    <details open class="group my-6 rounded-2xl border border-ink-200 bg-white p-5 shadow-xs">
+                        <summary class="flex items-center justify-between cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
                             <div class="flex items-center gap-2.5">
                                 <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-100 text-brand-700">
                                     <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
                                 </span>
-                                <h3 class="font-display text-base font-bold text-ink-900">Daftar isi</h3>
+                                <h3 class="font-display text-base font-bold text-ink-900 m-0">Daftar isi</h3>
                             </div>
-                            <button type="button" class="text-xs font-semibold text-brand-700 hover:underline flex items-center gap-1">
-                                <span x-text="open ? 'Sembunyikan' : 'Tampilkan'"></span>
-                                <svg viewBox="0 0 24 24" class="h-4 w-4 transition-transform duration-200" :class="{ 'rotate-180': open }" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-                            </button>
-                        </div>
-                        <ul x-show="open" x-cloak class="mt-4 space-y-2.5 border-t border-ink-100 pt-3 text-sm">
+                            <div class="text-xs font-semibold text-brand-700 flex items-center gap-1">
+                                <span class="group-open:hidden">Tampilkan</span>
+                                <span class="hidden group-open:inline">Sembunyikan</span>
+                                <svg viewBox="0 0 24 24" class="h-4 w-4 transition-transform duration-200 group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                            </div>
+                        </summary>
+                        <ul class="mt-4 space-y-2.5 border-t border-ink-100 pt-3 text-sm">
                             @foreach($toc as $item)
                                 <li class="{{ $item['level'] === 3 ? 'pl-5 text-xs text-ink-600' : 'font-medium text-ink-800' }}">
-                                    <a href="#{{ $item['id'] }}" class="inline-flex items-center gap-1.5 transition hover:text-brand-600">
-                                        <span class="text-brand-500">›</span>
+                                    <a href="#{{ $item['id'] }}" class="inline-flex items-center gap-1.5 transition hover:text-brand-600 hover:translate-x-0.5">
+                                        <span class="text-brand-500 font-bold">›</span>
                                         <span>{{ $item['text'] }}</span>
                                     </a>
                                 </li>
                             @endforeach
                         </ul>
-                    </div>
+                    </details>
                 @endif
 
                 {{-- 7. Isi Artikel (Format Berita CNN Indonesia dengan Dateline & Tipografi Nyaman) --}}

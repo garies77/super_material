@@ -152,16 +152,26 @@ class Article extends Model
 
         // Parse TOC dari h2 & h3
         $html = preg_replace_callback('/<h([23])([^>]*)>(.*?)<\/h\1>/is', function ($m) use (&$toc, &$used) {
-            $text = trim(strip_tags($m[3]));
+            $level = (int) $m[1];
+            $attrs = $m[2];
+            $inner = $m[3];
+            $text = trim(strip_tags($inner));
             $id = Str::slug($text) ?: 'bagian';
             $base = $id;
             for ($i = 2; in_array($id, $used, true); $i++) {
                 $id = $base.'-'.$i;
             }
             $used[] = $id;
-            $toc[] = ['id' => $id, 'text' => $text, 'level' => (int) $m[1]];
+            $toc[] = ['id' => $id, 'text' => $text, 'level' => $level];
 
-            return "<h{$m[1]} id=\"{$id}\"{$m[2]}>{$m[3]}</h{$m[1]}>";
+            // Tambahkan scroll-mt-24 agar heading tidak tertutup sticky header saat di-scroll
+            if (preg_match('/class="([^"]*)"/i', $attrs, $classMatch)) {
+                $attrs = str_replace($classMatch[0], 'class="'.trim($classMatch[1].' scroll-mt-24').'"', $attrs);
+            } else {
+                $attrs = ' class="scroll-mt-24"'.$attrs;
+            }
+
+            return "<h{$level} id=\"{$id}\"{$attrs}>{$inner}</h{$level}>";
         }, $raw);
 
         // Prepend dateline di paragraf pertama jika ada dan belum tertulis di teks
