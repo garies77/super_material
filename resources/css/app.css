@@ -1,0 +1,88 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+
+@theme {
+    --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    --font-display: 'Outfit', 'Plus Jakarta Sans', ui-sans-serif, sans-serif;
+
+    --color-ink-50: #f6f7f9;
+    --color-ink-100: #eceef2;
+    --color-ink-200: #d5d9e2;
+    --color-ink-400: #8b94a7;
+    --color-ink-600: #4b5468;
+    --color-ink-800: #1e2535;
+    --color-ink-900: #121826;
+    --color-ink-950: #0b0f19;
+
+    --color-brand-50: #fff8eb;
+    --color-brand-100: #ffecc6;
+    --color-brand-300: #ffc54d;
+    --color-brand-400: #ffae1f;
+    --color-brand-500: #f59309;
+    --color-brand-600: #d96f04;
+    --color-brand-700: #b44d07;
+}
+
+@layer base {
+    [x-cloak] { display: none !important; }
+    html { scroll-behavior: smooth; }
+    body { @apply bg-ink-50 text-ink-800 antialiased font-sans; }
+    h1, h2, h3, h4 { @apply font-display tracking-tight text-ink-900; }
+}
+
+@layer components {
+    .container-x { @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8; }
+
+    .btn {
+        @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold
+               transition duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500;
+    }
+    .btn-primary { @apply bg-brand-500 text-ink-950 shadow-lg shadow-brand-500/25 hover:-translate-y-0.5 hover:bg-brand-400; }
+    .btn-dark { @apply bg-ink-900 text-white hover:-translate-y-0.5 hover:bg-ink-800; }
+    .btn-ghost { @apply border border-ink-200 bg-white text-ink-800 hover:border-brand-400 hover:text-brand-700; }
+
+    .card {
+        @apply rounded-2xl border border-ink-100 bg-white shadow-sm transition duration-300;
+    }
+    .card-hover { @apply hover:-translate-y-1 hover:border-brand-300 hover:shadow-xl hover:shadow-ink-900/5; }
+
+    .chip { @apply inline-flex items-center rounded-full bg-ink-100 px-3 py-1 text-xs font-medium text-ink-600; }
+
+    .section-title { @apply text-2xl font-bold sm:text-3xl; }
+
+    /* Gaya isi artikel / deskripsi dari rich editor */
+    .content { @apply text-[1.02rem] leading-8 text-ink-800; }
+    .content h2 { @apply mb-3 mt-10 text-2xl font-bold; scroll-margin-top: 6rem; }
+    .content h3 { @apply mb-2 mt-8 text-xl font-semibold; scroll-margin-top: 6rem; }
+    .content p { @apply my-4; }
+    .content ul { @apply my-4 list-disc pl-6; }
+    .content ol { @apply my-4 list-decimal pl-6; }
+    .content a { @apply font-medium text-brand-700 underline underline-offset-2; }
+    .content img { @apply my-6 h-auto max-w-full rounded-xl; }
+    .content table { @apply my-6 w-full text-sm; }
+    .content th, .content td { @apply border border-ink-200 px-3 py-2 text-left; }
+    .content blockquote { @apply my-6 border-l-4 border-brand-400 bg-brand-50 px-5 py-3 italic; }
+}
+
+.hero-grid {
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 44px 44px;
+}
+
+.placeholder-art {
+    background:
+        repeating-linear-gradient(135deg, rgba(255, 174, 31, 0.12) 0 12px, transparent 12px 24px),
+        linear-gradient(135deg, #eceef2, #fff8eb);
+}
+
+@keyframes rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.rise { animation: rise 0.6s ease both; }
+.rise-2 { animation: rise 0.6s 0.12s ease both; }
+.rise-3 { animation: rise 0.6s 0.24s ease both; }

@@ -1,0 +1,290 @@
+<?php
+
+namespace App\Models;
+
+use App\Models\Concerns\HasSeo;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
+
+class Product extends Model
+{
+    use HasSeo;
+
+    protected $guarded = [];
+
+    protected function casts(): array
+    {
+        return [
+            'specifications' => 'array',
+            'gallery' => 'array',
+            'noindex' => 'boolean',
+            'is_published' => 'boolean',
+            'is_featured' => 'boolean',
+            'rating_value' => 'float',
+            'rating_count' => 'integer',
+            'rating_updated_at' => 'date',
+            'show_quantity' => 'boolean',
+        ];
+    }
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class);
+    }
+
+    public function brand(): BelongsTo
+    {
+        return $this->belongsTo(Brand::class);
+    }
+
+    public function media(): HasMany
+    {
+        return $this->hasMany(ProductMedia::class)->orderBy('sort_order');
+    }
+
+    public function variants(): HasMany
+    {
+        return $this->hasMany(ProductVariant::class)->orderBy('sort_order');
+    }
+
+    public function activeVariants(): HasMany
+    {
+        return $this->hasMany(ProductVariant::class)->where('is_active', true)->orderBy('sort_order');
+    }
+
+    public function links(): HasMany
+    {
+        return $this->hasMany(ProductLink::class);
+    }
+
+    public function clicks(): HasMany
+    {
+        return $this->hasMany(ClickEvent::class);
+    }
+
+    public function faqs(): MorphMany
+    {
+        return $this->morphMany(Faq::class, 'faqable')->orderBy('sort_order');
+    }
+
+    public function articles(): BelongsToMany
+    {
+        return $this->belongsToMany(Article::class, 'article_product');
+    }
+
+    public function scopePublished(Builder $q): Builder
+    {
+        return $q->where('is_published', true);
+    }
+
+    public function url(): string
+    {
+        return route('product.show', $this->slug);
+    }
+
+    /**
+     * Ambil seluruh media (foto/video), dengan fallback ke image/gallery lama bila media kosong.
+     *
+     * @return Collection<int, ProductMedia>
+     */
+    public function allMedia(): Collection
+    {
+        $items = $this->relationLoaded('media') ? $this->media : $this->media()->get();
+
+        if ($items->isNotEmpty()) {
+            return $items;
+        }
+
+        // Fallback untuk produk legacy
+        $legacy = collect();
+        if ($this->image) {
+            $legacy->push(new ProductMedia([
+                'product_id' => $this->id,
+                'type' => 'image',
+                'path' => $this->image,
+                'provider' => 'upload',
+                'alt_text' => $this->name,
+                'sort_order' => 0,
+            ]));
+        }
+
+        if (is_array($this->gallery)) {
+            foreach ($this->gallery as $i => $path) {
+                if ($path && $path !== $this->image) {
+                    $legacy->push(new ProductMedia([
+                        'product_id' => $this->id,
+                        'type' => 'image',
+                        'path' => $path,
+                        'provider' => 'upload',
+                        'alt_text' => $this->name,
+                        'sort_order' => $i + 1,
+                    ]));
+                }
+            }
+        }
+
+        return $legacy;
+    }
+
+    /** Nomor WA efektif: produk > kategori > global. */
+    public function whatsappNumber(): ?string
+    {
+        $number = $this->whatsapp_number ?: $this->category?->whatsapp_number ?: Setting::get('whatsapp_number');
+        $number = preg_replace('/\D+/', '', (string) $number);
+        if ($number !== '' && str_starts_with($number, '0')) {
+            $number = '62'.substr($number, 1);
+        }
+
+        return $number ?: null;
+    }
+
+    /** Kanal yang tampil sebagai tombol beli untuk produk ini. */
+    public function buyChannels(): Collection
+    {
+        $links = $this->links()->where('is_active', true)->get()->keyBy('sales_channel_id');
+
+        return SalesChannel::where('is_active', true)->orderBy('sort_order')->get()
+            ->filter(fn (SalesChannel $c) => $c->isWhatsapp() ? (bool) $this->whatsappNumber() : $links->has($c->id))
+            ->values();
+    }
+
+    public function buildWhatsappMessage(?ProductVariant $variant = null, int $quantity = 1): string
+    {
+        $link = $this->links()->whereHas('channel', fn ($q) => $q->where('slug', 'whatsapp'))->first();
+        $base = $link?->message ?: "Halo, saya tertarik dengan {$this->name}.";
+
+        $extra = [];
+        if ($variant) {
+            $extra[] = "Varian: {$variant->name}";
+        }
+        if ($quantity > 1 || $this->unit) {
+            $extra[] = "Jumlah: {$quantity} ".($this->unit ?: 'item');
+        }
+
+        if (! empty($extra)) {
+            $base .= ' ('.implode(', ', $extra).')';
+        }
+
+        return $base."\n".$this->url();
+    }
+
+    /** Tujuan redirect untuk kanal tertentu; null bila tidak valid. */
+    public function destinationFor(SalesChannel $channel, ?ProductVariant $variant = null, int $quantity = 1): ?string
+    {
+        if (! $channel->is_active) {
+            return null;
+        }
+
+        if ($channel->isWhatsapp()) {
+            $number = $this->links()->where('sales_channel_id', $channel->id)->where('is_active', true)->value('url');
+            $number = $number ? preg_replace('/\D+/', '', $number) : $this->whatsappNumber();
+            $message = $this->buildWhatsappMessage($variant, $quantity);
+
+            return $number ? 'https://wa.me/'.$number.'?text='.rawurlencode($message) : null;
+        }
+
+        return $this->links()->with('channel')->where('sales_channel_id', $channel->id)->first()?->safeUrl();
+    }
+
+    public function imageUrl(): ?string
+    {
+        $firstMedia = $this->allMedia()->first();
+        if ($firstMedia) {
+            return $firstMedia->isImage() ? $firstMedia->url() : ($firstMedia->posterUrl() ?: $firstMedia->url());
+        }
+
+        return $this->image ? asset('storage/'.ltrim((string) $this->image, '/')) : null;
+    }
+
+    public function effectivePriceMin(): ?int
+    {
+        $vars = $this->relationLoaded('variants') ? $this->variants : $this->variants;
+        $prices = $vars->filter(fn ($v) => $v->is_active ?? true)->map->effectivePrice()->filter()->values();
+
+        if ($prices->isNotEmpty()) {
+            return $prices->min();
+        }
+
+        return $this->price_min ? (int) $this->price_min : null;
+    }
+
+    public function effectivePriceMax(): ?int
+    {
+        $vars = $this->relationLoaded('variants') ? $this->variants : $this->variants;
+        $prices = $vars->filter(fn ($v) => $v->is_active ?? true)->map->effectivePrice()->filter()->values();
+
+        if ($prices->isNotEmpty()) {
+            return $prices->max();
+        }
+
+        return $this->price_max ? (int) $this->price_max : null;
+    }
+
+    public function isPriceHidden(): bool
+    {
+        return $this->price_display === 'hidden';
+    }
+
+    public function priceLabel(): ?string
+    {
+        if ($this->isPriceHidden()) {
+            return 'Hubungi kami untuk harga';
+        }
+
+        $min = $this->effectivePriceMin();
+        $max = $this->effectivePriceMax();
+
+        if (! $min) {
+            return null;
+        }
+
+        $fmt = fn ($n) => 'Rp'.number_format($n, 0, ',', '.');
+        $label = $fmt($min);
+        if ($max && $max > $min) {
+            $label .= ' – '.$fmt($max);
+        }
+
+        return $label.($this->unit ? ' / '.$this->unit : '');
+    }
+
+    public function maxDiscountPercentage(): ?int
+    {
+        $vars = $this->relationLoaded('variants') ? $this->variants : $this->variants;
+        $discounts = $vars->filter(fn ($v) => $v->is_active ?? true)->map->discountPercentage()->filter()->values();
+
+        return $discounts->isNotEmpty() ? $discounts->max() : null;
+    }
+
+    public function hasRating(): bool
+    {
+        return $this->rating_value !== null && $this->rating_count !== null && $this->rating_count > 0;
+    }
+
+    public function formattedRatingCount(): string
+    {
+        if (! $this->rating_count) {
+            return '0';
+        }
+        if ($this->rating_count >= 1000) {
+            return round($this->rating_count / 1000, 1).'RB';
+        }
+
+        return (string) $this->rating_count;
+    }
+
+    public function seoName(): string
+    {
+        return $this->name;
+    }
+
+    public function seoFallbackDescription(): ?string
+    {
+        return $this->summary ?: strip_tags((string) $this->description) ?: "Beli {$this->name} dengan harga acuan dan spesifikasi lengkap.";
+    }
+}
