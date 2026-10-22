@@ -20,9 +20,19 @@
                :image-height="630">
 
     <section class="relative overflow-hidden bg-ink-950 text-white">
-        <div class="hero-grid absolute inset-0"></div>
-        <div class="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-brand-500/25 blur-3xl pointer-events-none"></div>
-        <div class="absolute -bottom-40 left-1/4 h-80 w-80 rounded-full bg-brand-600/20 blur-3xl pointer-events-none"></div>
+        @if($hasHeroBanner && $heroBannerStyle === 'background')
+            {{-- Latar Belakang Penuh: Gambar membentang jernih & tajam dengan gradasi cerdas (gelap di kiri untuk teks H1, terang di kanan untuk visual materi promo) --}}
+            <div class="absolute inset-0 z-0 overflow-hidden">
+                <img src="{{ $heroBannerImage }}" alt="{{ $heroBannerTitle ?: 'Promo Bundling' }}"
+                     class="h-full w-full object-cover object-right lg:object-center opacity-85 transition duration-500">
+                <div class="absolute inset-0 bg-gradient-to-r from-ink-950 via-ink-950/85 sm:via-ink-950/70 to-transparent"></div>
+                <div class="absolute inset-0 bg-gradient-to-t from-ink-950/90 via-transparent to-ink-950/30 sm:from-ink-950/60"></div>
+            </div>
+        @else
+            <div class="hero-grid absolute inset-0"></div>
+            <div class="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-brand-500/25 blur-3xl pointer-events-none"></div>
+            <div class="absolute -bottom-40 left-1/4 h-80 w-80 rounded-full bg-brand-600/20 blur-3xl pointer-events-none"></div>
+        @endif
 
         <div class="container-x relative py-16 sm:py-24">
             @if($hasHeroBanner && $heroBannerStyle === 'card')
@@ -132,11 +142,7 @@
                     </div>
                 </div>
             @elseif($hasHeroBanner && $heroBannerStyle === 'background')
-                <div class="absolute inset-0 z-0">
-                    <img src="{{ $heroBannerImage }}" alt="" class="h-full w-full object-cover opacity-25 filter blur-[1px]">
-                    <div class="absolute inset-0 bg-gradient-to-r from-ink-950 via-ink-950/90 to-ink-950/70"></div>
-                </div>
-                <div class="relative z-10">
+                <div class="relative z-10 max-w-2xl">
                     @if($heroBannerBadge)
                         <a href="{{ $heroBannerCtaUrl }}" class="rise mb-4 inline-flex items-center gap-2 rounded-full border border-brand-400/40 bg-brand-500/20 px-4 py-1.5 text-xs font-semibold text-brand-200 backdrop-blur-md transition hover:bg-brand-500/30">
                             <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-400"></span> {{ $heroBannerBadge }} →
@@ -146,15 +152,25 @@
                             <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-400"></span> Katalog bahan bangunan
                         </p>
                     @endif
-                    <h1 class="rise-2 mt-4 max-w-3xl font-display text-4xl font-extrabold leading-[1.08] text-white sm:text-6xl">
+                    <h1 class="rise-2 mt-4 font-display text-4xl font-extrabold leading-[1.08] text-white sm:text-5xl xl:text-6xl">
                         Temukan bahan bangunan <span class="bg-gradient-to-r from-brand-300 to-brand-500 bg-clip-text text-transparent">tepat untuk proyek Anda</span>
                     </h1>
-                    <p class="rise-3 mt-6 max-w-xl text-lg leading-8 text-ink-200">{{ Setting::get('site_description', 'Bandingkan produk, baca panduan memilih, lalu beli lewat Shopee, Tokopedia, Lazada, TikTok Shop, atau konsultasi langsung via WhatsApp.') }}</p>
-                    <form action="{{ route('search') }}" method="get" role="search" class="rise-3 mt-9 flex max-w-xl gap-2 rounded-2xl bg-white p-2 shadow-2xl shadow-black/30">
+                    <p class="rise-3 mt-6 max-w-xl text-base leading-7 text-ink-200 sm:text-lg sm:leading-8">{{ Setting::get('site_description', 'Bandingkan produk, baca panduan memilih, lalu beli lewat Shopee, Tokopedia, Lazada, TikTok Shop, atau konsultasi langsung via WhatsApp.') }}</p>
+                    <form action="{{ route('search') }}" method="get" role="search" class="rise-3 mt-8 flex max-w-xl gap-2 rounded-2xl bg-white p-2 shadow-2xl shadow-black/40">
                         <label for="q-hero" class="sr-only">Cari produk</label>
                         <input id="q-hero" name="q" type="search" placeholder="Cari semen, keramik, baja ringan…" class="min-w-0 flex-1 rounded-xl px-4 py-3 text-ink-900 outline-none placeholder:text-ink-400">
                         <button class="btn btn-primary" type="submit">Cari</button>
                     </form>
+                    @if($heroBannerTitle)
+                        <div class="rise-3 mt-6 inline-flex flex-wrap items-center gap-3 rounded-2xl border border-white/15 bg-ink-950/60 p-2.5 sm:px-4 sm:py-2.5 backdrop-blur-md">
+                            <span class="rounded bg-brand-600 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-white">Promo</span>
+                            <span class="text-xs sm:text-sm font-semibold text-white">{{ $heroBannerTitle }}</span>
+                            <a href="{{ $heroBannerCtaUrl }}" class="inline-flex items-center gap-1 text-xs font-bold text-amber-300 hover:text-amber-200 transition">
+                                <span>{{ $heroBannerCtaText ?: 'Lihat Promo' }}</span>
+                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                            </a>
+                        </div>
+                    @endif
                 </div>
             @else
                 <p class="rise inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-xs font-semibold text-brand-300">

@@ -238,5 +238,7 @@
         </div>
         <div data-nosnippet class="border-t border-white/10 py-5 text-center text-xs text-ink-400">© {{ date('Y') }} {{ $siteName }}. Harga bersifat acuan; harga final mengikuti marketplace/penjual.</div>
     </footer>
+
+    @include('partials.sm-campaign')
 </body>
 </html>

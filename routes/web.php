@@ -3,6 +3,7 @@
 use App\Http\Controllers\AdController;
 use App\Http\Controllers\ArticleController;
 use App\Http\Controllers\AuthorController;
+use App\Http\Controllers\CampaignController;
 use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\GoController;
 use App\Http\Controllers\HomeController;
@@ -26,6 +27,9 @@ Route::get('/go/{product}/{channel}', GoController::class)->middleware('throttle
 Route::get('/ad/{ad}', [AdController::class, 'click'])->whereNumber('ad')->middleware('throttle:60,1')->name('ad.click');
 Route::post('/promo-event/{ad}', [AdController::class, 'event'])->whereNumber('ad')->middleware('throttle:120,1')->name('ad.event');
 Route::get('/admin/pratinjau-iklan/{ad}', [AdController::class, 'preview'])->whereNumber('ad')->name('ad.preview');
+Route::post('/sm-campaign/{campaign}/event', [CampaignController::class, 'event'])->whereNumber('campaign')->middleware('throttle:120,1')->name('campaign.event');
+Route::get('/admin/pratinjau-kampanye/{campaign}', [CampaignController::class, 'preview'])->whereNumber('campaign')->name('campaign.preview');
+Route::get('/admin/pratinjau-kampanye/{campaign}/bingkai', [CampaignController::class, 'previewFrame'])->whereNumber('campaign')->name('campaign.preview-frame');
 
 Route::get('/robots.txt', [SeoController::class, 'robots']);
 Route::get('/sitemap.xml', [SeoController::class, 'index']);
