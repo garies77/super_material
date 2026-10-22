@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSeo;
+use App\Models\Concerns\TracksPublicUrl;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,7 +15,9 @@ use Illuminate\Support\Facades\Storage;
 
 class Product extends Model
 {
-    use HasSeo;
+    use HasSeo, TracksPublicUrl;
+
+    public const PUBLIC_ROUTE = 'product.show';
 
     protected $guarded = [];
 
@@ -30,7 +33,28 @@ class Product extends Model
             'rating_count' => 'integer',
             'rating_updated_at' => 'date',
             'show_quantity' => 'boolean',
+            'price_valid_until' => 'datetime',
         ];
+    }
+
+    public function schemaAvailability(): ?string
+    {
+        return match ($this->availability) {
+            'InStock' => 'https://schema.org/InStock',
+            'LimitedAvailability' => 'https://schema.org/LimitedAvailability',
+            'PreOrder' => 'https://schema.org/PreOrder',
+            'OutOfStock' => 'https://schema.org/OutOfStock',
+            default => null,
+        };
+    }
+
+    public function schemaPriceValidUntil(): string
+    {
+        if ($this->price_valid_until && $this->price_valid_until->isFuture()) {
+            return $this->price_valid_until->setTimezone('Asia/Jakarta')->toIso8601String();
+        }
+
+        return now()->addDays(30)->endOfDay()->setTimezone('Asia/Jakarta')->toIso8601String();
     }
 
     public function category(): BelongsTo
@@ -286,5 +310,68 @@ class Product extends Model
     public function seoFallbackDescription(): ?string
     {
         return $this->summary ?: strip_tags((string) $this->description) ?: "Beli {$this->name} dengan harga acuan dan spesifikasi lengkap.";
+    }
+
+    /**
+     * URL gambar utama produk untuk Open Graph, Twitter Card, dan Google SERP thumbnail.
+     */
+    public function primaryImageUrl(): ?string
+    {
+        if ($this->og_image) {
+            return $this->seoImage();
+        }
+
+        $firstImage = $this->allMedia()->firstWhere(fn ($m) => $m->isImage());
+        if ($firstImage) {
+            return $firstImage->url();
+        }
+
+        $firstVideo = $this->allMedia()->firstWhere(fn ($m) => $m->isVideo());
+        if ($firstVideo && $firstVideo->posterUrl()) {
+            return $firstVideo->posterUrl();
+        }
+
+        if ($this->image) {
+            return str_starts_with($this->image, 'http://') || str_starts_with($this->image, 'https://')
+                ? $this->image
+                : asset('storage/'.ltrim($this->image, '/'));
+        }
+
+        return null;
+    }
+
+    /**
+     * Kumpulan URL gambar bersih (tanpa video URL YouTube dsb) untuk JSON-LD dan Google Image Sitemap.
+     *
+     * @return array<int, string>
+     */
+    public function allImageUrls(): array
+    {
+        $urls = [];
+        foreach ($this->allMedia() as $m) {
+            if ($m->isImage()) {
+                $urls[] = $m->url();
+            } elseif ($m->isVideo() && $m->posterUrl()) {
+                $urls[] = $m->posterUrl();
+            }
+        }
+
+        if (empty($urls) && $this->image) {
+            $urls[] = str_starts_with($this->image, 'http://') || str_starts_with($this->image, 'https://')
+                ? $this->image
+                : asset('storage/'.ltrim($this->image, '/'));
+        }
+
+        if (is_array($this->gallery)) {
+            foreach ($this->gallery as $p) {
+                if ($p) {
+                    $urls[] = str_starts_with($p, 'http://') || str_starts_with($p, 'https://')
+                        ? $p
+                        : asset('storage/'.ltrim($p, '/'));
+                }
+            }
+        }
+
+        return array_values(array_unique(array_filter($urls)));
     }
 }

@@ -115,7 +115,7 @@ it('renders cnn style article with editorial metadata, dateline, toc, and popula
         ->assertSee('(gar/ed)')
         ->assertSee('Topik Terkait')
         ->assertSee('Produk yang Dibahas dalam Artikel')
-        ->assertSee('NewsArticle', false);
+        ->assertSee('BlogPosting', false);
 
     // Verify views increment
     expect($article->fresh()->views_count)->toBeGreaterThan(0);

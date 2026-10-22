@@ -46,9 +46,8 @@ class PageResource extends Resource
                 ->afterStateUpdated(fn (Set $set, ?string $state, string $operation) => $operation === 'create' ? $set('slug', Str::slug($state)) : null),
             TextInput::make('slug')->required()->unique(ignoreRecord: true),
             RichEditor::make('content')->label('Isi')->columnSpanFull(),
-            TextInput::make('meta_title')->label('Judul meta'),
-            Textarea::make('meta_description')->label('Deskripsi meta')->rows(2),
             Toggle::make('is_published')->label('Terbit')->default(true),
+            \App\Filament\Support\SeoFields::make(true),
         ]);
     }
 

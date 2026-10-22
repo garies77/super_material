@@ -1,26 +1,5 @@
 @php
     use App\Models\Setting;
-    $org = [
-        '@context' => 'https://schema.org',
-        '@graph' => [
-            array_filter([
-                '@type' => 'Organization',
-                'name' => Setting::get('org_name', config('app.name')),
-                'url' => url('/'),
-                'logo' => Setting::get('org_logo_url'),
-            ]),
-            [
-                '@type' => 'WebSite',
-                'name' => config('app.name'),
-                'url' => url('/'),
-                'potentialAction' => [
-                    '@type' => 'SearchAction',
-                    'target' => route('search').'?q={search_term_string}',
-                    'query-input' => 'required name=search_term_string',
-                ],
-            ],
-        ],
-    ];
     $heroBannerActive = Setting::getBool('hero_banner_active', true);
     $heroBannerImage = Setting::imageUrl('hero_banner_image');
     $heroBannerBadge = Setting::get('hero_banner_badge', 'Promo Bundling Spesial');
@@ -30,9 +9,15 @@
     $heroBannerCtaUrl = Setting::get('hero_banner_cta_url', route('product.index'));
     $heroBannerStyle = Setting::get('hero_banner_style', 'card');
     $hasHeroBanner = $heroBannerActive && !empty($heroBannerImage);
+
+    $homeImage = $hasHeroBanner ? $heroBannerImage : Setting::defaultOgImage();
+    $siteBrand = Setting::brandName();
 @endphp
-<x-layouts.app :canonical="url('/')">
-    @push('jsonld')<x-jsonld :data="$org" />@endpush
+<x-layouts.app :canonical="url('/')"
+               :image="$homeImage"
+               :image-alt="$siteBrand . ' — ' . Setting::get('site_tagline', 'Katalog Bahan Bangunan')"
+               :image-width="1200"
+               :image-height="630">
 
     <section class="relative overflow-hidden bg-ink-950 text-white">
         <div class="hero-grid absolute inset-0"></div>

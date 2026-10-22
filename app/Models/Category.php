@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSeo;
+use App\Models\Concerns\TracksPublicUrl;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,7 +12,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Category extends Model
 {
-    use HasSeo;
+    use HasSeo, TracksPublicUrl;
+
+    public const PUBLIC_ROUTE = 'category.show';
 
     protected $guarded = [];
 
@@ -98,5 +101,33 @@ class Category extends Model
     public function seoFallbackDescription(): ?string
     {
         return $this->intro ?: "Daftar {$this->name} lengkap dengan harga acuan dan tautan beli di marketplace.";
+    }
+
+    /**
+     * URL gambar utama kategori untuk Open Graph & SERP Thumbnail.
+     * Jika kategori belum memiliki foto, otomatis mengambil foto produk pertama di kategori ini.
+     */
+    public function primaryImageUrl(): ?string
+    {
+        if ($this->og_image) {
+            return $this->seoImage();
+        }
+
+        if ($this->image) {
+            return str_starts_with($this->image, 'http://') || str_starts_with($this->image, 'https://')
+                ? $this->image
+                : asset('storage/'.ltrim($this->image, '/'));
+        }
+
+        // Fallback cerdas: gunakan foto produk pertama dalam kategori
+        $allCategoryIds = $this->descendantIds();
+        $product = Product::published()
+            ->whereIn('category_id', $allCategoryIds)
+            ->where(function ($q) {
+                $q->whereNotNull('image')->orWhereHas('media');
+            })
+            ->first();
+
+        return $product?->primaryImageUrl();
     }
 }

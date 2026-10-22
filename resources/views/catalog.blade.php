@@ -14,7 +14,7 @@
 
     $heading = $isCategory ? $category->name : 'Katalog Produk';
     $title = ($isCategory ? $category->seoTitle() : 'Katalog Produk Bahan Bangunan | '.config('app.name')).($page > 1 ? ' — Halaman '.$page : '');
-    $description = $isCategory ? $category->seoDescription() : 'Jelajahi katalog bahan bangunan berdasarkan kategori, merek, dan rentang harga. Bandingkan lalu beli lewat marketplace atau WhatsApp.';
+    $description = ($isCategory ? $category->seoDescription() : 'Jelajahi katalog bahan bangunan berdasarkan kategori, merek, dan rentang harga. Bandingkan lalu beli lewat marketplace atau WhatsApp.').($page > 1 ? ' (Halaman '.$page.')' : '');
 
     // Pembuat URL yang mempertahankan filter aktif
     $current = ['brand' => $brandIds, 'min' => $min, 'max' => $max, 'sort' => $sort === 'relevansi' ? null : $sort];
@@ -26,16 +26,26 @@
     $brandNames = $brands->pluck('name', 'id');
     $activeCount = count($brandIds) + ($min || $max ? 1 : 0) + ($sort !== 'relevansi' ? 1 : 0);
 
-    $collection = [
+    $categoryImage = $category?->primaryImageUrl();
+    $firstProductImage = $products->first()?->primaryImageUrl();
+    $catalogImage = $categoryImage ?: ($firstProductImage ?: \App\Models\Setting::defaultOgImage());
+
+    $collection = array_filter([
         '@context' => 'https://schema.org',
         '@type' => 'CollectionPage',
         'name' => $heading,
         'url' => $base,
         'description' => $description,
-    ];
+        'image' => $catalogImage,
+    ]);
 @endphp
 <x-layouts.app :title="$title" :description="$description" :canonical="$canonical"
-               :image="$category?->seoImage()" :noindex="($category?->noindex ?? false) || $filtered">
+               :image="$catalogImage"
+               :image-alt="$heading"
+               :image-width="$isCategory ? 800 : 1200"
+               :image-height="$isCategory ? 800 : 630"
+               :noindex="($category?->noindex ?? false) || $filtered"
+               :nofollow="$category?->nofollow ?? false">
     @push('jsonld')<x-jsonld :data="$collection" />@endpush
 
     <div class="container-x pt-8">

@@ -2,15 +2,19 @@
 {{-- $items: [[nama, url|null], ...]; "Beranda" ditambahkan otomatis --}}
 @php
     $trail = array_merge([['Beranda', route('home')]], $items);
+    $count = count($trail);
     $ld = [
         '@context' => 'https://schema.org',
         '@type' => 'BreadcrumbList',
-        'itemListElement' => collect($trail)->values()->map(fn ($t, $i) => array_filter([
-            '@type' => 'ListItem',
-            'position' => $i + 1,
-            'name' => $t[0],
-            'item' => $t[1] ?? url()->current(),
-        ]))->all(),
+        'itemListElement' => collect($trail)->values()->map(function ($t, $i) use ($count) {
+            $isLast = ($i === $count - 1);
+            return array_filter([
+                '@type' => 'ListItem',
+                'position' => $i + 1,
+                'name' => $t[0],
+                'item' => ! $isLast ? ($t[1] ?? url()->current()) : ($t[1] ?: null),
+            ]);
+        })->all(),
     ];
 @endphp
 @push('jsonld')<x-jsonld :data="$ld" />@endpush

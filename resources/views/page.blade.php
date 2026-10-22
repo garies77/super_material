@@ -1,4 +1,13 @@
-<x-layouts.app :title="($page->meta_title ?: $page->title).' | '.config('app.name')" :description="$page->meta_description ?: \Illuminate\Support\Str::limit(strip_tags($page->content), 155)">
+@php
+    $pageImage = $page->seoImage() ?: \App\Models\Setting::defaultOgImage();
+@endphp
+<x-layouts.app :title="($page->meta_title ?: $page->title).' | '.config('app.name')"
+               :description="$page->meta_description ?: \Illuminate\Support\Str::limit(strip_tags($page->content), 155)"
+               :canonical="$page->canonical_url ?: url($page->slug)"
+               :image="$pageImage"
+               :image-alt="$page->title"
+               :noindex="$page->noindex ?? false"
+               :nofollow="$page->nofollow ?? false">
     <div class="container-x pt-8">
         <x-breadcrumb :items="[[$page->title, null]]" />
         <article class="mx-auto max-w-3xl">

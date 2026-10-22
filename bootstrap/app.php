@@ -12,9 +12,25 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->web(prepend: [\App\Http\Middleware\HandleRedirects::class]);
+        $middleware->preventRequestsDuringMaintenance(except: [
+            'robots.txt',
+            'up',
+        ]);
+        $middleware->web(
+            prepend: [\App\Http\Middleware\HandleRedirects::class],
+            append: [\App\Http\Middleware\AddRobotsTag::class],
+        );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Mode pemeliharaan: 503 selalu membawa Retry-After agar Googlebot menunda, bukan menghapus (PRD 9.11.6, SEO-08)
+        $exceptions->respond(function (\Symfony\Component\HttpFoundation\Response $response) {
+            if ($response->getStatusCode() === 503 && ! $response->headers->has('Retry-After')) {
+                $response->headers->set('Retry-After', '3600');
+            }
+
+            return $response;
+        });
+
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
