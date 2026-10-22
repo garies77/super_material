@@ -138,9 +138,10 @@ class ProductResource extends Resource
                 Toggle::make('show_quantity')->label('Tampilkan Stepper Kuantitas')->default(true),
             ]),
 
-            Section::make('Penilaian & Ulasan (Rating)')->columns(3)->collapsed()->schema([
+            Section::make('Rating Marketplace')->description('Rekap rating dari marketplace. Hanya ditampilkan di halaman dengan label sumber dan tidak dimasukkan ke structured data, karena Google melarang rating dari situs lain.')->columns(4)->collapsed()->schema([
                 TextInput::make('rating_value')->label('Nilai Rating (1.0 - 5.0)')->numeric()->step(0.1)->minValue(1)->maxValue(5),
                 TextInput::make('rating_count')->label('Jumlah Penilaian')->numeric()->integer()->minValue(0),
+                TextInput::make('rating_source')->label('Sumber Rating')->placeholder('Shopee')->maxLength(50),
                 DatePicker::make('rating_updated_at')->label('Tanggal Update Rating'),
             ]),
 

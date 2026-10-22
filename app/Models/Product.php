@@ -302,33 +302,24 @@ class Product extends Model
             && $this->rating_count !== null && $this->rating_count > 0;
     }
 
-    /** Nilai rating satu desimal dengan titik, dipakai di tampilan dan JSON-LD. */
+    /** Nilai rating satu desimal dengan titik. */
     public function formattedRatingValue(): string
     {
         return number_format((float) $this->rating_value, 1, '.', '');
     }
 
-    /** Jumlah penilaian apa adanya agar sama persis dengan ratingCount di JSON-LD. */
     public function formattedRatingCount(): string
     {
         return (string) ($this->rating_count ?? 0);
     }
 
     /**
-     * Blok AggregateRating untuk JSON-LD Product (skala 1–5, jadi bestRating/worstRating tidak perlu).
-     * Null bila produk belum punya rating sah, sehingga blok tidak di-render.
+     * Label sumber rating manual. Rating ini rekap dari marketplace, jadi hanya ditampilkan
+     * dengan label sumber dan tidak dipasang sebagai AggregateRating (Google melarang rating dari situs lain).
      */
-    public function aggregateRatingSchema(): ?array
+    public function ratingSourceLabel(): string
     {
-        if (! $this->hasRating()) {
-            return null;
-        }
-
-        return [
-            '@type' => 'AggregateRating',
-            'ratingValue' => $this->formattedRatingValue(),
-            'ratingCount' => $this->rating_count,
-        ];
+        return 'di '.($this->rating_source ?: 'marketplace');
     }
 
     public function seoName(): string

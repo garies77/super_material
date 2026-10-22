@@ -26,80 +26,61 @@ function visibleRating(string $html): array
 {
     preg_match('#<span[^>]*data-rating-value>([^<]*)</span>#', $html, $value);
     preg_match('#<span[^>]*data-rating-count>([^<]*)</span>#', $html, $count);
+    preg_match('#<span[^>]*data-rating-source>([^<]*)</span>#', $html, $source);
 
-    return [trim($value[1] ?? ''), trim($count[1] ?? '')];
+    return [trim($value[1] ?? ''), trim($count[1] ?? ''), trim($source[1] ?? '')];
 }
 
-it('menyisipkan aggregateRating dari database ke JSON-LD produk bervarian', function () {
+it('menampilkan rating marketplace dengan label sumbernya', function () {
     $product = Product::where('slug', 'semen-tiga-roda-50-kg')->first();
-    $product->update(['rating_value' => 4.7, 'rating_count' => 1240]);
+    $product->update(['rating_value' => 4.7, 'rating_count' => 1240, 'rating_source' => 'Shopee']);
 
     $html = $this->get($product->url())->assertOk()->getContent();
-    $ld = productLd($html);
 
-    expect($ld['@type'])->toBe('ProductGroup')
-        ->and($ld['aggregateRating'])->toBe([
-            '@type' => 'AggregateRating',
-            'ratingValue' => '4.7',
-            'ratingCount' => 1240,
-        ]);
+    expect(visibleRating($html))->toBe(['4.7', '1240', 'di Shopee']);
 });
 
-it('menyisipkan aggregateRating ke JSON-LD produk tanpa varian', function () {
+it('memakai label marketplace bila sumber rating kosong', function () {
     $product = Product::where('slug', 'semen-tiga-roda-50-kg')->first();
-    $product->variants()->delete();
-    $product->update(['rating_value' => 5, 'rating_count' => 12]);
-
-    $ld = productLd($this->get($product->url())->assertOk()->getContent());
-
-    expect($ld['@type'])->toBe('Product')
-        ->and($ld['aggregateRating']['ratingValue'])->toBe('5.0')
-        ->and($ld['aggregateRating']['ratingCount'])->toBe(12);
-});
-
-it('menyamakan ratingValue dan ratingCount JSON-LD dengan tampilan', function (float $value, int $count) {
-    $product = Product::where('slug', 'semen-tiga-roda-50-kg')->first();
-    $product->update(['rating_value' => $value, 'rating_count' => $count]);
+    $product->update(['rating_value' => 4.7, 'rating_count' => 12, 'rating_source' => null]);
 
     $html = $this->get($product->url())->assertOk()->getContent();
-    $rating = productLd($html)['aggregateRating'];
 
-    expect(visibleRating($html))->toBe([$rating['ratingValue'], (string) $rating['ratingCount']]);
+    expect(visibleRating($html)[2])->toBe('di marketplace');
+});
+
+it('tidak memasang rating marketplace sebagai AggregateRating di JSON-LD', function (bool $withVariants) {
+    $product = Product::where('slug', 'semen-tiga-roda-50-kg')->first();
+    if (! $withVariants) {
+        $product->variants()->delete();
+    }
+    $product->update(['rating_value' => 4.9, 'rating_count' => 1240, 'rating_source' => 'Shopee']);
+
+    $html = $this->get($product->url())->assertOk()->getContent();
+
+    expect(productLd($html)['@type'])->toBe($withVariants ? 'ProductGroup' : 'Product')
+        ->and(productLd($html))->not->toHaveKey('aggregateRating')
+        ->and($html)->not->toContain('AggregateRating')
+        ->and($html)->toContain('data-rating-value');
 })->with([
-    'ribuan' => [4.85, 1240],
-    'ratusan' => [4.0, 430],
-    'satuan' => [3.2, 1],
+    'produk bervarian' => [true],
+    'produk tanpa varian' => [false],
 ]);
 
-it('tidak me-render aggregateRating bila rating kosong atau nol', function (?float $value, ?int $count) {
+it('menyembunyikan rating bila datanya kosong atau tidak sah', function (?float $value, ?int $count) {
     $product = Product::where('slug', 'semen-tiga-roda-50-kg')->first();
     $product->update(['rating_value' => $value, 'rating_count' => $count]);
 
     $html = $this->get($product->url())->assertOk()->getContent();
 
-    expect(productLd($html))->not->toHaveKey('aggregateRating')
-        ->and($html)->not->toContain('AggregateRating')
-        ->and($html)->not->toContain('data-rating-value');
+    expect($html)->not->toContain('data-rating-value')
+        ->and($html)->not->toContain('AggregateRating');
 })->with([
     'jumlah nol' => [4.5, 0],
     'jumlah kosong' => [4.5, null],
     'nilai kosong' => [null, 25],
     'nilai di luar skala' => [0.0, 25],
 ]);
-
-it('memakai rating milik produk itu sendiri', function () {
-    [$a, $b] = Product::whereHas('variants')->take(2)->get();
-    $a->update(['rating_value' => 4.2, 'rating_count' => 77]);
-    $b->update(['rating_value' => 3.1, 'rating_count' => 9]);
-
-    $ldA = productLd($this->get($a->url())->getContent());
-    $ldB = productLd($this->get($b->url())->getContent());
-
-    expect($ldA['aggregateRating']['ratingValue'])->toBe('4.2')
-        ->and($ldA['aggregateRating']['ratingCount'])->toBe(77)
-        ->and($ldB['aggregateRating']['ratingValue'])->toBe('3.1')
-        ->and($ldB['aggregateRating']['ratingCount'])->toBe(9);
-});
 
 it('tidak memasang AggregateRating di beranda', function () {
     $this->get('/')->assertOk()->assertDontSee('AggregateRating', false);

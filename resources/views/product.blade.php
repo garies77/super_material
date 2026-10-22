@@ -129,7 +129,6 @@
             'category' => $product->category?->name,
             'variesBy' => ! empty($variesByKeys) ? $variesByKeys : ['https://schema.org/model'],
             'hasVariant' => $variantsLd,
-            'aggregateRating' => $product->aggregateRatingSchema(),
         ]);
     } else {
         // Single Product (Tanpa Varian)
@@ -159,7 +158,6 @@
             'category' => $product->category?->name,
             'url' => $product->url(),
             'offers' => $singleOffer,
-            'aggregateRating' => $product->aggregateRatingSchema(),
         ]);
     }
 
@@ -332,7 +330,7 @@
                         {{ $product->name }}
                     </h1>
 
-                    {{-- Rating Stars & Jumlah Penilaian (Shopee style header) --}}
+                    {{-- Rating marketplace: hanya tampilan dengan label sumber, sengaja tidak dipasang di JSON-LD (lihat docs/rencana-review-snippet.md) --}}
                     <div class="mt-3 flex flex-wrap items-center gap-3 text-sm">
                         @if($product->hasRating())
                             <div class="flex items-center gap-1.5 border-b border-brand-500 pb-0.5">
@@ -345,7 +343,7 @@
                             </div>
                             <span class="text-ink-300">|</span>
                             <div class="text-ink-600">
-                                <span class="font-semibold text-ink-900" data-rating-count>{{ $product->formattedRatingCount() }}</span> Penilaian
+                                <span class="font-semibold text-ink-900" data-rating-count>{{ $product->formattedRatingCount() }}</span> Penilaian <span data-rating-source>{{ $product->ratingSourceLabel() }}</span>
                             </div>
                             <span class="text-ink-300">|</span>
                         @endif
