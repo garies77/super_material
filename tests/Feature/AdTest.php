@@ -1,6 +1,7 @@
 <?php
 
 use App\Filament\Pages\AdReport;
+use App\Filament\Resources\Ads\Pages\CreateAd;
 use App\Http\Controllers\SeoController;
 use App\Models\Ad;
 use App\Models\AdEvent;
@@ -217,4 +218,20 @@ it('lets admins manage ads, preview a slot, and export the report', function () 
         ->assertSee('100,00%')
         ->call('export')
         ->assertFileDownloaded();
+});
+
+it('reads the admin schedule as WIB so an ad starts when the admin expects', function () {
+    $this->actingAs(User::where('email', 'admin@supermaterial.test')->first());
+
+    Livewire::test(CreateAd::class)
+        ->fillForm([
+            'name' => 'Jadwal WIB', 'label' => 'Iklan', 'slot' => 'top', 'format' => 'text',
+            'title' => 'Promo', 'target_url' => 'https://mitra.example.com',
+            'starts_at' => '2026-10-22 13:07', 'ends_at' => '2026-10-23 13:07',
+            'targeting' => 'all', 'priority' => 0, 'is_active' => true,
+        ])
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    expect(Ad::where('name', 'Jadwal WIB')->first()->starts_at->utc()->format('Y-m-d H:i'))->toBe('2026-10-22 06:07');
 });

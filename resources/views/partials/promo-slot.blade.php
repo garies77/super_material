@@ -29,7 +29,11 @@
     <div class="mb-1.5 flex items-center justify-between">
         <span class="text-[10px] font-bold uppercase tracking-[0.2em] text-ink-400">{{ $ad->label }}</span>
         @if($preview)
-            <span class="text-[10px] font-semibold text-brand-700">Pratinjau · {{ \App\Models\Ad::SLOTS[$slot] ?? $slot }}</span>
+            <span class="text-[10px] font-semibold text-brand-700">Pratinjau · {{ \App\Models\Ad::SLOTS[$slot] ?? $slot }}
+                @unless($ad->isLive())
+                    · <span class="text-red-600">belum tayang di artikel ({{ ! $ad->is_active ? 'nonaktif' : ($ad->starts_at?->isFuture() ? 'mulai '.$ad->starts_at->setTimezone('Asia/Jakarta')->format('d M Y H:i').' WIB' : 'jadwal selesai') }})</span>
+                @endunless
+            </span>
         @endif
     </div>
 

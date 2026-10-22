@@ -106,8 +106,8 @@ class AdResource extends Resource
             ]),
 
             Section::make('Jadwal & penargetan')->columns(2)->schema([
-                DateTimePicker::make('starts_at')->label('Mulai')->seconds(false),
-                DateTimePicker::make('ends_at')->label('Selesai')->seconds(false)->after('starts_at'),
+                DateTimePicker::make('starts_at')->label('Mulai (WIB)')->seconds(false)->timezone('Asia/Jakarta'),
+                DateTimePicker::make('ends_at')->label('Selesai (WIB)')->seconds(false)->timezone('Asia/Jakarta')->after('starts_at'),
                 Toggle::make('is_active')->label('Aktif')->default(true),
                 TextInput::make('priority')->label('Prioritas')->numeric()->default(0)->required()
                     ->helperText('Lebih tinggi tampil lebih dulu; prioritas sama dirotasi bergantian.'),
@@ -141,8 +141,8 @@ class AdResource extends Resource
                 TextColumn::make('slot')->label('Slot')->badge()->formatStateUsing(fn ($state) => Ad::SLOTS[$state] ?? $state),
                 TextColumn::make('format')->label('Format')->formatStateUsing(fn ($state) => Ad::FORMATS[$state] ?? $state),
                 TextColumn::make('priority')->label('Prioritas')->sortable(),
-                TextColumn::make('starts_at')->label('Mulai')->dateTime('d M Y H:i')->placeholder('—'),
-                TextColumn::make('ends_at')->label('Selesai')->dateTime('d M Y H:i')->placeholder('—'),
+                TextColumn::make('starts_at')->label('Mulai')->dateTime('d M Y H:i', 'Asia/Jakarta')->placeholder('—'),
+                TextColumn::make('ends_at')->label('Selesai')->dateTime('d M Y H:i', 'Asia/Jakarta')->placeholder('—'),
                 IconColumn::make('is_active')->label('Aktif')->boolean(),
                 TextColumn::make('impressions_count')->label('Impresi')->numeric()->sortable(),
                 TextColumn::make('clicks_count')->label('Klik')->numeric()->sortable(),
