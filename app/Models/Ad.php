@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ExternalUrl;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -151,15 +152,7 @@ class Ad extends Model
     /** Tujuan ke situs mitra atau marketplace (bukan domain Supermaterial). */
     public function isExternal(): bool
     {
-        $dest = (string) $this->destinationUrl();
-        if ($dest === '' || Str::startsWith($dest, '/') && ! Str::startsWith($dest, '//')) {
-            return false;
-        }
-
-        $host = strtolower((string) parse_url($dest, PHP_URL_HOST));
-        $own = strtolower((string) parse_url(url('/'), PHP_URL_HOST));
-
-        return $host !== '' && $host !== $own && ! Str::endsWith($host, '.'.$own);
+        return ExternalUrl::is($this->destinationUrl());
     }
 
     public function imageUrl(?string $path = null): ?string

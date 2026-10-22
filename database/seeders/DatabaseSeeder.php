@@ -543,7 +543,7 @@ class DatabaseSeeder extends Seeder
 
         foreach ([['Tentang Kami', 'tentang', '<p>Supermaterial adalah katalog bahan bangunan yang membantu Anda menemukan produk tepat dan membelinya lewat kanal favorit.</p>'],
             ['Kontak', 'kontak', '<p>Hubungi kami lewat WhatsApp untuk konsultasi kebutuhan material proyek.</p>'],
-            ['Kebijakan Privasi', 'kebijakan-privasi', '<p>Kami tidak menyimpan data pribadi pengunjung. Klik tombol beli dicatat secara anonim untuk analitik.</p>'],
+            ['Kebijakan Privasi', 'kebijakan-privasi', '<p>Kami tidak menyimpan data pribadi pengunjung. Klik tombol beli dicatat secara anonim untuk analitik.</p><p>Status tampil dan tutup banner kampanye disimpan di browser Anda (localStorage) hanya untuk membatasi seberapa sering banner muncul, tanpa data pribadi.</p>'],
             ['Syarat Penggunaan', 'syarat-penggunaan', '<p>Harga di situs ini bersifat acuan. Transaksi dilakukan di marketplace atau langsung dengan penjual.</p>'],
         ] as [$title, $slug, $content]) {
             Page::updateOrCreate(['slug' => $slug], ['title' => $title, 'content' => $content, 'is_published' => true]);
