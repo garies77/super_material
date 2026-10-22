@@ -124,6 +124,10 @@ class ArticleResource extends Resource
                 TextColumn::make('author.name')->label('Penulis'),
                 IconColumn::make('is_featured')->label('Headline')->boolean(),
                 TextColumn::make('views_count')->label('Dibaca')->numeric()->sortable(),
+                TextColumn::make('seo_score')->label('Skor SEO')->badge()
+                    ->state(fn (Article $r) => \App\Support\SeoScore::forArticle($r)['score'].'%')
+                    ->color(fn (string $state) => (int) $state >= 80 ? 'success' : ((int) $state >= 50 ? 'warning' : 'danger'))
+                    ->tooltip(fn (Article $r) => collect(\App\Support\SeoScore::forArticle($r)['checks'])->reject()->keys()->map(fn ($c) => '✗ '.$c)->implode("\n") ?: 'Semua pemeriksaan terpenuhi'),
                 TextColumn::make('status')->label('Status')->badge()
                     ->state(fn (Article $r) => ! $r->published_at ? 'Draf' : ($r->published_at->isFuture() ? 'Terjadwal' : 'Terbit'))
                     ->color(fn (string $state) => match ($state) { 'Terbit' => 'success', 'Terjadwal' => 'warning', default => 'gray' }),

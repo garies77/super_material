@@ -21,6 +21,16 @@ class Product extends Model
 
     protected $guarded = [];
 
+    protected static function booted(): void
+    {
+        // Admin memperbarui masa berlaku harga ke masa depan: penanda tinjau harga dibersihkan
+        static::saving(function (Product $product) {
+            if ($product->isDirty('price_valid_until') && $product->price_valid_until?->isFuture()) {
+                $product->price_review_needed = false;
+            }
+        });
+    }
+
     protected function casts(): array
     {
         return [
@@ -34,6 +44,7 @@ class Product extends Model
             'rating_updated_at' => 'date',
             'show_quantity' => 'boolean',
             'price_valid_until' => 'datetime',
+            'price_review_needed' => 'boolean',
         ];
     }
 

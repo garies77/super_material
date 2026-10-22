@@ -7,6 +7,7 @@ use App\Filament\Resources\Products\Pages\EditProduct;
 use App\Filament\Resources\Products\Pages\ListProducts;
 use App\Filament\Support\DescriptiveFileName;
 use App\Filament\Support\SeoFields;
+use App\Support\SeoScore;
 use App\Models\Product;
 use App\Models\SalesChannel;
 use App\Filament\Support\CustomCodeFields;
@@ -200,6 +201,13 @@ class ProductResource extends Resource
                 TextColumn::make('category.name')->label('Kategori')->sortable(),
                 TextColumn::make('brand.name')->label('Merek')->toggleable(),
                 TextColumn::make('links_count')->counts('links')->label('Kanal'),
+                TextColumn::make('seo_score')->label('Skor SEO')->badge()
+                    ->state(fn (Product $r) => SeoScore::forProduct($r)['score'].'%')
+                    ->color(fn (string $state) => (int) $state >= 80 ? 'success' : ((int) $state >= 50 ? 'warning' : 'danger'))
+                    ->tooltip(fn (Product $r) => collect(SeoScore::forProduct($r)['checks'])->reject()->keys()->map(fn ($c) => '✗ '.$c)->implode("\n") ?: 'Semua pemeriksaan terpenuhi'),
+                IconColumn::make('price_review_needed')->label('Harga kedaluwarsa')->boolean()
+                    ->trueIcon('heroicon-o-exclamation-triangle')->trueColor('danger')
+                    ->falseIcon('heroicon-o-check-circle')->falseColor('gray')->toggleable(),
                 IconColumn::make('is_published')->label('Terbit')->boolean(),
                 TextColumn::make('updated_at')->label('Diperbarui')->since()->sortable(),
             ])
@@ -207,6 +215,7 @@ class ProductResource extends Resource
                 SelectFilter::make('category_id')->label('Kategori')->relationship('category', 'name'),
                 SelectFilter::make('brand_id')->label('Merek')->relationship('brand', 'name'),
                 TernaryFilter::make('is_published')->label('Terbit'),
+                TernaryFilter::make('price_review_needed')->label('Perlu tinjau harga'),
             ])
             ->recordActions([EditAction::make()])
             ->toolbarActions([BulkActionGroup::make([
