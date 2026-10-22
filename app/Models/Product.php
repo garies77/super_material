@@ -11,7 +11,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Storage;
 
 class Product extends Model
 {
@@ -298,19 +297,38 @@ class Product extends Model
 
     public function hasRating(): bool
     {
-        return $this->rating_value !== null && $this->rating_count !== null && $this->rating_count > 0;
+        return $this->rating_value !== null
+            && $this->rating_value >= 1 && $this->rating_value <= 5
+            && $this->rating_count !== null && $this->rating_count > 0;
     }
 
+    /** Nilai rating satu desimal dengan titik, dipakai di tampilan dan JSON-LD. */
+    public function formattedRatingValue(): string
+    {
+        return number_format((float) $this->rating_value, 1, '.', '');
+    }
+
+    /** Jumlah penilaian apa adanya agar sama persis dengan ratingCount di JSON-LD. */
     public function formattedRatingCount(): string
     {
-        if (! $this->rating_count) {
-            return '0';
-        }
-        if ($this->rating_count >= 1000) {
-            return round($this->rating_count / 1000, 1).'RB';
+        return (string) ($this->rating_count ?? 0);
+    }
+
+    /**
+     * Blok AggregateRating untuk JSON-LD Product (skala 1–5, jadi bestRating/worstRating tidak perlu).
+     * Null bila produk belum punya rating sah, sehingga blok tidak di-render.
+     */
+    public function aggregateRatingSchema(): ?array
+    {
+        if (! $this->hasRating()) {
+            return null;
         }
 
-        return (string) $this->rating_count;
+        return [
+            '@type' => 'AggregateRating',
+            'ratingValue' => $this->formattedRatingValue(),
+            'ratingCount' => $this->rating_count,
+        ];
     }
 
     public function seoName(): string

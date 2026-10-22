@@ -5,18 +5,20 @@ namespace App\Filament\Resources\Products;
 use App\Filament\Resources\Products\Pages\CreateProduct;
 use App\Filament\Resources\Products\Pages\EditProduct;
 use App\Filament\Resources\Products\Pages\ListProducts;
+use App\Filament\Support\CustomCodeFields;
 use App\Filament\Support\DescriptiveFileName;
 use App\Filament\Support\SeoFields;
-use App\Support\SeoScore;
 use App\Models\Product;
 use App\Models\SalesChannel;
-use App\Filament\Support\CustomCodeFields;
+use App\Rules\MinImagePixels;
+use App\Support\SeoScore;
 use BackedEnum;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Repeater;
@@ -103,11 +105,11 @@ class ProductResource extends Resource
                 Section::make('Fallback Gambar Cepat')->columns(2)->collapsed()->schema([
                     FileUpload::make('image')->label('Gambar utama cepat')->image()->disk('public')->directory('products')->visibility('public')
                         ->getUploadedFileNameForStorageUsing(DescriptiveFileName::from('name', 'products'))
-                        ->rule(new \App\Rules\MinImagePixels(50000))
+                        ->rule(new MinImagePixels(50000))
                         ->helperText('Minimal 50.000 piksel. Sistem otomatis membuat turunan 16:9, 4:3, dan 1:1 untuk Search & Discover (PRD 9.13.3).'),
                     FileUpload::make('gallery')->label('Galeri foto cepat')->image()->multiple()->reorderable()->disk('public')->directory('products')->visibility('public')
                         ->getUploadedFileNameForStorageUsing(DescriptiveFileName::from('name', 'products'))
-                        ->rule(new \App\Rules\MinImagePixels(50000)),
+                        ->rule(new MinImagePixels(50000)),
                 ]),
             ]),
 
@@ -137,8 +139,8 @@ class ProductResource extends Resource
             ]),
 
             Section::make('Penilaian & Ulasan (Rating)')->columns(3)->collapsed()->schema([
-                TextInput::make('rating_value')->label('Nilai Rating (0 - 5.0)')->numeric()->step(0.1)->minValue(0)->maxValue(5),
-                TextInput::make('rating_count')->label('Jumlah Penilaian')->numeric(),
+                TextInput::make('rating_value')->label('Nilai Rating (1.0 - 5.0)')->numeric()->step(0.1)->minValue(1)->maxValue(5),
+                TextInput::make('rating_count')->label('Jumlah Penilaian')->numeric()->integer()->minValue(0),
                 DatePicker::make('rating_updated_at')->label('Tanggal Update Rating'),
             ]),
 
@@ -151,10 +153,10 @@ class ProductResource extends Resource
                     TextInput::make('sku')->label('SKU'),
                     TextInput::make('price')->label('Harga Jual')->numeric()->prefix('Rp')->required(),
                     TextInput::make('compare_at_price')->label('Harga Coret (Sebelum Diskon)')->numeric()->prefix('Rp'),
-                    \Filament\Forms\Components\DateTimePicker::make('discount_starts_at')->label('Mulai Diskon')
+                    DateTimePicker::make('discount_starts_at')->label('Mulai Diskon')
                         ->requiredWith('compare_at_price')
                         ->helperText('Wajib diisi jika ada harga coret.'),
-                    \Filament\Forms\Components\DateTimePicker::make('discount_ends_at')->label('Berakhir Diskon')
+                    DateTimePicker::make('discount_ends_at')->label('Berakhir Diskon')
                         ->requiredWith('compare_at_price')
                         ->afterOrEqual('discount_starts_at')
                         ->helperText('Wajib >= tanggal mulai.'),
