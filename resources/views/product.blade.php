@@ -49,46 +49,119 @@
         ];
     })->values();
 
-    // SEO Structured Data (JSON-LD)
-    $mainImageUrl = $mediaList->first()?->url() ?: ($product->image ? \Illuminate\Support\Facades\Storage::disk('public')->url($product->image) : null);
-    
-    $ldOffers = null;
-    if (! $product->isPriceHidden()) {
-        $minPrice = $product->effectivePriceMin();
-        $maxPrice = $product->effectivePriceMax();
-        if ($minPrice) {
-            $isRange = $maxPrice && $maxPrice > $minPrice;
-            $ldOffers = array_filter([
-                '@type' => $isRange ? 'AggregateOffer' : 'Offer',
-                'priceCurrency' => 'IDR',
-                'price' => $isRange ? null : $minPrice,
-                'lowPrice' => $isRange ? $minPrice : null,
-                'highPrice' => $isRange ? $maxPrice : null,
-                'offerCount' => $activeVariants->isNotEmpty() ? $activeVariants->count() : 1,
-                'availability' => 'https://schema.org/InStock',
-                'url' => $product->url(),
-            ]);
-        }
+    // SEO Structured Data (JSON-LD) - PRD 9.10.2, 9.14.2, 9.14.3 & SEO-04
+    $mainImageUrl = $product->primaryImageUrl();
+    $imageMultiRatio = \App\Support\ImageDerivatives::multiRatioUrls($mainImageUrl);
+    $allImages = ! empty($imageMultiRatio) ? $imageMultiRatio : $product->allImageUrls();
+    if (empty($allImages) && $mainImageUrl) {
+        $allImages = [$mainImageUrl];
     }
 
-    $ld = array_filter([
-        '@context' => 'https://schema.org',
-        '@type' => 'Product',
-        'name' => $product->name,
-        'description' => $product->seoDescription(),
-        'image' => $mediaData->pluck('url')->filter()->values()->all() ?: null,
-        'brand' => $product->brand ? ['@type' => 'Brand', 'name' => $product->brand->name] : null,
-        'category' => $product->category?->name,
-        'url' => $product->url(),
-        'offers' => $ldOffers,
-        'aggregateRating' => $product->hasRating() ? [
-            '@type' => 'AggregateRating',
-            'ratingValue' => $product->rating_value,
-            'reviewCount' => $product->rating_count,
-            'bestRating' => 5,
-            'worstRating' => 1,
-        ] : null,
-    ]);
+    $brandLd = $product->brand ? ['@type' => 'Brand', 'name' => $product->brand->name] : null;
+    $hasVariants = $activeVariants->isNotEmpty();
+
+    if ($hasVariants) {
+        // Pola Single-Page ProductGroup (PRD 9.10.2 & 9.14.2 & SEO-04)
+        $variesByKeys = $variantGroups->keys()->map(function ($g) {
+            $lower = strtolower($g);
+            return match (true) {
+                str_contains($lower, 'ukuran') || str_contains($lower, 'dimensi') => 'https://schema.org/size',
+                str_contains($lower, 'warna') => 'https://schema.org/color',
+                default => 'https://schema.org/model',
+            };
+        })->unique()->values()->all();
+
+        $variantsLd = $activeVariants->map(function ($v) use ($product, $mainImageUrl) {
+            $vPrice = $v->effectivePrice();
+            $vCompare = $v->effectiveCompareAtPrice();
+            $vImage = $v->imageUrl() ?: $mainImageUrl;
+
+            $vOffer = null;
+            if ($vPrice && ! $product->isPriceHidden()) {
+                $priceSpecs = null;
+                if ($vCompare && $vCompare > $vPrice) {
+                    $priceSpecs = [
+                        [
+                            '@type' => 'UnitPriceSpecification',
+                            'priceType' => 'https://schema.org/SalePrice',
+                            'priceCurrency' => 'IDR',
+                            'price' => $vPrice,
+                        ],
+                        [
+                            '@type' => 'UnitPriceSpecification',
+                            'priceType' => 'https://schema.org/StrikethroughPrice',
+                            'priceCurrency' => 'IDR',
+                            'price' => $vCompare,
+                        ],
+                    ];
+                }
+
+                $vOffer = array_filter([
+                    '@type' => 'Offer',
+                    'url' => $product->url() . '?varian=' . $v->slug,
+                    'priceCurrency' => 'IDR',
+                    'price' => $vPrice,
+                    'priceSpecification' => $priceSpecs,
+                    'itemCondition' => 'https://schema.org/NewCondition',
+                    'availability' => $product->schemaAvailability(),
+                    'priceValidUntil' => $v->schemaPriceValidUntil(),
+                ]);
+            }
+
+            return array_filter([
+                '@type' => 'Product',
+                'name' => $product->name . ' - ' . $v->name,
+                'sku' => $v->sku ?: ($product->slug . '-' . $v->slug),
+                'image' => $vImage ? [$vImage] : null,
+                'offers' => $vOffer,
+            ]);
+        })->all();
+
+        $ld = array_filter([
+            '@context' => 'https://schema.org',
+            '@type' => 'ProductGroup',
+            'productGroupID' => $product->sku ?: $product->slug,
+            'name' => $product->name,
+            'description' => $product->seoDescription(),
+            'url' => $product->url(),
+            'image' => !empty($allImages) ? $allImages : null,
+            'brand' => $brandLd,
+            'category' => $product->category?->name,
+            'variesBy' => ! empty($variesByKeys) ? $variesByKeys : ['https://schema.org/model'],
+            'hasVariant' => $variantsLd,
+            'aggregateRating' => $product->aggregateRatingSchema(),
+        ]);
+    } else {
+        // Single Product (Tanpa Varian)
+        $singlePrice = $product->effectivePriceMin();
+        $singleOffer = null;
+        if ($singlePrice && ! $product->isPriceHidden()) {
+            $singleOffer = array_filter([
+                '@type' => 'Offer',
+                'url' => $product->url(),
+                'priceCurrency' => 'IDR',
+                'price' => $singlePrice,
+                'itemCondition' => 'https://schema.org/NewCondition',
+                'availability' => $product->schemaAvailability(),
+                'priceValidUntil' => $product->schemaPriceValidUntil(),
+            ]);
+        }
+
+        $ld = array_filter([
+            '@context' => 'https://schema.org',
+            '@type' => 'Product',
+            'sku' => $product->sku ?: $product->slug,
+            'mpn' => $product->mpn ?: null,
+            'name' => $product->name,
+            'description' => $product->seoDescription(),
+            'image' => !empty($allImages) ? $allImages : null,
+            'brand' => $brandLd,
+            'category' => $product->category?->name,
+            'url' => $product->url(),
+            'offers' => $singleOffer,
+            'aggregateRating' => $product->aggregateRatingSchema(),
+        ]);
+    }
 
     $firstVideo = $mediaList->firstWhere('type', 'video');
     if ($firstVideo) {
@@ -114,7 +187,14 @@
 @endphp
 
 <x-layouts.app :title="$product->seoTitle()" :description="$product->seoDescription()"
-               :canonical="$product->canonical_url ?: $product->url()" :image="$mainImageUrl" type="product" :noindex="$product->noindex">
+               :canonical="$product->canonical_url ?: $product->url()"
+               :image="$mainImageUrl"
+               :image-alt="$product->name"
+               :image-width="800"
+               :image-height="800"
+               type="product"
+               :noindex="$product->noindex"
+               :nofollow="$product->nofollow">
     @push('jsonld')
         <x-jsonld :data="$ld" />
         @if($faqLd)<x-jsonld :data="$faqLd" />@endif
@@ -256,7 +336,7 @@
                     <div class="mt-3 flex flex-wrap items-center gap-3 text-sm">
                         @if($product->hasRating())
                             <div class="flex items-center gap-1.5 border-b border-brand-500 pb-0.5">
-                                <span class="font-bold text-brand-700">{{ number_format($product->rating_value, 1) }}</span>
+                                <span class="font-bold text-brand-700" data-rating-value>{{ $product->formattedRatingValue() }}</span>
                                 <div class="flex text-amber-400">
                                     @for($i = 1; $i <= 5; $i++)
                                         <svg viewBox="0 0 20 20" class="h-4 w-4 {{ $i <= round($product->rating_value) ? 'fill-amber-400' : 'fill-ink-200' }}"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
@@ -265,7 +345,7 @@
                             </div>
                             <span class="text-ink-300">|</span>
                             <div class="text-ink-600">
-                                <span class="font-semibold text-ink-900">{{ $product->formattedRatingCount() }}</span> Penilaian
+                                <span class="font-semibold text-ink-900" data-rating-count>{{ $product->formattedRatingCount() }}</span> Penilaian
                             </div>
                             <span class="text-ink-300">|</span>
                         @endif
@@ -292,7 +372,7 @@
                                 <span id="price-discount-pct">-{{ $initialVariant?->discountPercentage() ?: $product->maxDiscountPercentage() }}%</span>
                             </span>
                         </div>
-                        <p class="mt-2 text-xs text-ink-500">
+                        <p data-nosnippet class="mt-2 text-xs text-ink-500">
                             Harga acuan katalog Supermaterial. Harga final dan promo dapat disesuaikan pada kanal marketplace / WhatsApp rekanan.
                         </p>
                     </div>
@@ -497,6 +577,8 @@
                         </div>
                     </section>
                 @endif
+
+                @include('partials.custom-code', ['model' => $product])
             </div>
 
             {{-- Kanan Bawah: FAQ & Artikel Edukasi --}}

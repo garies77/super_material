@@ -22,11 +22,39 @@ class SeoFields
             Textarea::make('meta_description')->label('Deskripsi meta')->rows(3)->maxLength(320)
                 ->helperText('Ideal 140–158 karakter. Kosong = dibuat otomatis dari ringkasan.')->live(onBlur: true),
             TextInput::make('canonical_url')->label('URL kanonik')->url()->helperText('Opsional; kosong = URL halaman ini.'),
-            Toggle::make('noindex')->label('Noindex (sembunyikan dari Google)'),
+            Toggle::make('noindex')
+                ->label('Noindex (sembunyikan dari Google)')
+                ->helperText('Perayap dapat membaca meta noindex. Halaman yang diblokir di robots.txt Disallow dilarang ditandai noindex (PRD 9.11.3).')
+                ->rules([
+                    fn (Get $get, $record) => function (string $attribute, $value, \Closure $fail) use ($get, $record) {
+                        if ($value) {
+                            $slug = (string) ($get('slug') ?? ($record?->slug ?? ''));
+                            $path = '/' . ltrim($slug, '/');
+                            foreach (\App\Http\Controllers\SeoController::DISALLOW as $disallowed) {
+                                if (str_starts_with($path, $disallowed)) {
+                                    $fail("Halaman ini beririsan dengan daftar Disallow di robots.txt ({$disallowed}). Sesuai pedoman Google Search Central (PRD 9.11.3 & SEO-03), halaman noindex harus tetap dapat dirayapi dan tidak boleh masuk daftar Disallow.");
+                                }
+                            }
+                        }
+                    },
+                ]),
+            Toggle::make('nofollow')
+                ->label('Nofollow (jangan ikuti tautan di halaman ini)')
+                ->helperText('Noindex + nofollow setara dengan direktif "none".'),
         ];
 
         if ($withImage) {
-            array_splice($fields, 3, 0, [FileUpload::make('og_image')->label('Gambar Open Graph')->image()->disk('public')->directory('og')->visibility('public')]);
+            array_splice($fields, 3, 0, [
+                FileUpload::make('og_image')
+                    ->label('Gambar Open Graph')
+                    ->image()
+                    ->disk('public')
+                    ->directory('og')
+                    ->visibility('public')
+                    ->getUploadedFileNameForStorageUsing(DescriptiveFileName::from('slug', 'og', 'og'))
+                    ->rule(new \App\Rules\MinImagePixels(50000))
+                    ->helperText('Resolusi minimal 50.000 piksel (disarankan 1200×630).'),
+            ]);
         }
 
         return Section::make('SEO')->icon('heroicon-o-magnifying-glass')->collapsed()->schema($fields)->columns(1);

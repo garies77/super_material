@@ -5,15 +5,20 @@ namespace App\Filament\Resources\Products;
 use App\Filament\Resources\Products\Pages\CreateProduct;
 use App\Filament\Resources\Products\Pages\EditProduct;
 use App\Filament\Resources\Products\Pages\ListProducts;
+use App\Filament\Support\CustomCodeFields;
+use App\Filament\Support\DescriptiveFileName;
 use App\Filament\Support\SeoFields;
 use App\Models\Product;
 use App\Models\SalesChannel;
+use App\Rules\MinImagePixels;
+use App\Support\SeoScore;
 use BackedEnum;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Repeater;
@@ -71,6 +76,8 @@ class ProductResource extends Resource
                         TextInput::make('name')->required(),
                         TextInput::make('slug')->required()->unique('brands', 'slug'),
                     ]),
+                TextInput::make('sku')->label('SKU Induk (productGroupID)')->placeholder('cth: STR-50')->maxLength(100),
+                TextInput::make('mpn')->label('MPN (Manufacturer Part Number)')->placeholder('cth: MPN-9988')->maxLength(100),
                 TextInput::make('badge')->label('Badge Produk')->placeholder('Misal: Resmi, Best Seller, SNI'),
                 TextInput::make('unit')->label('Satuan Penjualan')->placeholder('sak, batang, m², dus'),
                 Textarea::make('summary')->label('Ringkasan')->rows(2)->columnSpanFull(),
@@ -78,6 +85,8 @@ class ProductResource extends Resource
                     ->helperText('Tulis deskripsi unik; jangan salin dari marketplace.')->columnSpanFull(),
                 KeyValue::make('specifications')->label('Spesifikasi Teknis')->keyLabel('Atribut')->valueLabel('Nilai')->columnSpanFull(),
             ]),
+
+            CustomCodeFields::make(),
 
             Section::make('Galeri Media (Rasio 1:1)')->description('Dukungan foto dan video (upload atau tautan YouTube).')->schema([
                 Repeater::make('media')->relationship()->label('Media Produk')->columns(4)->defaultItems(0)->orderColumn('sort_order')->schema([
@@ -94,8 +103,13 @@ class ProductResource extends Resource
                     TextInput::make('alt_text')->label('Alt Text')->placeholder('Keterangan aksesibilitas'),
                 ]),
                 Section::make('Fallback Gambar Cepat')->columns(2)->collapsed()->schema([
-                    FileUpload::make('image')->label('Gambar utama cepat')->image()->disk('public')->directory('products')->visibility('public'),
-                    FileUpload::make('gallery')->label('Galeri foto cepat')->image()->multiple()->reorderable()->disk('public')->directory('products')->visibility('public'),
+                    FileUpload::make('image')->label('Gambar utama cepat')->image()->disk('public')->directory('products')->visibility('public')
+                        ->getUploadedFileNameForStorageUsing(DescriptiveFileName::from('name', 'products'))
+                        ->rule(new MinImagePixels(50000))
+                        ->helperText('Minimal 50.000 piksel. Sistem otomatis membuat turunan 16:9, 4:3, dan 1:1 untuk Search & Discover (PRD 9.13.3).'),
+                    FileUpload::make('gallery')->label('Galeri foto cepat')->image()->multiple()->reorderable()->disk('public')->directory('products')->visibility('public')
+                        ->getUploadedFileNameForStorageUsing(DescriptiveFileName::from('name', 'products'))
+                        ->rule(new MinImagePixels(50000)),
                 ]),
             ]),
 
@@ -107,19 +121,30 @@ class ProductResource extends Resource
                     ])->default('show')->required(),
                 TextInput::make('price_min')->label('Harga Minimum Acuan')->numeric()->prefix('Rp'),
                 TextInput::make('price_max')->label('Harga Maksimum Acuan')->numeric()->prefix('Rp'),
+                Select::make('availability')->label('Status Ketersediaan (Schema.org)')
+                    ->options([
+                        'InStock' => 'Tersedia (InStock)',
+                        'LimitedAvailability' => 'Stok Terbatas (LimitedAvailability)',
+                        'PreOrder' => 'Pre-order (PreOrder)',
+                        'OutOfStock' => 'Habis (OutOfStock)',
+                    ])
+                    ->placeholder('Pilih ketersediaan (opsional)')
+                    ->helperText('Hanya ditulis ke schema JSON-LD bila diisi (PRD 9.10.2).'),
+                DatePicker::make('price_valid_until')->label('Masa Berlaku Harga / Diskon')
+                    ->helperText('Tanggal kedaluwarsa harga acuan (PRD 9.10.2).'),
+                TextInput::make('whatsapp_number')->label('Nomor WA Khusus (Timpa Global)'),
                 TextInput::make('shipping_note')->label('Catatan Pengiriman')->placeholder('Pengiriman dari Medan · Ongkir terjangkau'),
                 TextInput::make('guarantee_note')->label('Catatan Jaminan')->placeholder('100% Original · Garansi Pabrik'),
-                TextInput::make('whatsapp_number')->label('Nomor WA Khusus (Timpa Global)'),
                 Toggle::make('show_quantity')->label('Tampilkan Stepper Kuantitas')->default(true),
             ]),
 
             Section::make('Penilaian & Ulasan (Rating)')->columns(3)->collapsed()->schema([
-                TextInput::make('rating_value')->label('Nilai Rating (0 - 5.0)')->numeric()->step(0.1)->minValue(0)->maxValue(5),
-                TextInput::make('rating_count')->label('Jumlah Penilaian')->numeric(),
+                TextInput::make('rating_value')->label('Nilai Rating (1.0 - 5.0)')->numeric()->step(0.1)->minValue(1)->maxValue(5),
+                TextInput::make('rating_count')->label('Jumlah Penilaian')->numeric()->integer()->minValue(0),
                 DatePicker::make('rating_updated_at')->label('Tanggal Update Rating'),
             ]),
 
-            Section::make('Varian Produk')->description('Dapat berupa pilihan ukuran, ketebalan, warna, dsb. dengan harga & diskon masing-masing.')->schema([
+            Section::make('Varian Produk')->description('Dapat berupa pilihan ukuran, ketebalan, warna, dsb. dengan harga & diskon masing-masing (Pola Single-Page ProductGroup PRD 9.14.2).')->schema([
                 Repeater::make('variants')->relationship()->label('')->columns(4)->defaultItems(0)->orderColumn('sort_order')->schema([
                     TextInput::make('option_group')->label('Grup')->default('Varian')->placeholder('cth: Ukuran / Warna')->required(),
                     TextInput::make('name')->label('Nama Varian')->placeholder('cth: 40 kg, Putih 60x60')->required()->live(onBlur: true)
@@ -128,7 +153,14 @@ class ProductResource extends Resource
                     TextInput::make('sku')->label('SKU'),
                     TextInput::make('price')->label('Harga Jual')->numeric()->prefix('Rp')->required(),
                     TextInput::make('compare_at_price')->label('Harga Coret (Sebelum Diskon)')->numeric()->prefix('Rp'),
-                    TextInput::make('image_path')->label('URL / Path Gambar Varian')->columnSpan(2),
+                    DateTimePicker::make('discount_starts_at')->label('Mulai Diskon')
+                        ->requiredWith('compare_at_price')
+                        ->helperText('Wajib diisi jika ada harga coret.'),
+                    DateTimePicker::make('discount_ends_at')->label('Berakhir Diskon')
+                        ->requiredWith('compare_at_price')
+                        ->afterOrEqual('discount_starts_at')
+                        ->helperText('Wajib >= tanggal mulai.'),
+                    TextInput::make('image_path')->label('URL / Path Gambar Varian')->columnSpan(3),
                     Toggle::make('is_active')->label('Aktif')->default(true),
                 ]),
             ]),
@@ -171,6 +203,13 @@ class ProductResource extends Resource
                 TextColumn::make('category.name')->label('Kategori')->sortable(),
                 TextColumn::make('brand.name')->label('Merek')->toggleable(),
                 TextColumn::make('links_count')->counts('links')->label('Kanal'),
+                TextColumn::make('seo_score')->label('Skor SEO')->badge()
+                    ->state(fn (Product $r) => SeoScore::forProduct($r)['score'].'%')
+                    ->color(fn (string $state) => (int) $state >= 80 ? 'success' : ((int) $state >= 50 ? 'warning' : 'danger'))
+                    ->tooltip(fn (Product $r) => collect(SeoScore::forProduct($r)['checks'])->reject()->keys()->map(fn ($c) => '✗ '.$c)->implode("\n") ?: 'Semua pemeriksaan terpenuhi'),
+                IconColumn::make('price_review_needed')->label('Harga kedaluwarsa')->boolean()
+                    ->trueIcon('heroicon-o-exclamation-triangle')->trueColor('danger')
+                    ->falseIcon('heroicon-o-check-circle')->falseColor('gray')->toggleable(),
                 IconColumn::make('is_published')->label('Terbit')->boolean(),
                 TextColumn::make('updated_at')->label('Diperbarui')->since()->sortable(),
             ])
@@ -178,6 +217,7 @@ class ProductResource extends Resource
                 SelectFilter::make('category_id')->label('Kategori')->relationship('category', 'name'),
                 SelectFilter::make('brand_id')->label('Merek')->relationship('brand', 'name'),
                 TernaryFilter::make('is_published')->label('Terbit'),
+                TernaryFilter::make('price_review_needed')->label('Perlu tinjau harga'),
             ])
             ->recordActions([EditAction::make()])
             ->toolbarActions([BulkActionGroup::make([

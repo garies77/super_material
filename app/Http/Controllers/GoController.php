@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ClickEvent;
 use App\Models\Product;
 use App\Models\SalesChannel;
+use App\Support\BotDetector;
 use Illuminate\Http\Request;
 
 /**
@@ -13,8 +14,6 @@ use Illuminate\Http\Request;
  */
 class GoController extends Controller
 {
-    private const BOT_PATTERN = '/bot|crawl|spider|slurp|facebookexternalhit|preview|headless|curl|wget|python|httpclient/i';
-
     public function __invoke(Request $request, string $product, string $channel)
     {
         $product = Product::published()->where('slug', $product)->firstOrFail();
@@ -34,7 +33,7 @@ class GoController extends Controller
         }
 
         $ua = (string) $request->userAgent();
-        $isBot = $ua === '' || preg_match(self::BOT_PATTERN, $ua) === 1;
+        $isBot = BotDetector::isBot($ua);
 
         // Tidak menyimpan IP mentah; user agent hanya dipotong ringkas.
         ClickEvent::create([

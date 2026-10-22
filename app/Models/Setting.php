@@ -53,6 +53,98 @@ class Setting extends Model
         return asset('storage/'.ltrim($val, '/'));
     }
 
+    public static function logoUrl(?string $default = null): ?string
+    {
+        return static::imageUrl('site_logo') ?: static::imageUrl('org_logo_url', $default);
+    }
+
+    public static function defaultOgImage(): ?string
+    {
+        return static::imageUrl('site_og_image')
+            ?: (static::getBool('hero_banner_active', true) ? static::imageUrl('hero_banner_image') : null)
+            ?: static::logoUrl();
+    }
+
+    public static function brandName(): string
+    {
+        return static::get('site_brand_name') ?: static::get('org_name', config('app.name', 'Supermaterial'));
+    }
+
+    public static function brandAccent(): ?string
+    {
+        return static::get('site_brand_accent', 'material');
+    }
+
+    public static function brandHtml(string $accentClass = 'text-brand-600'): string
+    {
+        $name = e(static::brandName());
+        $accent = trim((string) static::brandAccent());
+
+        if ($accent !== '' && ($pos = stripos($name, $accent)) !== false) {
+            $before = substr($name, 0, $pos);
+            $match = substr($name, $pos, strlen($accent));
+            $after = substr($name, $pos + strlen($accent));
+
+            return $before . '<span class="' . $accentClass . '">' . $match . '</span>' . $after;
+        }
+
+        return $name;
+    }
+
+    public const THEME_DEFAULTS = [
+        'theme_primary' => '#f59309',
+        'theme_secondary' => '#121826',
+        'theme_accent' => '#ffae1f',
+    ];
+
+    public static function themeColor(string $key): string
+    {
+        $val = (string) static::get($key, static::THEME_DEFAULTS[$key]);
+
+        return preg_match('/^#[0-9a-fA-F]{6}$/', $val) ? strtolower($val) : static::THEME_DEFAULTS[$key];
+    }
+
+    /** Campur dua warna hex; $ratio = porsi warna kedua (0-1). */
+    protected static function mixHex(string $a, string $b, float $ratio): string
+    {
+        $out = '#';
+        foreach ([1, 3, 5] as $i) {
+            $x = hexdec(substr($a, $i, 2));
+            $y = hexdec(substr($b, $i, 2));
+            $out .= str_pad(dechex((int) round($x * (1 - $ratio) + $y * $ratio)), 2, '0', STR_PAD_LEFT);
+        }
+
+        return $out;
+    }
+
+    /** CSS variabel tema (menimpa token Tailwind brand-* dan ink-*). */
+    public static function themeCss(): string
+    {
+        $p = static::themeColor('theme_primary');
+        $s = static::themeColor('theme_secondary');
+        $a = static::themeColor('theme_accent');
+
+        $vars = [
+            'brand-50' => static::mixHex($p, '#ffffff', 0.92),
+            'brand-100' => static::mixHex($p, '#ffffff', 0.8),
+            'brand-300' => static::mixHex($a, '#ffffff', 0.3),
+            'brand-400' => $a,
+            'brand-500' => $p,
+            'brand-600' => static::mixHex($p, '#000000', 0.15),
+            'brand-700' => static::mixHex($p, '#000000', 0.32),
+            'ink-800' => static::mixHex($s, '#ffffff', 0.12),
+            'ink-900' => $s,
+            'ink-950' => static::mixHex($s, '#000000', 0.4),
+        ];
+
+        $css = '';
+        foreach ($vars as $name => $hex) {
+            $css .= "--color-{$name}:{$hex};";
+        }
+
+        return ':root{'.$css.'}';
+    }
+
     public static function put(string $key, mixed $value): void
     {
         if (is_bool($value)) {

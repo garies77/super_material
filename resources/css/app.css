@@ -64,6 +64,10 @@
     .content table { @apply my-6 w-full text-sm; }
     .content th, .content td { @apply border border-ink-200 px-3 py-2 text-left; }
     .content blockquote { @apply my-6 border-l-4 border-brand-400 bg-brand-50 px-5 py-3 italic; }
+    /* Slot iklan dalam isi tidak mewarisi gaya tipografi artikel */
+    .content .sm-promo a { @apply font-normal no-underline; color: inherit; }
+    .content .sm-promo img { @apply m-0 rounded-none; }
+    .content .sm-promo p { @apply m-0; }
 }
 
 .hero-grid {
@@ -86,3 +90,11 @@
 .rise { animation: rise 0.6s ease both; }
 .rise-2 { animation: rise 0.6s 0.12s ease both; }
 .rise-3 { animation: rise 0.6s 0.24s ease both; }
+
+/* Modal kampanye (PRD 8.9): animasi hanya bila pengguna tidak meminta gerak dikurangi */
+@media (prefers-reduced-motion: no-preference) {
+    .sm-campaign-backdrop { animation: sm-campaign-fade .2s ease-out; }
+    .sm-campaign-panel { animation: sm-campaign-rise .25s ease-out; }
+}
+@keyframes sm-campaign-fade { from { opacity: 0; } }
+@keyframes sm-campaign-rise { from { opacity: 0; transform: translateY(12px) scale(.98); } }

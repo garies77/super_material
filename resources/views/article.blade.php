@@ -8,24 +8,42 @@
     }
     $crumbs[] = [$article->title, null];
 
+    $articleImage = $article->primaryImageUrl();
+    $imageMultiRatio = \App\Support\ImageDerivatives::multiRatioUrls($articleImage);
+    $authorModel = $article->author;
+    $authorLd = $authorModel ? array_filter([
+        '@type' => 'Person',
+        'name' => $authorModel->name,
+        'jobTitle' => $authorModel->job_title ?: null,
+        'honorificPrefix' => $authorModel->honorific_prefix ?: null,
+        'honorificSuffix' => $authorModel->honorific_suffix ?: null,
+        'url' => route('author.show', $authorModel->slug),
+        'sameAs' => ! empty($authorModel->same_as) ? (array) $authorModel->same_as : null,
+    ]) : [
+        '@type' => 'Organization',
+        'name' => \App\Models\Setting::get('org_name', \App\Models\Setting::brandName()),
+        'url' => url('/'),
+    ];
+
+    $publishedIso = ($article->published_at ?? $article->created_at)->setTimezone('Asia/Jakarta')->toIso8601String();
+    $modifiedIso = $article->modifiedAt()->setTimezone('Asia/Jakarta')->toIso8601String();
+
     $ld = array_filter([
         '@context' => 'https://schema.org',
-        '@type' => 'NewsArticle',
-        'headline' => $article->title,
+        '@type' => $article->schemaType(),
+        'headline' => \Illuminate\Support\Str::limit($article->title, 110, ''),
         'description' => $article->seoDescription(),
-        'image' => $article->imageUrl() ?: $article->seoImage(),
-        'datePublished' => $article->published_at?->toAtomString(),
-        'dateModified' => $article->updated_at->toAtomString(),
-        'author' => [
-            '@type' => 'Person',
-            'name' => $article->author ? $article->author->name : 'Redaksi Supermaterial',
-        ],
+        'image' => !empty($imageMultiRatio) ? $imageMultiRatio : ($articleImage ? [$articleImage] : null),
+        'datePublished' => $publishedIso,
+        'dateModified' => $modifiedIso,
+        'author' => $authorLd,
         'publisher' => [
             '@type' => 'Organization',
-            'name' => \App\Models\Setting::get('org_name', 'Supermaterial'),
+            '@id' => url('/').'#organization',
+            'name' => \App\Models\Setting::get('org_name', \App\Models\Setting::brandName()),
             'logo' => [
                 '@type' => 'ImageObject',
-                'url' => asset('favicon.ico'),
+                'url' => \App\Models\Setting::logoUrl() ?: asset('favicon.ico'),
             ],
         ],
         'mainEntityOfPage' => $article->url(),
@@ -49,7 +67,18 @@
 @endphp
 
 <x-layouts.app :title="$article->seoTitle()" :description="$article->seoDescription()" :canonical="$article->canonical_url ?: $article->url()"
-               :image="$article->imageUrl() ?: $article->seoImage()" type="article" :noindex="$article->noindex">
+               :image="$articleImage"
+               :image-alt="$article->image_caption ?: $article->title"
+               :image-width="1200"
+               :image-height="675"
+               type="article"
+               :article-published-time="$publishedIso"
+               :article-modified-time="$modifiedIso"
+               :article-author="$authorModel ? route('author.show', $authorModel->slug) : null"
+               :article-section="$mainCategory?->name"
+               :article-tags="$article->tags"
+               :noindex="$article->noindex"
+               :nofollow="$article->nofollow">
     @push('jsonld')
         <x-jsonld :data="$ld" />
         @if($faqLd)<x-jsonld :data="$faqLd" />@endif
@@ -82,7 +111,13 @@
                 {{-- 2. Metadata Redaksi: Penulis & Tanggal Jam Terbit WIB --}}
                 <div class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs sm:text-sm text-ink-500 border-b border-ink-100 pb-4">
                     <span class="font-bold text-ink-900">
-                        {{ $article->author ? $article->author->name : 'Redaksi Supermaterial' }}
+                        @if($article->author)
+                            <a href="{{ route('author.show', $article->author->slug) }}" class="transition hover:text-brand-600 hover:underline">
+                                {{ $article->author->name }}
+                            </a>
+                        @else
+                            Redaksi Supermaterial
+                        @endif
                     </span>
                     <span class="text-ink-300">·</span>
                     <time datetime="{{ $article->published_at?->toIso8601String() }}">
@@ -142,6 +177,11 @@
                         </div>
                     </div>
                 </div>
+
+                {{-- Slot iklan: Atas artikel (PRD 8.8) --}}
+                @isset($ads['top'])
+                    @include('partials.promo-slot', ['ad' => $ads['top'], 'slot' => 'top', 'preview' => $adPreview])
+                @endisset
 
                 {{-- 4. Gambar Utama (16:9) dengan Keterangan & Kredit Foto --}}
                 @if($article->imageUrl())
@@ -204,6 +244,7 @@
                 <div class="content mt-6 text-[17px] leading-[1.8] text-ink-800">
                     {!! $html !!}
                 </div>
+                @include('partials.custom-code', ['model' => $article])
 
                 {{-- 8. Inisial Redaksi di Akhir Artikel --}}
                 @if($initials = $article->initialsBlock())
@@ -211,6 +252,11 @@
                         {{ $initials }}
                     </p>
                 @endif
+
+                {{-- Slot iklan: Bawah artikel, setelah inisial dan sebelum Topik Terkait --}}
+                @isset($ads['bottom'])
+                    @include('partials.promo-slot', ['ad' => $ads['bottom'], 'slot' => 'bottom', 'preview' => $adPreview])
+                @endisset
 
                 {{-- 9. Tombol Bagikan Baris 2 (Di Bawah Isi) --}}
                 <div class="mt-8 border-t border-b border-ink-100 py-4 flex flex-wrap items-center justify-between gap-3">
@@ -250,6 +296,39 @@
                     </div>
                 @endif
 
+                {{-- Penulis Profil Box (PRD 9.13.2) --}}
+                @if($article->author)
+                    <div class="mt-8 flex items-start gap-4 rounded-2xl border border-ink-100 bg-white p-5 shadow-xs">
+                        @if($article->author->avatarUrl())
+                            <img src="{{ $article->author->avatarUrl() }}" alt="{{ $article->author->displayName() }}" class="h-14 w-14 rounded-xl object-cover shrink-0">
+                        @else
+                            <div class="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-brand-500 font-black text-white text-lg">
+                                {{ mb_substr($article->author->name, 0, 1) }}
+                            </div>
+                        @endif
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2">
+                                <a href="{{ route('author.show', $article->author->slug) }}" class="font-display text-base font-bold text-ink-950 hover:text-brand-600 transition">
+                                    {{ $article->author->displayName() }}
+                                </a>
+                                @if($article->author->job_title)
+                                    <span class="rounded bg-ink-100 px-2 py-0.5 text-[11px] font-medium text-ink-600">
+                                        {{ $article->author->job_title }}
+                                    </span>
+                                @endif
+                            </div>
+                            @if($article->author->bio)
+                                <p class="mt-1.5 text-xs text-ink-600 leading-relaxed line-clamp-2">
+                                    {{ $article->author->bio }}
+                                </p>
+                            @endif
+                            <a href="{{ route('author.show', $article->author->slug) }}" class="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700">
+                                Profil Penulis &amp; Artikel Lainnya &rarr;
+                            </a>
+                        </div>
+                    </div>
+                @endif
+
                 {{-- 11. FAQ Artikel (Bila Ada) --}}
                 @if($article->faqs->isNotEmpty())
                     <section class="mt-10 rounded-2xl border border-ink-200 bg-white p-6 shadow-xs">
@@ -267,6 +346,11 @@
                         </div>
                     </section>
                 @endif
+
+                {{-- Slot iklan sidebar versi mobile: dipindah ke bawah isi --}}
+                @isset($ads['sidebar'])
+                    @include('partials.promo-slot', ['ad' => $ads['sidebar'], 'slot' => 'sidebar', 'preview' => $adPreview, 'class' => 'my-8 lg:hidden mx-auto max-w-[340px]'])
+                @endisset
 
                 {{-- 12. Terpopuler di Mobile (Muncul di Bawah Isi pada Layar Kecil) --}}
                 @if($popular->isNotEmpty())
@@ -303,6 +387,11 @@
             {{-- ==================== SIDEBAR KANAN (DESKTOP) ==================== --}}
             <aside class="hidden lg:block space-y-8 sticky top-24">
                 
+                {{-- Slot iklan: Sidebar, di atas Terpopuler (desktop) --}}
+                @isset($ads['sidebar'])
+                    @include('partials.promo-slot', ['ad' => $ads['sidebar'], 'slot' => 'sidebar', 'preview' => $adPreview, 'class' => ''])
+                @endisset
+
                 {{-- Widget 1: Terpopuler (CNN Indonesia Style Numbered 1 to 5) --}}
                 @if($popular->isNotEmpty())
                     <div class="rounded-2xl border border-ink-100 bg-white p-5 shadow-sm">
@@ -340,18 +429,22 @@
                 @endif
 
                 {{-- Widget 2: Banner Promo Rekanan Jaya Intero / Konsultasi Proyek --}}
-                <div class="rounded-2xl bg-gradient-to-br from-ink-900 to-ink-950 p-6 text-white shadow-lg relative overflow-hidden">
+                <div data-nosnippet class="rounded-2xl bg-gradient-to-br from-ink-900 to-ink-950 p-6 text-white shadow-lg relative overflow-hidden">
                     <div class="relative z-10">
                         <span class="inline-block rounded-md bg-brand-500 px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-ink-950 mb-3">
                             Konsultasi Material
                         </span>
-                        <h4 class="font-display text-lg font-bold leading-tight">
+                        <h4 class="font-display text-lg font-bold leading-tight text-white">
                             Butuh Pasokan Material Proyek dalam Jumlah Besar?
                         </h4>
                         <p class="mt-2 text-xs text-ink-300 leading-relaxed">
                             Hubungi tim spesialis Supermaterial untuk penawaran harga grosir, cek ketersediaan stok, dan pengiriman tepat waktu.
                         </p>
-                        <a href="https://api.whatsapp.com/send?phone=6281234567890&text={{ rawurlencode('Halo Supermaterial, saya membaca artikel ' . $article->title . ' dan ingin konsultasi material proyek.') }}"
+                        @php
+                            $waRaw = preg_replace('/\D+/', '', (string) \App\Models\Setting::get('whatsapp_number', '081234567890'));
+                            $waNum = str_starts_with($waRaw, '0') ? '62' . substr($waRaw, 1) : $waRaw;
+                        @endphp
+                        <a href="https://api.whatsapp.com/send?phone={{ $waNum }}&text={{ rawurlencode('Halo Supermaterial, saya membaca artikel ' . $article->title . ' dan ingin konsultasi material proyek.') }}"
                            target="_blank" rel="noopener noreferrer"
                            class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-xs font-bold text-white shadow-md transition hover:bg-emerald-500">
                             <x-channel-logo channel="whatsapp" class="h-4 w-4" />

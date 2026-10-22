@@ -79,4 +79,17 @@ class ProductVariant extends Model
 
         return (int) round((($compare - $price) / $compare) * 100);
     }
+
+    public function schemaPriceValidUntil(): string
+    {
+        if ($this->discount_ends_at && $this->discount_ends_at->isFuture()) {
+            return $this->discount_ends_at->setTimezone('Asia/Jakarta')->toIso8601String();
+        }
+
+        if ($this->product && $this->product->price_valid_until && $this->product->price_valid_until->isFuture()) {
+            return $this->product->price_valid_until->setTimezone('Asia/Jakarta')->toIso8601String();
+        }
+
+        return now()->addDays(30)->endOfDay()->setTimezone('Asia/Jakarta')->toIso8601String();
+    }
 }

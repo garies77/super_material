@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSeo;
+use App\Models\Concerns\TracksPublicUrl;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -15,21 +16,48 @@ use Illuminate\Support\Str;
 
 class Article extends Model
 {
-    use HasSeo;
+    use HasSeo, TracksPublicUrl;
+
+    public const PUBLIC_ROUTE = 'article.show';
+
+    public const SCHEMA_TYPES = [
+        'BlogPosting' => 'BlogPosting (bawaan)',
+        'Article' => 'Article',
+        'NewsArticle' => 'NewsArticle',
+    ];
+
+    /** Kolom yang perubahannya dianggap pembaruan konten bermakna (PRD 8.3 & 9.11.6). */
+    public const MEANINGFUL_FIELDS = ['title', 'summary', 'content', 'image'];
 
     protected $guarded = [];
+
+    protected static function booted(): void
+    {
+        static::saving(function (Article $article) {
+            if ($article->exists && $article->isDirty(self::MEANINGFUL_FIELDS)) {
+                $article->content_updated_at = now();
+            }
+        });
+    }
 
     protected function casts(): array
     {
         return [
             'published_at' => 'datetime',
+            'content_updated_at' => 'datetime',
             'noindex' => 'boolean',
+            'nofollow' => 'boolean',
             'is_featured' => 'boolean',
             'views_count' => 'integer',
         ];
     }
 
     public function author(): BelongsTo
+    {
+        return $this->belongsTo(Author::class, 'author_id');
+    }
+
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'author_id');
     }
@@ -98,6 +126,11 @@ class Article extends Model
         return max(1, (int) ceil(str_word_count(strip_tags((string) $this->content)) / 200));
     }
 
+    public function readingTime(): string
+    {
+        return $this->readingMinutes() . ' menit';
+    }
+
     /**
      * Format tanggal dan jam khas CNN Indonesia:
      * Contoh: "Selasa, 20 Okt 2026 10:04 WIB"
@@ -111,15 +144,36 @@ class Article extends Model
         return $this->published_at->locale('id')->translatedFormat('l, d M Y H:i') . ' WIB';
     }
 
+    /**
+     * Tanggal pembaruan bermakna. Bukan updated_at, karena updated_at ikut berubah
+     * saat penghitung views bertambah atau kolom non-konten disunting.
+     */
+    public function modifiedAt(): ?Carbon
+    {
+        $published = $this->published_at ?? $this->created_at;
+
+        if ($this->content_updated_at && $published && $this->content_updated_at->gt($published)) {
+            return $this->content_updated_at;
+        }
+
+        return $published;
+    }
+
+    public function schemaType(): string
+    {
+        return array_key_exists((string) $this->schema_type, self::SCHEMA_TYPES) ? $this->schema_type : 'BlogPosting';
+    }
+
     public function formattedUpdatedAt(): ?string
     {
-        if (! $this->updated_at || ! $this->published_at) {
+        $modified = $this->modifiedAt();
+        if (! $modified || ! $this->published_at) {
             return null;
         }
 
         // Tampilkan hanya bila perbedaan pembaruan bermakna (misal beda minimal 2 jam atau beda hari)
-        if ($this->updated_at->diffInHours($this->published_at) >= 2) {
-            return $this->updated_at->locale('id')->translatedFormat('l, d M Y H:i') . ' WIB';
+        if ($modified->diffInHours($this->published_at) >= 2) {
+            return $modified->locale('id')->translatedFormat('l, d M Y H:i') . ' WIB';
         }
 
         return null;
@@ -195,5 +249,14 @@ class Article extends Model
     public function seoFallbackDescription(): ?string
     {
         return $this->summary ?: strip_tags((string) $this->content);
+    }
+
+    public function primaryImageUrl(): ?string
+    {
+        if ($this->og_image) {
+            return $this->seoImage();
+        }
+
+        return $this->imageUrl();
     }
 }

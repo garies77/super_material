@@ -5,6 +5,8 @@ namespace App\Filament\Resources\Articles;
 use App\Filament\Resources\Articles\Pages\CreateArticle;
 use App\Filament\Resources\Articles\Pages\EditArticle;
 use App\Filament\Resources\Articles\Pages\ListArticles;
+use App\Filament\Support\CustomCodeFields;
+use App\Filament\Support\DescriptiveFileName;
 use App\Filament\Support\SeoFields;
 use App\Models\Article;
 use BackedEnum;
@@ -66,8 +68,13 @@ class ArticleResource extends Resource
                     ->helperText('Gunakan heading H2 & H3 untuk daftar isi otomatis.'),
             ]),
 
+            CustomCodeFields::make(),
+
             Section::make('Gambar Utama & Foto')->columns(2)->schema([
-                FileUpload::make('image')->label('Foto Utama (16:9)')->image()->disk('public')->directory('articles')->visibility('public')->columnSpanFull(),
+                FileUpload::make('image')->label('Foto Utama (16:9)')->image()->disk('public')->directory('articles')->visibility('public')->columnSpanFull()
+                    ->getUploadedFileNameForStorageUsing(DescriptiveFileName::from('title', 'articles'))
+                    ->rule(new \App\Rules\MinImagePixels(50000))
+                    ->helperText('Minimal 50.000 piksel (disarankan 1200×675 untuk 16:9). Sistem otomatis membuat turunan 16:9, 4:3, dan 1:1 untuk Google Images & Discover (PRD 9.13.3 & SEO-01).'),
                 TextInput::make('image_caption')->label('Keterangan Foto')->placeholder('Contoh: Suasana pengaplikasian semen instan untuk dinding bata ringan'),
                 TextInput::make('image_credit')->label('Kredit Foto')->placeholder('Contoh: Dok. Supermaterial / Antara'),
             ]),
@@ -81,6 +88,9 @@ class ArticleResource extends Resource
                 Toggle::make('is_featured')->label('Artikel Unggulan (Headline)')->default(false),
                 DateTimePicker::make('published_at')->label('Tanggal & Jam Terbit')
                     ->helperText('Kosong = Draf. Isi tanggal mendatang untuk penjadwalan terbit otomatis.'),
+                Select::make('schema_type')->label('Jenis Data Terstruktur')->options(Article::SCHEMA_TYPES)
+                    ->default('BlogPosting')->required()->selectablePlaceholder(false)
+                    ->helperText('@type JSON-LD artikel (PRD 9.13.1).'),
             ]),
 
             Section::make('Kategori, Tag & Relasi')->columns(2)->schema([
@@ -114,6 +124,10 @@ class ArticleResource extends Resource
                 TextColumn::make('author.name')->label('Penulis'),
                 IconColumn::make('is_featured')->label('Headline')->boolean(),
                 TextColumn::make('views_count')->label('Dibaca')->numeric()->sortable(),
+                TextColumn::make('seo_score')->label('Skor SEO')->badge()
+                    ->state(fn (Article $r) => \App\Support\SeoScore::forArticle($r)['score'].'%')
+                    ->color(fn (string $state) => (int) $state >= 80 ? 'success' : ((int) $state >= 50 ? 'warning' : 'danger'))
+                    ->tooltip(fn (Article $r) => collect(\App\Support\SeoScore::forArticle($r)['checks'])->reject()->keys()->map(fn ($c) => '✗ '.$c)->implode("\n") ?: 'Semua pemeriksaan terpenuhi'),
                 TextColumn::make('status')->label('Status')->badge()
                     ->state(fn (Article $r) => ! $r->published_at ? 'Draf' : ($r->published_at->isFuture() ? 'Terjadwal' : 'Terbit'))
                     ->color(fn (string $state) => match ($state) { 'Terbit' => 'success', 'Terjadwal' => 'warning', default => 'gray' }),
