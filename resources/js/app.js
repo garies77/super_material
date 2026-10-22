@@ -122,3 +122,48 @@ document.addEventListener('click', (e) => {
     }
 });
 
+
+// Iklan internal (PRD 8.8): impresi dicatat saat ≥50% slot terlihat selama 1 detik
+const sendAdEvent = (slot, type) => {
+    const body = new FormData();
+    body.append('_token', slot.dataset.adToken);
+    body.append('type', type);
+    body.append('s', slot.dataset.adSlot);
+    body.append('a', slot.dataset.adArticle);
+    if (!navigator.sendBeacon?.(slot.dataset.adEvent, body)) {
+        fetch(slot.dataset.adEvent, { method: 'POST', body, keepalive: true, credentials: 'same-origin' }).catch(() => {});
+    }
+};
+
+const adSlots = document.querySelectorAll('[data-ad-event]');
+if (adSlots.length && 'IntersectionObserver' in window) {
+    const timers = new WeakMap();
+    // Slot sidebar punya salinan mobile; satu iklan dihitung sekali per tampilan halaman
+    const seen = new Set();
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+            const slot = entry.target;
+            if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+                if (!timers.has(slot)) {
+                    timers.set(slot, setTimeout(() => {
+                        observer.unobserve(slot);
+                        if (seen.has(slot.dataset.adId)) return;
+                        seen.add(slot.dataset.adId);
+                        sendAdEvent(slot, 'impression');
+                    }, 1000));
+                }
+            } else if (timers.has(slot)) {
+                clearTimeout(timers.get(slot));
+                timers.delete(slot);
+            }
+        });
+    }, { threshold: [0, 0.5] });
+    adSlots.forEach((slot) => observer.observe(slot));
+}
+
+// Klik iklan bertautan internal (tanpa /ad/) dicatat lewat beacon
+document.addEventListener('click', (e) => {
+    const link = e.target.closest('a[data-ad-internal]');
+    const slot = link?.closest('[data-ad-event]');
+    if (slot) sendAdEvent(slot, 'click');
+});

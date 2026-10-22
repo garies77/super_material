@@ -23,7 +23,7 @@ class SeoController extends Controller
     public const PER_FILE = 5000;
 
     /** Path yang di-Disallow di robots.txt; juga dipakai validasi silang noindex (PRD 9.11.3). */
-    public const DISALLOW = ['/admin', '/go/', '/livewire'];
+    public const DISALLOW = ['/admin', '/go/', '/ad/', '/livewire'];
 
     public function robots()
     {

@@ -178,6 +178,11 @@
                     </div>
                 </div>
 
+                {{-- Slot iklan: Atas artikel (PRD 8.8) --}}
+                @isset($ads['top'])
+                    @include('partials.ad-slot', ['ad' => $ads['top'], 'slot' => 'top', 'preview' => $adPreview])
+                @endisset
+
                 {{-- 4. Gambar Utama (16:9) dengan Keterangan & Kredit Foto --}}
                 @if($article->imageUrl())
                     <figure class="my-6">
@@ -247,6 +252,11 @@
                         {{ $initials }}
                     </p>
                 @endif
+
+                {{-- Slot iklan: Bawah artikel, setelah inisial dan sebelum Topik Terkait --}}
+                @isset($ads['bottom'])
+                    @include('partials.ad-slot', ['ad' => $ads['bottom'], 'slot' => 'bottom', 'preview' => $adPreview])
+                @endisset
 
                 {{-- 9. Tombol Bagikan Baris 2 (Di Bawah Isi) --}}
                 <div class="mt-8 border-t border-b border-ink-100 py-4 flex flex-wrap items-center justify-between gap-3">
@@ -337,6 +347,11 @@
                     </section>
                 @endif
 
+                {{-- Slot iklan sidebar versi mobile: dipindah ke bawah isi --}}
+                @isset($ads['sidebar'])
+                    @include('partials.ad-slot', ['ad' => $ads['sidebar'], 'slot' => 'sidebar', 'preview' => $adPreview, 'class' => 'my-8 lg:hidden mx-auto max-w-[340px]'])
+                @endisset
+
                 {{-- 12. Terpopuler di Mobile (Muncul di Bawah Isi pada Layar Kecil) --}}
                 @if($popular->isNotEmpty())
                     <div class="mt-10 lg:hidden">
@@ -372,6 +387,11 @@
             {{-- ==================== SIDEBAR KANAN (DESKTOP) ==================== --}}
             <aside class="hidden lg:block space-y-8 sticky top-24">
                 
+                {{-- Slot iklan: Sidebar, di atas Terpopuler (desktop) --}}
+                @isset($ads['sidebar'])
+                    @include('partials.ad-slot', ['ad' => $ads['sidebar'], 'slot' => 'sidebar', 'preview' => $adPreview, 'class' => ''])
+                @endisset
+
                 {{-- Widget 1: Terpopuler (CNN Indonesia Style Numbered 1 to 5) --}}
                 @if($popular->isNotEmpty())
                     <div class="rounded-2xl border border-ink-100 bg-white p-5 shadow-sm">

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Ad;
 use App\Models\Article;
 use App\Models\Category;
 use App\Models\Tag;
@@ -66,7 +67,7 @@ class ArticleController extends Controller
             'categories' => $categories,
             'activeCategory' => $category,
             'activeTag' => null,
-            'title' => 'Artikel ' . $category->name,
+            'title' => 'Artikel '.$category->name,
         ]);
     }
 
@@ -95,7 +96,7 @@ class ArticleController extends Controller
             'categories' => $categories,
             'activeCategory' => null,
             'activeTag' => $tag,
-            'title' => 'Topik: #' . $tag->name,
+            'title' => 'Topik: #'.$tag->name,
         ]);
     }
 
@@ -115,13 +116,32 @@ class ArticleController extends Controller
             ->firstOrFail();
 
         // Increment view count dengan proteksi sesi per sesi pengunjung
-        $sessionKey = 'viewed_article_' . $article->id;
+        $sessionKey = 'viewed_article_'.$article->id;
         if (! $request->session()->has($sessionKey)) {
             $article->increment('views_count');
             $request->session()->put($sessionKey, now()->timestamp);
         }
 
+        return $this->render($article, Ad::forArticle($article));
+    }
+
+    /**
+     * @param  array<string, Ad>  $ads  satu iklan per slot (PRD 8.8)
+     */
+    public function render(Article $article, array $ads = [], bool $preview = false)
+    {
+        $article->loadMissing([
+            'author', 'categories', 'tags', 'products.category', 'products.media',
+            'products.links.channel', 'relatedArticles.categories', 'faqs',
+        ]);
+
+        if ($preview) {
+            // Pratinjau iklan tidak boleh terindeks
+            $article->noindex = true;
+        }
+
         [$html, $toc] = $article->contentWithToc();
+        $html = $this->insertInContentAds($html, $ads, $article, $preview);
 
         // 1. Artikel Terkait: ambil eksplisit dari relatedArticles, atau fallback ke kategori/tag yang sama
         $related = $article->relatedArticles;
@@ -160,6 +180,43 @@ class ArticleController extends Controller
             'recommendations' => $recommendations,
             'popular' => $popular,
             'products' => $products,
+            'ads' => $ads,
+            'adPreview' => $preview,
         ]);
+    }
+
+    /**
+     * Sisipkan slot "Dalam isi" setelah paragraf ke-N. Slot hanya tampil bila masih ada
+     * paragraf sesudahnya (artikel cukup panjang). Iklan dirender terpisah dari isi artikel,
+     * jadi tidak ikut ke data terstruktur.
+     *
+     * @param  array<string, Ad>  $ads
+     */
+    private function insertInContentAds(string $html, array $ads, Article $article, bool $preview): string
+    {
+        $positions = [];
+        foreach (['in_content_1', 'in_content_2'] as $slot) {
+            if (isset($ads[$slot])) {
+                $positions[$ads[$slot]->paragraphPosition()] = $slot;
+            }
+        }
+        if (! $positions) {
+            return $html;
+        }
+
+        $total = preg_match_all('#</p>#i', $html);
+        $count = 0;
+
+        return preg_replace_callback('#</p>#i', function ($m) use (&$count, $positions, $total, $ads, $article, $preview) {
+            $count++;
+            $slot = $positions[$count] ?? null;
+            if (! $slot || $count >= $total) {
+                return $m[0];
+            }
+
+            return $m[0].view('partials.ad-slot', [
+                'ad' => $ads[$slot], 'slot' => $slot, 'article' => $article, 'preview' => $preview,
+            ])->render();
+        }, $html);
     }
 }

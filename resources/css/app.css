@@ -64,6 +64,10 @@
     .content table { @apply my-6 w-full text-sm; }
     .content th, .content td { @apply border border-ink-200 px-3 py-2 text-left; }
     .content blockquote { @apply my-6 border-l-4 border-brand-400 bg-brand-50 px-5 py-3 italic; }
+    /* Slot iklan dalam isi tidak mewarisi gaya tipografi artikel */
+    .content .ad-slot a { @apply font-normal no-underline; color: inherit; }
+    .content .ad-slot img { @apply m-0 rounded-none; }
+    .content .ad-slot p { @apply m-0; }
 }
 
 .hero-grid {
