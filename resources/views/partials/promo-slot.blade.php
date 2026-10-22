@@ -12,19 +12,19 @@
         : null;
     $linkAttrs = $external
         ? 'target="_blank" rel="sponsored nofollow"'
-        : ($preview ? '' : 'data-ad-internal');
+        : ($preview ? '' : 'data-promo-internal');
     $card = $ad->format === 'product' ? $ad->productCard() : null;
     $boxHeight = $slot === 'sidebar' ? 'h-[300px]' : 'h-[250px]';
 @endphp
 <aside data-nosnippet
-       class="ad-slot not-italic {{ $class ?? 'my-8' }}"
-       aria-label="{{ $ad->label }}"
-       data-ad-slot="{{ $slot }}"
+       class="sm-promo not-italic {{ $class ?? 'my-8' }}"
+       aria-label="Konten promosi"
+       data-promo-slot="{{ $slot }}"
        @unless($preview)
-           data-ad-id="{{ $ad->id }}"
-           data-ad-event="{{ route('ad.event', $ad) }}"
-           data-ad-article="{{ $article->id }}"
-           data-ad-token="{{ csrf_token() }}"
+           data-promo-id="{{ $ad->id }}"
+           data-promo-event="{{ route('ad.event', $ad) }}"
+           data-promo-article="{{ $article->id }}"
+           data-promo-token="{{ csrf_token() }}"
        @endunless>
     <div class="mb-1.5 flex items-center justify-between">
         <span class="text-[10px] font-bold uppercase tracking-[0.2em] text-ink-400">{{ $ad->label }}</span>

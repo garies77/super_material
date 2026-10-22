@@ -83,12 +83,12 @@ class AdResource extends Resource
                     ->rule('regex:#^(https?://[^\s]+|/[^/\s][^\s]*)$#i')
                     ->required(fn (Get $get) => in_array($get('format'), ['image', 'text'], true))
                     ->visible($format('image', 'text', 'product'))->columnSpanFull(),
-                FileUpload::make('image')->label('Gambar desktop')->image()->disk('public')->directory('ads')->visibility('public')
-                    ->getUploadedFileNameForStorageUsing(DescriptiveFileName::from('name', 'ads'))
+                FileUpload::make('image')->label('Gambar desktop')->image()->disk('public')->directory('promo')->visibility('public')
+                    ->getUploadedFileNameForStorageUsing(DescriptiveFileName::from('name', 'promo'))
                     ->helperText('Tinggi slot tetap 250 px (sidebar 300 px); disarankan 728×250 atau 300×250.')
                     ->required($format('image'))->visible($format('image')),
-                FileUpload::make('image_mobile')->label('Gambar mobile (opsional)')->image()->disk('public')->directory('ads')->visibility('public')
-                    ->getUploadedFileNameForStorageUsing(DescriptiveFileName::from('name', 'ads', 'mobile'))
+                FileUpload::make('image_mobile')->label('Gambar mobile (opsional)')->image()->disk('public')->directory('promo')->visibility('public')
+                    ->getUploadedFileNameForStorageUsing(DescriptiveFileName::from('name', 'promo', 'mobile'))
                     ->helperText('Dipakai pada layar < 640 px, disarankan 336×250.')
                     ->visible($format('image')),
                 TextInput::make('image_alt')->label('Teks alternatif gambar')->maxLength(255)->visible($format('image')),

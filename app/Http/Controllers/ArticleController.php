@@ -214,7 +214,7 @@ class ArticleController extends Controller
                 return $m[0];
             }
 
-            return $m[0].view('partials.ad-slot', [
+            return $m[0].view('partials.promo-slot', [
                 'ad' => $ads[$slot], 'slot' => $slot, 'article' => $article, 'preview' => $preview,
             ])->render();
         }, $html);

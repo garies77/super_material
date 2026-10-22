@@ -24,7 +24,7 @@ Route::get('/penulis/{slug}', [AuthorController::class, 'show'])->name('author.s
 Route::get('/cari', SearchController::class)->name('search');
 Route::get('/go/{product}/{channel}', GoController::class)->middleware('throttle:60,1')->name('go');
 Route::get('/ad/{ad}', [AdController::class, 'click'])->whereNumber('ad')->middleware('throttle:60,1')->name('ad.click');
-Route::post('/ad/{ad}/event', [AdController::class, 'event'])->whereNumber('ad')->middleware('throttle:120,1')->name('ad.event');
+Route::post('/promo-event/{ad}', [AdController::class, 'event'])->whereNumber('ad')->middleware('throttle:120,1')->name('ad.event');
 Route::get('/admin/pratinjau-iklan/{ad}', [AdController::class, 'preview'])->whereNumber('ad')->name('ad.preview');
 
 Route::get('/robots.txt', [SeoController::class, 'robots']);

@@ -180,7 +180,7 @@
 
                 {{-- Slot iklan: Atas artikel (PRD 8.8) --}}
                 @isset($ads['top'])
-                    @include('partials.ad-slot', ['ad' => $ads['top'], 'slot' => 'top', 'preview' => $adPreview])
+                    @include('partials.promo-slot', ['ad' => $ads['top'], 'slot' => 'top', 'preview' => $adPreview])
                 @endisset
 
                 {{-- 4. Gambar Utama (16:9) dengan Keterangan & Kredit Foto --}}
@@ -255,7 +255,7 @@
 
                 {{-- Slot iklan: Bawah artikel, setelah inisial dan sebelum Topik Terkait --}}
                 @isset($ads['bottom'])
-                    @include('partials.ad-slot', ['ad' => $ads['bottom'], 'slot' => 'bottom', 'preview' => $adPreview])
+                    @include('partials.promo-slot', ['ad' => $ads['bottom'], 'slot' => 'bottom', 'preview' => $adPreview])
                 @endisset
 
                 {{-- 9. Tombol Bagikan Baris 2 (Di Bawah Isi) --}}
@@ -349,7 +349,7 @@
 
                 {{-- Slot iklan sidebar versi mobile: dipindah ke bawah isi --}}
                 @isset($ads['sidebar'])
-                    @include('partials.ad-slot', ['ad' => $ads['sidebar'], 'slot' => 'sidebar', 'preview' => $adPreview, 'class' => 'my-8 lg:hidden mx-auto max-w-[340px]'])
+                    @include('partials.promo-slot', ['ad' => $ads['sidebar'], 'slot' => 'sidebar', 'preview' => $adPreview, 'class' => 'my-8 lg:hidden mx-auto max-w-[340px]'])
                 @endisset
 
                 {{-- 12. Terpopuler di Mobile (Muncul di Bawah Isi pada Layar Kecil) --}}
@@ -389,7 +389,7 @@
                 
                 {{-- Slot iklan: Sidebar, di atas Terpopuler (desktop) --}}
                 @isset($ads['sidebar'])
-                    @include('partials.ad-slot', ['ad' => $ads['sidebar'], 'slot' => 'sidebar', 'preview' => $adPreview, 'class' => ''])
+                    @include('partials.promo-slot', ['ad' => $ads['sidebar'], 'slot' => 'sidebar', 'preview' => $adPreview, 'class' => ''])
                 @endisset
 
                 {{-- Widget 1: Terpopuler (CNN Indonesia Style Numbered 1 to 5) --}}

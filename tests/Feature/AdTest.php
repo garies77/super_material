@@ -92,7 +92,7 @@ it('marks partner links sponsored nofollow in a new tab via /ad/, internal links
     expect($m[1])->toBe('/produk/'.$product->slug)
         ->and($m[2])->not->toContain('sponsored')
         ->and($m[2])->not->toContain('_blank')
-        ->and($m[2])->toContain('data-ad-internal');
+        ->and($m[2])->toContain('data-promo-internal');
 });
 
 it('renders a product card from the catalog', function () {
@@ -166,8 +166,8 @@ it('throttles the /ad/ route', function () {
 it('records impressions from the browser beacon', function () {
     $ad = makeAd(['slot' => 'sidebar']);
 
-    $this->post('/ad/'.$ad->id.'/event', ['type' => 'impression', 's' => 'sidebar', 'a' => $this->article->id])->assertNoContent();
-    $this->post('/ad/'.$ad->id.'/event', ['type' => 'bogus'])->assertStatus(422);
+    $this->post('/promo-event/'.$ad->id, ['type' => 'impression', 's' => 'sidebar', 'a' => $this->article->id])->assertNoContent();
+    $this->post('/promo-event/'.$ad->id, ['type' => 'bogus'])->assertStatus(422);
 
     expect(AdEvent::where('type', 'impression')->where('slot', 'sidebar')->count())->toBe(1);
 });
@@ -210,7 +210,7 @@ it('lets admins manage ads, preview a slot, and export the report', function () 
     $this->get(route('ad.preview', $ad))->assertOk()
         ->assertSee('PRATINJAU-IKLAN')
         ->assertSee('noindex', false)
-        ->assertDontSee('data-ad-event', false);
+        ->assertDontSee('data-promo-event', false);
 
     Livewire::test(AdReport::class)
         ->assertSee('Iklan uji')
