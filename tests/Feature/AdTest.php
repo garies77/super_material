@@ -36,7 +36,7 @@ function makeAd(array $attrs = []): Ad
 
 it('renders active ads in the right slots with label, fixed height, and data-nosnippet (PRD 8.8)', function () {
     foreach (['top', 'in_content_1', 'in_content_2', 'sidebar', 'bottom'] as $slot) {
-        makeAd(['slot' => $slot, 'title' => 'IKLAN-'.$slot, 'label' => $slot === 'bottom' ? 'Sponsor' : 'Iklan']);
+        makeAd(['slot' => $slot, 'title' => 'IKLAN-'.$slot, 'label' => $slot === 'bottom' ? 'Sponsor' : 'Sorotan']);
     }
 
     $res = $this->get($this->article->url())->assertOk();
@@ -44,15 +44,15 @@ it('renders active ads in the right slots with label, fixed height, and data-nos
     $res->assertSeeInOrder(['Bagikan:', 'IKLAN-top', 'Paragraf nomor 1.'], false)
         ->assertSeeInOrder(['Paragraf nomor 3.', 'IKLAN-in_content_1', 'Paragraf nomor 4.'], false)
         ->assertSeeInOrder(['Paragraf nomor 8.', 'IKLAN-in_content_2', 'Paragraf nomor 9.'], false)
-        ->assertSeeInOrder(['(gar/ed)', 'IKLAN-bottom', 'Bagikan artikel ini:'], false)
+        ->assertSeeInOrder(['Paragraf nomor 10.', 'IKLAN-bottom', 'data-article-social="end"'], false)
         ->assertSee('data-nosnippet', false)
         ->assertSee('h-[250px]', false)
         ->assertSee('>Sponsor</span>', false)
-        ->assertSee('>Iklan</span>', false);
+        ->assertSee('>Sorotan</span>', false);
 
     // Sidebar desktop di atas Terpopuler, plus salinan mobile di bawah isi
     expect(substr_count($res->getContent(), 'IKLAN-sidebar'))->toBe(2);
-    $res->assertSee('my-8 lg:hidden', false);
+    $res->assertSee('mt-10 space-y-8 lg:hidden', false);
 });
 
 it('keeps ads out of the article JSON-LD', function () {
@@ -81,8 +81,16 @@ it('honours a custom paragraph position and the scroll hint', function () {
         ->assertSeeInOrder(['Paragraf nomor 5.', 'IKLAN-N5', 'Scroll untuk melanjutkan', 'Paragraf nomor 6.'], false);
 });
 
-it('marks partner links sponsored nofollow in a new tab via /ad/, internal links stay plain', function () {
-    $external = makeAd(['slot' => 'top', 'title' => 'EXT']);
+it('keeps own external campaigns nofollow without the sponsored signal', function () {
+    $own = makeAd(['slot' => 'top', 'title' => 'OWN', 'label' => 'Sorotan']);
+
+    $html = $this->get($this->article->url())->getContent();
+
+    expect($html)->toContain('href="'.e(route('ad.click', ['ad' => $own->id, 's' => 'top', 'a' => $this->article->id])).'" target="_blank" rel="nofollow noopener"');
+});
+
+it('marks paid partner links sponsored nofollow in a new tab via the tracking link, internal links stay plain', function () {
+    $external = makeAd(['slot' => 'top', 'title' => 'EXT', 'label' => 'Sponsor']);
     $product = Product::published()->first();
     makeAd(['slot' => 'bottom', 'title' => 'INT', 'target_url' => '/produk/'.$product->slug]);
 
@@ -93,7 +101,7 @@ it('marks partner links sponsored nofollow in a new tab via /ad/, internal links
     expect($m[1])->toBe('/produk/'.$product->slug)
         ->and($m[2])->not->toContain('sponsored')
         ->and($m[2])->not->toContain('_blank')
-        ->and($m[2])->toContain('data-promo-internal');
+        ->and($m[2])->toContain('data-sm-internal');
 });
 
 it('renders a product card from the catalog', function () {
@@ -167,8 +175,8 @@ it('throttles the /ad/ route', function () {
 it('records impressions from the browser beacon', function () {
     $ad = makeAd(['slot' => 'sidebar']);
 
-    $this->post('/promo-event/'.$ad->id, ['type' => 'impression', 's' => 'sidebar', 'a' => $this->article->id])->assertNoContent();
-    $this->post('/promo-event/'.$ad->id, ['type' => 'bogus'])->assertStatus(422);
+    $this->post('/sm-link/'.$ad->id.'/event', ['type' => 'impression', 's' => 'sidebar', 'a' => $this->article->id])->assertNoContent();
+    $this->post('/sm-link/'.$ad->id.'/event', ['type' => 'bogus'])->assertStatus(422);
 
     expect(AdEvent::where('type', 'impression')->where('slot', 'sidebar')->count())->toBe(1);
 });
@@ -203,15 +211,19 @@ it('lets admins manage ads, preview a slot, and export the report', function () 
     $this->get(route('ad.preview', $ad))->assertForbidden();
 
     $this->actingAs(User::where('email', 'admin@supermaterial.test')->first());
-    foreach (['/admin/ads', '/admin/ads/create', "/admin/ads/{$ad->id}/edit", '/admin/ad-report'] as $url) {
+    foreach (['/admin/kampanye', '/admin/kampanye/create', "/admin/kampanye/{$ad->id}/edit", '/admin/laporan-kampanye'] as $url) {
         $this->get($url)->assertOk();
     }
+    // URL lama dialihkan ke menu Kampanye yang baru
+    $this->get('/admin/ads')->assertRedirect('/admin/kampanye');
+    $this->get('/admin/campaigns')->assertRedirect('/admin/kampanye');
+    $this->get('/admin/ad-report')->assertRedirect('/admin/laporan-kampanye');
 
     // Pratinjau menampilkan iklan nonaktif, tanpa pelacakan, dan noindex
     $this->get(route('ad.preview', $ad))->assertOk()
         ->assertSee('PRATINJAU-IKLAN')
         ->assertSee('noindex', false)
-        ->assertDontSee('data-promo-event', false);
+        ->assertDontSee('data-sm-event', false);
 
     Livewire::test(AdReport::class)
         ->assertSee('Iklan uji')
@@ -225,7 +237,7 @@ it('reads the admin schedule as WIB so an ad starts when the admin expects', fun
 
     Livewire::test(CreateAd::class)
         ->fillForm([
-            'name' => 'Jadwal WIB', 'label' => 'Iklan', 'slot' => 'top', 'format' => 'text',
+            'name' => 'Jadwal WIB', 'label' => 'Sorotan', 'slot' => 'top', 'format' => 'text',
             'title' => 'Promo', 'target_url' => 'https://mitra.example.com',
             'starts_at' => '2026-10-22 13:07', 'ends_at' => '2026-10-23 13:07',
             'targeting' => 'all', 'priority' => 0, 'is_active' => true,
@@ -234,4 +246,15 @@ it('reads the admin schedule as WIB so an ad starts when the admin expects', fun
         ->assertHasNoFormErrors();
 
     expect(Ad::where('name', 'Jadwal WIB')->first()->starts_at->utc()->format('Y-m-d H:i'))->toBe('2026-10-22 06:07');
+});
+
+it('renders internal campaigns without patterns ad blockers filter on', function () {
+    makeAd(['slot' => 'top', 'name' => 'Kampanye renovasi', 'title' => 'KAMPANYE', 'label' => 'Sorotan', 'target_url' => 'https://mitra.example.com/renovasi']);
+
+    $html = $this->get($this->article->url())->assertOk()->assertSee('KAMPANYE')->getContent();
+    preg_match('#<aside data-nosnippet.*?</aside>#s', $html, $slot);
+
+    expect($slot[0])->toContain('/sm-link/')
+        ->not->toContain('/ad/')
+        ->not->toMatch('/promo|iklan|advert|sponsor/i');
 });

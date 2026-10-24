@@ -74,6 +74,10 @@
                         {{ $authorName }}
                     </h1>
 
+                    @if($author->motto)
+                        <p class="mt-2 text-base sm:text-lg italic text-brand-700">“{{ $author->motto }}”</p>
+                    @endif
+
                     @if($author->bio)
                         <p class="mt-3 text-sm sm:text-base leading-relaxed text-ink-600 max-w-3xl">
                             {{ $author->bio }}

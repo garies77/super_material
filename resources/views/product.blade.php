@@ -129,13 +129,7 @@
             'category' => $product->category?->name,
             'variesBy' => ! empty($variesByKeys) ? $variesByKeys : ['https://schema.org/model'],
             'hasVariant' => $variantsLd,
-            'aggregateRating' => $product->hasRating() ? [
-                '@type' => 'AggregateRating',
-                'ratingValue' => $product->rating_value,
-                'reviewCount' => $product->rating_count,
-                'bestRating' => 5,
-                'worstRating' => 1,
-            ] : null,
+            'aggregateRating' => $product->aggregateRatingSchema(),
         ]);
     } else {
         // Single Product (Tanpa Varian)
@@ -165,13 +159,7 @@
             'category' => $product->category?->name,
             'url' => $product->url(),
             'offers' => $singleOffer,
-            'aggregateRating' => $product->hasRating() ? [
-                '@type' => 'AggregateRating',
-                'ratingValue' => $product->rating_value,
-                'reviewCount' => $product->rating_count,
-                'bestRating' => 5,
-                'worstRating' => 1,
-            ] : null,
+            'aggregateRating' => $product->aggregateRatingSchema(),
         ]);
     }
 
@@ -213,7 +201,7 @@
     @endpush
 
     {{-- Script data untuk State Galeri & Interaksi Varian --}}
-    <script>
+    <script nonce="{{ Vite::cspNonce() }}">
         window.__PRODUCT_DATA__ = {
             id: {{ $product->id }},
             name: @json($product->name),
@@ -348,7 +336,7 @@
                     <div class="mt-3 flex flex-wrap items-center gap-3 text-sm">
                         @if($product->hasRating())
                             <div class="flex items-center gap-1.5 border-b border-brand-500 pb-0.5">
-                                <span class="font-bold text-brand-700">{{ number_format($product->rating_value, 1) }}</span>
+                                <span class="font-bold text-brand-700" data-rating-value>{{ $product->formattedRatingValue() }}</span>
                                 <div class="flex text-amber-400">
                                     @for($i = 1; $i <= 5; $i++)
                                         <svg viewBox="0 0 20 20" class="h-4 w-4 {{ $i <= round($product->rating_value) ? 'fill-amber-400' : 'fill-ink-200' }}"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
@@ -357,7 +345,7 @@
                             </div>
                             <span class="text-ink-300">|</span>
                             <div class="text-ink-600">
-                                <span class="font-semibold text-ink-900">{{ $product->formattedRatingCount() }}</span> Penilaian
+                                <span class="font-semibold text-ink-900" data-rating-count>{{ $product->formattedRatingCount() }}</span> Penilaian
                             </div>
                             <span class="text-ink-300">|</span>
                         @endif
@@ -490,10 +478,10 @@
                                 {{-- Tombol Beli Sekarang (Solid Oranye Shopee / Brand dengan Logo Marketplace Asli) --}}
                                 @if($marketplaceChannels->isNotEmpty())
                                     <button type="button" id="btn-action-buy-now"
-                                            class="btn flex-1 justify-center gap-2.5 bg-brand-600 py-3.5 font-bold text-white shadow-lg transition-all hover:bg-brand-700 hover:shadow-xl hover:-translate-y-0.5">
+                                            class="btn flex-1 justify-center gap-2.5 bg-brand-400 py-3.5 font-bold text-(--color-on-accent) shadow-lg transition-all hover:bg-brand-300 hover:shadow-xl hover:-translate-y-0.5">
                                         <div class="flex items-center -space-x-1.5 overflow-hidden">
                                             @foreach($marketplaceChannels->take(3) as $c)
-                                                <span class="inline-flex h-5 w-5 rounded-md ring-2 ring-brand-600 overflow-hidden shadow-xs">
+                                                <span class="inline-flex h-5 w-5 rounded-md bg-white ring-2 ring-white overflow-hidden">
                                                     <x-channel-logo :channel="$c->slug" class="h-full w-full" />
                                                 </span>
                                             @endforeach
@@ -768,7 +756,7 @@
                 </div>
 
                 <button type="button" id="mobile-sticky-buy"
-                        class="btn bg-brand-600 px-5 py-2.5 text-sm font-bold text-white shadow-md hover:bg-brand-700">
+                        class="btn bg-brand-400 px-5 py-2.5 text-sm font-bold text-(--color-on-accent) shadow-md hover:bg-brand-300">
                     <span>Beli Sekarang</span>
                 </button>
             </div>
@@ -776,7 +764,7 @@
     @endif
 
     {{-- ==================== JAVASCRIPT LOGIC UNTUK SINGLE PRODUCT ==================== --}}
-    <script>
+    <script nonce="{{ Vite::cspNonce() }}">
         document.addEventListener('DOMContentLoaded', function () {
             const P = window.__PRODUCT_DATA__;
             let currentMediaIndex = 0;

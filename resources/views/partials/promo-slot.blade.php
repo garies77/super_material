@@ -1,5 +1,5 @@
 {{--
-    Slot iklan internal (PRD 8.8). Variabel: $ad, $slot, $article, $preview, $class (opsional).
+    Slot kampanye dalam halaman (banner atau sidebar). Variabel: $ad, $slot, $article (boleh null di luar artikel), $preview, $class.
     Tinggi materi tetap agar tidak terjadi pergeseran tata letak (CLS); data-nosnippet agar
     isi iklan tidak dipakai sebagai cuplikan (PRD 9.11.4).
 --}}
@@ -8,23 +8,24 @@
     $destination = $ad->destinationUrl();
     $external = $ad->isExternal();
     $href = $destination
-        ? ($external && ! $preview ? route('ad.click', ['ad' => $ad->id, 's' => $slot, 'a' => $article->id]) : $destination)
+        ? ($external && ! $preview ? route('ad.click', ['ad' => $ad->id, 's' => $slot, 'a' => $article?->id]) : $destination)
         : null;
     $linkAttrs = $external
-        ? 'target="_blank" rel="sponsored nofollow"'
-        : ($preview ? '' : 'data-promo-internal');
+        // rel="sponsored" hanya untuk materi mitra berbayar (pedoman Google); kampanye sendiri cukup nofollow
+        ? 'target="_blank" rel="'.($ad->label === 'Sponsor' ? 'sponsored nofollow' : 'nofollow noopener').'"'
+        : ($preview ? '' : 'data-sm-internal');
     $card = $ad->format === 'product' ? $ad->productCard() : null;
     $boxHeight = $slot === 'sidebar' ? 'h-[300px]' : 'h-[250px]';
 @endphp
 <aside data-nosnippet
-       class="sm-promo not-italic {{ $class ?? 'my-8' }}"
-       aria-label="Konten promosi"
-       data-promo-slot="{{ $slot }}"
+       class="sm-feature not-italic {{ $class ?? 'my-8' }}"
+       aria-label="Sorotan"
+       data-sm-slot="{{ $slot }}"
        @unless($preview)
-           data-promo-id="{{ $ad->id }}"
-           data-promo-event="{{ route('ad.event', $ad) }}"
-           data-promo-article="{{ $article->id }}"
-           data-promo-token="{{ csrf_token() }}"
+           data-sm-id="{{ $ad->id }}"
+           data-sm-event="{{ route('ad.event', $ad) }}"
+           data-sm-article="{{ $article?->id }}"
+           data-sm-token="{{ csrf_token() }}"
        @endunless>
     <div class="mb-1.5 flex items-center justify-between">
         <span class="text-[10px] font-bold uppercase tracking-[0.2em] text-ink-400">{{ $ad->label }}</span>

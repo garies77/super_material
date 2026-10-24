@@ -2,6 +2,8 @@
 
 namespace App\Filament\Support;
 
+use App\Http\Controllers\SeoController;
+use App\Rules\MinImagePixels;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -29,8 +31,8 @@ class SeoFields
                     fn (Get $get, $record) => function (string $attribute, $value, \Closure $fail) use ($get, $record) {
                         if ($value) {
                             $slug = (string) ($get('slug') ?? ($record?->slug ?? ''));
-                            $path = '/' . ltrim($slug, '/');
-                            foreach (\App\Http\Controllers\SeoController::DISALLOW as $disallowed) {
+                            $path = '/'.ltrim($slug, '/');
+                            foreach (SeoController::DISALLOW as $disallowed) {
                                 if (str_starts_with($path, $disallowed)) {
                                     $fail("Halaman ini beririsan dengan daftar Disallow di robots.txt ({$disallowed}). Sesuai pedoman Google Search Central (PRD 9.11.3 & SEO-03), halaman noindex harus tetap dapat dirayapi dan tidak boleh masuk daftar Disallow.");
                                 }
@@ -52,7 +54,7 @@ class SeoFields
                     ->directory('og')
                     ->visibility('public')
                     ->getUploadedFileNameForStorageUsing(DescriptiveFileName::from('slug', 'og', 'og'))
-                    ->rule(new \App\Rules\MinImagePixels(50000))
+                    ->rule(new MinImagePixels(50000))
                     ->helperText('Resolusi minimal 50.000 piksel (disarankan 1200×630).'),
             ]);
         }

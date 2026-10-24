@@ -52,6 +52,150 @@ document.querySelectorAll('[data-search-open]').forEach((btn) => {
 });
 document.querySelectorAll('[data-search-close]').forEach((el) => el.addEventListener('click', () => setSearch(false)));
 
+// Live search: debounce 250 ms; permintaan lama dibatalkan (AbortController) dan respons usang diabaikan (nomor urut)
+if (searchOverlay?.dataset.searchLive) {
+    const input = searchOverlay.querySelector('#search-input');
+    const list = searchOverlay.querySelector('[data-search-results]');
+    const status = searchOverlay.querySelector('[data-search-status]');
+    const spinner = searchOverlay.querySelector('[data-search-spinner]');
+    const hint = status.innerHTML;
+    const type = searchOverlay.dataset.searchType;
+    let timer;
+    let controller;
+    let seq = 0;
+    let active = -1;
+
+    const el = (tag, cls, text) => {
+        const n = document.createElement(tag);
+        if (cls) n.className = cls;
+        if (text) n.textContent = text;
+        return n;
+    };
+    // Sorot kata kunci tanpa innerHTML (teks hasil tidak pernah dirender sebagai HTML)
+    const highlight = (text, q) => {
+        const frag = document.createDocumentFragment();
+        const lower = text.toLowerCase();
+        const needle = q.toLowerCase();
+        let i = 0;
+        let at;
+        while (needle && (at = lower.indexOf(needle, i)) !== -1) {
+            frag.append(text.slice(i, at), el('mark', 'bg-brand-100 text-inherit rounded-sm', text.slice(at, at + needle.length)));
+            i = at + needle.length;
+        }
+        frag.append(text.slice(i));
+        return frag;
+    };
+    const options = () => [...list.querySelectorAll('[role="option"]')];
+    const setActive = (i) => {
+        const opts = options();
+        active = opts.length ? (i + opts.length) % opts.length : -1;
+        opts.forEach((o, n) => o.setAttribute('aria-selected', String(n === active)));
+        if (active >= 0) {
+            input.setAttribute('aria-activedescendant', opts[active].id);
+            opts[active].scrollIntoView({ block: 'nearest' });
+        } else {
+            input.removeAttribute('aria-activedescendant');
+        }
+    };
+    const reset = (message = hint) => {
+        list.replaceChildren();
+        status.innerHTML = message;
+        input.setAttribute('aria-expanded', 'false');
+        active = -1;
+        input.removeAttribute('aria-activedescendant');
+    };
+    const group = (label, items, q, offset) => {
+        const section = el('div', 'py-1');
+        section.setAttribute('role', 'group');
+        section.setAttribute('aria-label', label);
+        if (!type) section.append(el('p', 'px-3 pb-1 pt-2 text-[11px] font-bold uppercase tracking-wider text-ink-400', label));
+        items.forEach((item, n) => {
+            const a = el('a', 'flex items-center gap-3 rounded-xl px-3 py-2 outline-none hover:bg-ink-50 aria-selected:bg-brand-50 focus-visible:ring-2 focus-visible:ring-brand-500');
+            a.href = item.url;
+            a.id = `search-opt-${offset + n}`;
+            a.setAttribute('role', 'option');
+            a.setAttribute('aria-selected', 'false');
+            const thumb = el('span', 'grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-lg bg-ink-100 text-sm font-bold text-ink-400');
+            if (item.image) {
+                const img = el('img', 'h-full w-full object-cover');
+                img.src = item.image;
+                img.alt = '';
+                img.width = 48;
+                img.height = 48;
+                img.loading = 'lazy';
+                thumb.append(img);
+            } else {
+                thumb.textContent = item.title.charAt(0).toUpperCase();
+            }
+            const body = el('span', 'min-w-0 flex-1');
+            const title = el('span', 'block truncate text-sm font-semibold text-ink-900');
+            title.append(highlight(item.title, q));
+            body.append(title);
+            if (item.excerpt) body.append(el('span', 'block truncate text-xs text-ink-500', item.excerpt));
+            if (item.meta) body.append(el('span', 'block truncate text-xs text-ink-400', item.meta));
+            a.append(thumb, body);
+            section.append(a);
+        });
+        return section;
+    };
+
+    const search = async (q) => {
+        controller?.abort();
+        controller = new AbortController();
+        const mine = ++seq;
+        spinner.classList.remove('hidden');
+        try {
+            const url = new URL(searchOverlay.dataset.searchLive, location.origin);
+            url.searchParams.set('q', q);
+            if (type) url.searchParams.set('type', type);
+            const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: controller.signal });
+            if (!res.ok) throw new Error(res.status);
+            const data = await res.json();
+            if (mine !== seq) return; // sudah ada ketikan yang lebih baru
+
+            list.replaceChildren();
+            active = -1;
+            if (data.products.length) list.append(group('Produk', data.products, q, 0));
+            if (data.articles.length) list.append(group('Artikel', data.articles, q, data.products.length));
+            const total = data.products.length + data.articles.length;
+            input.setAttribute('aria-expanded', String(total > 0));
+            const what = type === 'artikel' ? 'artikel' : type === 'produk' ? 'produk' : 'produk atau artikel';
+            status.textContent = total
+                ? `${total} hasil teratas. Tekan Enter untuk melihat semua hasil.`
+                : `Tidak ada ${what} yang cocok dengan “${q}”. Coba kata kunci lain.`;
+        } catch (err) {
+            if (err.name === 'AbortError' || mine !== seq) return;
+            reset('Pencarian langsung sedang tidak tersedia. Tekan Enter untuk mencari.');
+        } finally {
+            if (mine === seq) spinner.classList.add('hidden');
+        }
+    };
+
+    input.addEventListener('input', () => {
+        clearTimeout(timer);
+        const q = input.value.trim().replace(/\s+/g, ' ');
+        if (q.length < 2) {
+            controller?.abort();
+            seq++;
+            spinner.classList.add('hidden');
+            reset(q.length ? 'Ketik minimal 2 huruf.' : hint);
+            return;
+        }
+        timer = setTimeout(() => search(q), 250);
+    });
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            if (!options().length) return;
+            e.preventDefault();
+            setActive(active + (e.key === 'ArrowDown' ? 1 : -1));
+        } else if (e.key === 'Enter' && active >= 0) {
+            e.preventDefault();
+            options()[active].click();
+        }
+    });
+}
+
 // Panel filter katalog (drawer di mobile)
 const filterPanel = document.querySelector('[data-filter-panel]');
 const setFilter = (open) => {
@@ -88,20 +232,43 @@ document.querySelectorAll('[data-thumb]').forEach((btn) => {
 });
 
 // Tombol Salin Tautan Berita / Artikel
+// Clipboard API hanya ada di koneksi aman (HTTPS valid); selain itu pakai textarea + execCommand
+async function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        try {
+            await navigator.clipboard.writeText(text);
+            return true;
+        } catch {}
+    }
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch {}
+    ta.remove();
+    return ok;
+}
+
 document.querySelectorAll('[data-copy-link]').forEach((btn) => {
+    const label = btn.querySelector('span');
+    const original = label?.textContent;
     btn.addEventListener('click', async () => {
         const url = btn.dataset.copyLink || window.location.href;
-        try {
-            await navigator.clipboard.writeText(url);
-            const parent = btn.parentElement;
-            const tooltip = parent?.querySelector('[data-copy-tooltip]');
-            if (tooltip) {
-                tooltip.classList.remove('hidden');
-                setTimeout(() => tooltip.classList.add('hidden'), 2500);
-            }
-        } catch (err) {
-            console.error('Gagal menyalin URL', err);
+        const ok = await copyText(url);
+        if (!ok) {
+            window.prompt('Salin tautan ini:', url);
+            return;
         }
+        const tooltip = btn.parentElement?.querySelector('[data-copy-tooltip]');
+        tooltip?.classList.remove('hidden');
+        if (label) label.textContent = 'Tersalin!';
+        setTimeout(() => {
+            tooltip?.classList.add('hidden');
+            if (label) label.textContent = original;
+        }, 2500);
     });
 });
 
@@ -126,17 +293,17 @@ document.addEventListener('click', (e) => {
 // Iklan internal (PRD 8.8): impresi dicatat saat ≥50% slot terlihat selama 1 detik
 const sendAdEvent = (slot, type) => {
     const body = new FormData();
-    body.append('_token', slot.dataset.promoToken);
+    body.append('_token', slot.dataset.smToken);
     body.append('type', type);
-    body.append('s', slot.dataset.promoSlot);
-    body.append('a', slot.dataset.promoArticle);
-    if (!navigator.sendBeacon?.(slot.dataset.promoEvent, body)) {
-        fetch(slot.dataset.promoEvent, { method: 'POST', body, keepalive: true, credentials: 'same-origin' }).catch(() => {});
+    body.append('s', slot.dataset.smSlot);
+    body.append('a', slot.dataset.smArticle);
+    if (!navigator.sendBeacon?.(slot.dataset.smEvent, body)) {
+        fetch(slot.dataset.smEvent, { method: 'POST', body, keepalive: true, credentials: 'same-origin' }).catch(() => {});
     }
 };
 
-const promoSlots = document.querySelectorAll('[data-promo-event]');
-if (promoSlots.length && 'IntersectionObserver' in window) {
+const featureSlots = document.querySelectorAll('[data-sm-event]');
+if (featureSlots.length && 'IntersectionObserver' in window) {
     const timers = new WeakMap();
     // Slot sidebar punya salinan mobile; satu iklan dihitung sekali per tampilan halaman
     const seen = new Set();
@@ -147,8 +314,8 @@ if (promoSlots.length && 'IntersectionObserver' in window) {
                 if (!timers.has(slot)) {
                     timers.set(slot, setTimeout(() => {
                         observer.unobserve(slot);
-                        if (seen.has(slot.dataset.promoId)) return;
-                        seen.add(slot.dataset.promoId);
+                        if (seen.has(slot.dataset.smId)) return;
+                        seen.add(slot.dataset.smId);
                         sendAdEvent(slot, 'impression');
                     }, 1000));
                 }
@@ -158,13 +325,13 @@ if (promoSlots.length && 'IntersectionObserver' in window) {
             }
         });
     }, { threshold: [0, 0.5] });
-    promoSlots.forEach((slot) => observer.observe(slot));
+    featureSlots.forEach((slot) => observer.observe(slot));
 }
 
 // Klik iklan bertautan internal (tanpa /ad/) dicatat lewat beacon
 document.addEventListener('click', (e) => {
-    const link = e.target.closest('a[data-promo-internal]');
-    const slot = link?.closest('[data-promo-event]');
+    const link = e.target.closest('a[data-sm-internal]');
+    const slot = link?.closest('[data-sm-event]');
     if (slot) sendAdEvent(slot, 'click');
 });
 

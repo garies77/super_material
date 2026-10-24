@@ -2,37 +2,53 @@
 
 namespace App\Filament\Resources\Pages;
 
-use App\Filament\Resources\Pages\Pages\ManagePages;
+use App\Filament\Resources\Pages\Pages\CreatePage;
+use App\Filament\Resources\Pages\Pages\EditPage;
+use App\Filament\Resources\Pages\Pages\ListPages;
+use App\Filament\Support\CustomCodeFields;
+use App\Filament\Support\PageBlocks;
+use App\Filament\Support\SeoFields;
 use App\Models\Page;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Forms\Components\RichEditor;
-use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Actions;
+use Filament\Schemas\Components\Group;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\Str;
 
+/**
+ * Halaman statis dengan page builder. Buat dan sunting di halaman editor tersendiri (bukan modal);
+ * konten disimpan sebagai draf sampai dipublikasikan.
+ */
 class PageResource extends Resource
 {
     protected static ?string $model = Page::class;
 
-    protected static ?string $modelLabel = 'Halaman statis';
+    protected static ?string $slug = 'pages';
 
-    protected static ?string $pluralModelLabel = 'Halaman statis';
+    protected static ?string $modelLabel = 'Halaman';
+
+    protected static ?string $pluralModelLabel = 'Halaman';
+
+    protected static ?string $navigationLabel = 'Halaman';
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Konten';
+
+    protected static ?int $navigationSort = 3;
 
     public static function canAccess(): bool
     {
@@ -41,30 +57,81 @@ class PageResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return $schema->components([
-            TextInput::make('title')->label('Judul')->required()->live(onBlur: true)
-                ->afterStateUpdated(fn (Set $set, ?string $state, string $operation) => $operation === 'create' ? $set('slug', Str::slug($state)) : null),
-            TextInput::make('slug')->required()->unique(ignoreRecord: true),
-            RichEditor::make('content')->label('Isi')->columnSpanFull(),
-            Toggle::make('is_published')->label('Terbit')->default(true),
-            \App\Filament\Support\SeoFields::make(true),
+        // Kiri: isi halaman, Custom HTML, SEO. Kanan: status & riwayat publikasi. Satu kolom di bawah xl.
+        return $schema->columns(['default' => 1, 'lg' => 1, 'xl' => 12])->components([
+            Group::make()->columnSpan(['xl' => 8, '2xl' => 9])->schema([
+                Section::make('Halaman')->schema([
+                    TextInput::make('title')->label('Judul')->required()->maxLength(255)->live(onBlur: true)
+                        ->afterStateUpdated(fn (Set $set, ?string $state, string $operation) => $operation === 'create' ? $set('slug', Str::slug((string) $state)) : null),
+                    TextInput::make('slug')->required()->unique(ignoreRecord: true)->maxLength(255)
+                        ->regex('/^[a-z0-9]+(?:-[a-z0-9]+)*$/')
+                        ->prefix(fn () => url('/').'/')
+                        ->helperText('Mengubah slug halaman terbit otomatis membuat redirect 301 dari URL lama.'),
+                    PageBlocks::make(),
+                ]),
+                CustomCodeFields::make(),
+                SeoFields::make(true),
+            ]),
+
+            Group::make()->columnSpan(['xl' => 4, '2xl' => 3])->schema([
+                Section::make('Status & publikasi')->schema([
+                    Text::make(fn (?Page $record) => match (true) {
+                        ! $record => 'Belum disimpan',
+                        ! $record->is_published => 'Draf',
+                        $record->hasUnpublishedChanges() => 'Terbit · ada perubahan draf',
+                        default => 'Terbit',
+                    })->badge()->color(fn (?Page $record) => match (true) {
+                        ! $record?->is_published => 'gray',
+                        $record->hasUnpublishedChanges() => 'warning',
+                        default => 'success',
+                    }),
+                    Text::make(fn (?Page $record) => match (true) {
+                        ! $record => 'Halaman belum tampil di situs. "Simpan Draft" menyimpan tanpa menayangkan; "Publikasikan" menayangkannya.',
+                        ! $record->is_published => 'Belum tampil di situs. Tekan "Publikasikan" bila sudah siap.',
+                        $record->hasUnpublishedChanges() => 'Pengunjung masih melihat versi terbit. Tekan "Publikasikan" untuk menayangkan perubahan.',
+                        default => 'Pengunjung melihat versi yang sama dengan isi editor.',
+                    }),
+                    Actions::make([
+                        Action::make('openPublicPage')->label('Lihat halaman di situs')->icon('heroicon-o-arrow-top-right-on-square')
+                            ->link()->url(fn (?Page $record) => $record?->url(), true),
+                    ])->visible(fn (?Page $record) => (bool) $record?->is_published),
+                    Text::make(fn (?Page $record) => 'Terakhir diubah '.$record?->updated_at?->setTimezone('Asia/Jakarta')->format('d M Y H:i').' WIB'
+                        .($record?->editor ? ' oleh '.$record->editor->name : ''))
+                        ->visible(fn (?Page $record) => (bool) $record?->updated_at),
+                ]),
+            ]),
         ]);
     }
 
     public static function table(Table $table): Table
     {
         return $table
+            ->defaultSort('updated_at', 'desc')
             ->columns([
-                TextColumn::make('title')->label('Judul')->searchable(),
-                TextColumn::make('slug'),
-                IconColumn::make('is_published')->label('Terbit')->boolean(),
+                TextColumn::make('title')->label('Judul')->searchable()->sortable(),
+                TextColumn::make('slug')->prefix('/'),
+                TextColumn::make('status')->label('Status')->badge()
+                    ->state(fn (Page $r) => ! $r->is_published ? 'Draf' : ($r->hasUnpublishedChanges() ? 'Ada perubahan draf' : 'Terbit'))
+                    ->color(fn (string $state) => match ($state) {
+                        'Terbit' => 'success', 'Draf' => 'gray', default => 'warning'
+                    }),
+                TextColumn::make('updated_at')->label('Diperbarui')->since()->sortable(),
             ])
-            ->recordActions([EditAction::make(), DeleteAction::make()])
+            ->recordActions([
+                Action::make('preview')->label('Preview')->icon('heroicon-o-eye')->color('gray')
+                    ->url(fn (Page $r) => route('page.preview', $r))->openUrlInNewTab(),
+                EditAction::make(),
+                DeleteAction::make(),
+            ])
             ->toolbarActions([BulkActionGroup::make([DeleteBulkAction::make()])]);
     }
 
     public static function getPages(): array
     {
-        return ['index' => ManagePages::route('/')];
+        return [
+            'index' => ListPages::route('/'),
+            'create' => CreatePage::route('/create'),
+            'edit' => EditPage::route('/{record}/edit'),
+        ];
     }
 }

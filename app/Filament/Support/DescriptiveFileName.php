@@ -4,6 +4,7 @@ namespace App\Filament\Support;
 
 use Closure;
 use Filament\Schemas\Components\Utilities\Get;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -18,15 +19,21 @@ class DescriptiveFileName
     public static function from(string $sourceField, string $directory, ?string $suffix = null): Closure
     {
         return function (TemporaryUploadedFile $file, Get $get) use ($sourceField, $directory, $suffix): string {
-            $base = Str::slug((string) $get($sourceField))
-                ?: Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME))
-                ?: 'gambar';
-
-            return self::unique(Str::limit($base, 80, ''), $suffix, self::extension($file), $directory);
+            return self::for($file, (string) $get($sourceField), $directory, $suffix);
         };
     }
 
-    private static function extension(TemporaryUploadedFile $file): string
+    /** Dipakai juga oleh unggahan API (PRD 8.12.6) agar pipeline nama file sama dengan panel admin. */
+    public static function for(UploadedFile $file, string $source, string $directory, ?string $suffix = null): string
+    {
+        $base = Str::slug($source)
+            ?: Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME))
+            ?: 'gambar';
+
+        return self::unique(Str::limit($base, 80, ''), $suffix, self::extension($file), $directory);
+    }
+
+    private static function extension(UploadedFile $file): string
     {
         // Ekstensi mengikuti jenis file sebenarnya, bukan nama asli (PRD 9.10.1 poin 3)
         $ext = strtolower($file->guessExtension() ?: $file->getClientOriginalExtension() ?: 'jpg');

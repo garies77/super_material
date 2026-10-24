@@ -2,7 +2,7 @@
 <a href="{{ $article->url() }}" class="card card-hover group flex flex-col overflow-hidden">
     <div class="aspect-[16/9] overflow-hidden bg-ink-100">
         @if($article->image)
-            <img src="{{ $article->imageUrl() }}" alt="{{ $article->title }}" width="640" height="360" loading="lazy" class="h-full w-full object-cover transition duration-500 group-hover:scale-105">
+            <img src="{{ \App\Support\ImageDerivatives::resized($article->imageUrl(), 640) }}" alt="{{ $article->title }}" width="640" height="360" loading="lazy" class="h-full w-full object-cover transition duration-500 group-hover:scale-105">
         @else
             <div class="placeholder-art h-full w-full"></div>
         @endif

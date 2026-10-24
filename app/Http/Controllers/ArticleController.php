@@ -150,7 +150,7 @@ class ArticleController extends Controller
             $related = Article::published()
                 ->where('id', '!=', $article->id)
                 ->whereHas('categories', fn ($q) => $q->whereIn('categories.id', $catIds))
-                ->latest('published_at')
+                ->with('categories')->latest('published_at')
                 ->take(4)
                 ->get();
         }
@@ -159,14 +159,14 @@ class ArticleController extends Controller
         $recommendations = Article::published()
             ->where('id', '!=', $article->id)
             ->when($related->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $related->pluck('id')))
-            ->latest('published_at')
+            ->with('categories')->latest('published_at')
             ->take(4)
             ->get();
 
         // 3. Terpopuler untuk sidebar (CNN Style ranking 1 - 5)
         $popular = Article::popular(5)->where('id', '!=', $article->id)->get();
         if ($popular->isEmpty()) {
-            $popular = Article::published()->where('id', '!=', $article->id)->latest('published_at')->take(5)->get();
+            $popular = Article::published()->where('id', '!=', $article->id)->with('categories')->latest('published_at')->take(5)->get();
         }
 
         // 4. Produk Terkait yang ditautkan eksplisit

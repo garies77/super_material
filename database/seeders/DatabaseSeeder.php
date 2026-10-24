@@ -12,6 +12,7 @@ use App\Models\ProductMedia;
 use App\Models\ProductVariant;
 use App\Models\SalesChannel;
 use App\Models\Setting;
+use App\Models\Tag;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
@@ -20,11 +21,19 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        // Data contoh + akun admin@supermaterial.test berpassword "password": tidak boleh masuk database produksi, juga dengan --force
+        if (app()->isProduction()) {
+            $this->command?->error('DatabaseSeeder berisi data contoh dan akun default; dihentikan di produksi. Buat admin dengan: php artisan make:filament-user');
+
+            return;
+        }
+
         $admin = User::updateOrCreate(['email' => 'admin@supermaterial.test'], [
             'name' => 'Admin',
             'password' => 'password',
             'role' => 'admin',
         ]);
+        $adminAuthor = $admin->authorProfile();
 
         foreach ([
             'site_tagline' => 'Katalog bahan bangunan lengkap',
@@ -397,7 +406,7 @@ class DatabaseSeeder extends Seeder
             'Tips Konstruksi' => 'tips-konstruksi',
             'Pondasi' => 'pondasi',
         ] as $tagName => $tagSlug) {
-            $tags[$tagSlug] = \App\Models\Tag::updateOrCreate(['slug' => $tagSlug], ['name' => $tagName]);
+            $tags[$tagSlug] = Tag::updateOrCreate(['slug' => $tagSlug], ['name' => $tagName]);
         }
 
         // Generate Article SVG Images (16:9 1200x675)
@@ -442,7 +451,7 @@ class DatabaseSeeder extends Seeder
             'image' => 'articles/artikel-semen-1.svg',
             'image_caption' => 'Aplikasi semen mutu tinggi untuk struktur sloof dan kolom rumah tinggal bertingkat.',
             'image_credit' => 'Dok. Supermaterial',
-            'author_id' => $admin->id,
+            'author_id' => $adminAuthor->id,
             'editor_name' => 'Gema Suaria',
             'author_initials' => 'gar',
             'editor_initials' => 'ed',
@@ -462,7 +471,7 @@ class DatabaseSeeder extends Seeder
             'image' => 'articles/artikel-besi-1.svg',
             'image_caption' => 'Pemeriksaan marking timbul dan diameter penampang besi beton SNI menggunakan kaliper.',
             'image_credit' => 'Foto: Antara / Supermaterial',
-            'author_id' => $admin->id,
+            'author_id' => $adminAuthor->id,
             'editor_name' => 'Gema Suaria',
             'author_initials' => 'gar',
             'editor_initials' => 'ed',
@@ -482,7 +491,7 @@ class DatabaseSeeder extends Seeder
             'image' => 'articles/artikel-cat-1.svg',
             'image_caption' => 'Pengecatan dinding plesteran interior menggunakan roller micro-fiber.',
             'image_credit' => 'Dok. Supermaterial',
-            'author_id' => $admin->id,
+            'author_id' => $adminAuthor->id,
             'editor_name' => 'Gema Suaria',
             'author_initials' => 'gar',
             'editor_initials' => 'ed',
@@ -502,7 +511,7 @@ class DatabaseSeeder extends Seeder
             'image' => 'articles/artikel-mortar-1.svg',
             'image_caption' => 'Pemasangan bata ringan hebel menggunakan sendok semen bergigi mortar instan.',
             'image_credit' => 'Dok. Supermaterial',
-            'author_id' => $admin->id,
+            'author_id' => $adminAuthor->id,
             'editor_name' => 'Gema Suaria',
             'author_initials' => 'gar',
             'editor_initials' => 'ed',
@@ -522,7 +531,7 @@ class DatabaseSeeder extends Seeder
             'image' => 'articles/artikel-atap-1.svg',
             'image_caption' => 'Rangka kuda-kuda baja ringan kanal C dengan bracing diagonal terstandarisasi.',
             'image_credit' => 'Dok. Supermaterial',
-            'author_id' => $admin->id,
+            'author_id' => $adminAuthor->id,
             'editor_name' => 'Gema Suaria',
             'author_initials' => 'gar',
             'editor_initials' => 'ed',
@@ -548,5 +557,9 @@ class DatabaseSeeder extends Seeder
         ] as [$title, $slug, $content]) {
             Page::updateOrCreate(['slug' => $slug], ['title' => $title, 'content' => $content, 'is_published' => true]);
         }
+
+        $this->call(PowerToolsSeeder::class);
+        $this->call(ProductArticlesSeeder::class);
+        $this->call(HomeSectionSeeder::class);
     }
 }

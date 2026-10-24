@@ -3,18 +3,13 @@
 namespace App\Filament\Resources\Products\Pages;
 
 use App\Filament\Resources\Products\ProductResource;
-use App\Models\Brand;
-use App\Models\Category;
-use App\Models\Product;
-use App\Models\ProductLink;
-use App\Models\SalesChannel;
+use App\Support\Catalog\ProductImporter;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Forms\Components\FileUpload;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 class ListProducts extends ListRecords
 {
@@ -83,105 +78,37 @@ class ListProducts extends ListRecords
                 ->color('gray')
                 ->form([
                     FileUpload::make('csv_file')
-                        ->label('Unggah File CSV Produk')
+                        ->label('Unggah file CSV atau Excel')->acceptedFileTypes(['text/csv', 'text/plain', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'])
                         ->disk('local')
                         ->directory('imports')
                         ->required()
-                        ->helperText('Format kolom header: nama, kategori, merek, harga_min, harga_max, satuan, badge, shopee_url, tokopedia_url, lazada_url, tiktok_url, whatsapp_message'),
+                        ->helperText('CSV atau Excel (.xlsx). Kolom: nama, slug, kategori, merek, harga_min, harga_max, satuan, badge, shopee_url, tokopedia_url, lazada_url, tiktok_url, whatsapp_message, terbit. Baris tidak valid dilewati.'),
                 ])
                 ->action(function (array $data) {
                     $path = Storage::disk('local')->path($data['csv_file']);
                     if (! file_exists($path)) {
                         Notification::make()->title('File tidak ditemukan')->danger()->send();
+
                         return;
                     }
 
-                    $file = fopen($path, 'r');
-                    $header = fgetcsv($file);
-                    if (! $header) {
-                        Notification::make()->title('File CSV kosong')->warning()->send();
-                        fclose($file);
-                        return;
-                    }
-
-                    $headerMap = array_flip(array_map('trim', array_map('strtolower', $header)));
-                    $channels = SalesChannel::all()->keyBy('slug');
-                    $count = 0;
-
-                    while (($row = fgetcsv($file)) !== false) {
-                        if (empty(array_filter($row))) {
-                            continue;
-                        }
-
-                        $name = trim($row[$headerMap['nama'] ?? -1] ?? '');
-                        if (empty($name)) {
-                            continue;
-                        }
-
-                        $categoryName = trim($row[$headerMap['kategori'] ?? -1] ?? '');
-                        $brandName = trim($row[$headerMap['merek'] ?? -1] ?? '');
-                        $priceMin = (int) ($row[$headerMap['harga_min'] ?? -1] ?? 0);
-                        $priceMax = (int) ($row[$headerMap['harga_max'] ?? -1] ?? 0);
-                        $unit = trim($row[$headerMap['satuan'] ?? -1] ?? 'pcs');
-                        $badge = trim($row[$headerMap['badge'] ?? -1] ?? '');
-                        $slug = Str::slug($name);
-
-                        $category = ! empty($categoryName) ? Category::firstOrCreate(['slug' => Str::slug($categoryName)], ['name' => $categoryName, 'is_active' => true]) : null;
-                        $brand = ! empty($brandName) ? Brand::firstOrCreate(['slug' => Str::slug($brandName)], ['name' => $brandName]) : null;
-
-                        $product = Product::updateOrCreate(
-                            ['slug' => $slug],
-                            [
-                                'name' => $name,
-                                'category_id' => $category?->id,
-                                'brand_id' => $brand?->id,
-                                'price_min' => $priceMin ?: null,
-                                'price_max' => $priceMax ?: null,
-                                'unit' => $unit ?: 'pcs',
-                                'badge' => $badge ?: null,
-                                'is_published' => true,
-                                'show_quantity' => true,
-                                'price_display' => 'show',
-                            ]
-                        );
-
-                        // Sync tautan kanal pembelian dari CSV
-                        $channelMappings = [
-                            'shopee' => $row[$headerMap['shopee_url'] ?? -1] ?? null,
-                            'tokopedia' => $row[$headerMap['tokopedia_url'] ?? -1] ?? null,
-                            'lazada' => $row[$headerMap['lazada_url'] ?? -1] ?? null,
-                            'tiktok-shop' => $row[$headerMap['tiktok_url'] ?? -1] ?? null,
-                        ];
-
-                        foreach ($channelMappings as $chSlug => $chUrl) {
-                            $chUrl = trim((string) $chUrl);
-                            if (! empty($chUrl) && isset($channels[$chSlug])) {
-                                ProductLink::updateOrCreate(
-                                    ['product_id' => $product->id, 'sales_channel_id' => $channels[$chSlug]->id],
-                                    ['url' => $chUrl, 'is_active' => true]
-                                );
-                            }
-                        }
-
-                        // WhatsApp Message
-                        $waMsg = trim((string) ($row[$headerMap['whatsapp_message'] ?? -1] ?? ''));
-                        if (! empty($waMsg) && isset($channels['whatsapp'])) {
-                            ProductLink::updateOrCreate(
-                                ['product_id' => $product->id, 'sales_channel_id' => $channels['whatsapp']->id],
-                                ['message' => $waMsg, 'is_active' => true]
-                            );
-                        }
-
-                        $count++;
-                    }
-
-                    fclose($file);
+                    // Logika impor sama dengan API (POST /api/v1/admin/imports)
+                    $result = ProductImporter::import($path);
                     @unlink($path);
 
-                    Notification::make()
-                        ->title("Berhasil mengimpor {$count} produk beserta tautan kanal")
-                        ->success()
-                        ->send();
+                    $notification = Notification::make()
+                        ->title("Impor selesai: {$result['created']} produk baru, {$result['updated']} diperbarui");
+
+                    if ($result['failed']) {
+                        $notification->warning()->persistent()->body(
+                            count($result['failed']).' baris dilewati: '.collect($result['failed'])->take(5)
+                                ->map(fn ($f) => 'baris '.$f['row'].' ('.collect($f['errors'])->flatten()->first().')')->implode('; ')
+                        );
+                    } else {
+                        $notification->success();
+                    }
+
+                    $notification->send();
                 }),
         ];
     }

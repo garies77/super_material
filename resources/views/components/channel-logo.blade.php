@@ -1,9 +1,14 @@
 @props(['channel', 'class' => 'h-5 w-5'])
 @php
     $slug = is_string($channel) ? \Illuminate\Support\Str::slug($channel) : ($channel->slug ?? \Illuminate\Support\Str::slug($channel->name ?? ''));
+    // Logo unggahan admin (Kanal Beli) menang atas logo bawaan; satu query per halaman
+    $uploaded = once(fn () => \App\Models\SalesChannel::whereNotNull('logo')->pluck('logo', 'slug'))[$slug] ?? null;
 @endphp
 
-@if($slug === 'shopee')
+@if($uploaded)
+    {{-- Lewat <img>, bukan inline: skrip di dalam berkas SVG tidak ikut dijalankan --}}
+    <img src="{{ asset('storage/'.ltrim($uploaded, '/')) }}" alt="{{ $slug }}" class="{{ $class }} object-contain" loading="lazy">
+@elseif($slug === 'shopee')
     {{-- Official Shopee Logo --}}
     <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" class="{{ $class }}" aria-label="Shopee">
         <rect width="32" height="32" rx="8" fill="#EE4D2D"/>

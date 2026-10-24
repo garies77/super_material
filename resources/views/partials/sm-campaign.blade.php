@@ -1,23 +1,24 @@
 {{--
-    Banner kampanye modal (PRD 8.9). Kandidat dirender di dalam <template> sehingga gambar tidak
+    Kampanye pop-up (format Banner, tampil sebagai pop-up). Kandidat dirender di dalam <template> sehingga gambar tidak
     diunduh dan tidak memengaruhi LCP; JS memilih kandidat pertama yang belum dibatasi frekuensi,
     lalu membukanya setelah jeda atau gulir. data-nosnippet sesuai PRD 9.11.4.
     Nama kelas/atribut sengaja netral ("sm-campaign") agar tidak disembunyikan ad blocker.
 --}}
 @php
     $smPreview = $smCampaignPreview ?? null;
-    $smCampaigns = $smPreview ? collect([$smPreview]) : \App\Models\Campaign::forRequest(request());
+    $smCampaigns = $smPreview ? collect([$smPreview]) : \App\Models\Ad::popupsForRequest(request());
 @endphp
 @if($smCampaigns->isNotEmpty())
     <div data-nosnippet data-sm-campaign-root data-sm-campaign-token="{{ csrf_token() }}" @if($smPreview) data-sm-campaign-preview @endif hidden>
         @foreach($smCampaigns as $c)
             @php
                 $href = $c->ctaUrl();
-                $linkAttrs = $c->isExternal() ? 'target="_blank" rel="sponsored nofollow noopener"' : '';
+                // rel="sponsored" hanya untuk materi mitra berbayar, sama dengan banner dan sidebar
+                $linkAttrs = $c->isExternal() ? 'target="_blank" rel="'.($c->label === 'Sponsor' ? 'sponsored nofollow noopener' : 'nofollow noopener').'"' : '';
                 $titleId = 'sm-campaign-title-'.$c->id;
-                $withText = $c->layout === 'image_text';
+                $withText = $c->format === 'text';
             @endphp
-            <template data-sm-campaign='@json($c->clientConfig())' data-sm-campaign-event="{{ route('campaign.event', $c) }}" data-sm-campaign-utm="{{ $c->utmCampaign() }}">
+            <template data-sm-campaign='@json($c->clientConfig())' data-sm-campaign-event="{{ route('ad.event', $c) }}" data-sm-campaign-utm="{{ $c->utmCampaign() }}">
                 <div class="sm-campaign fixed inset-0 z-[60] flex items-center justify-center p-4" data-nosnippet>
                     <div data-sm-campaign-dismiss class="sm-campaign-backdrop absolute inset-0 bg-ink-950/70"></div>
                     <div role="dialog" aria-modal="true" aria-labelledby="{{ $titleId }}" tabindex="-1"

@@ -5,12 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/** Impresi atau klik iklan. Tidak menyimpan IP mentah (PRD 8.8). */
+/** Impresi, klik, atau penutupan pop-up kampanye. Tidak menyimpan IP mentah (PRD 8.8). */
 class AdEvent extends Model
 {
     public const UPDATED_AT = null;
 
-    public const TYPES = ['impression', 'click'];
+    public const TYPES = ['impression', 'click', 'close'];
 
     protected $guarded = [];
 

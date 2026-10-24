@@ -27,6 +27,8 @@ class RedirectResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Pengaturan';
 
+    protected static ?int $navigationSort = 4;
+
     public static function canAccess(): bool
     {
         return auth()->user()?->isAdmin() ?? false;
@@ -35,10 +37,15 @@ class RedirectResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            TextInput::make('from_path')->label('Dari (path)')->required()->unique(ignoreRecord: true)->prefix('/')
+            TextInput::make('from_path')->label('Dari alamat')->required()->unique(ignoreRecord: true)->prefix('/')
+                ->placeholder('produk-lama')
                 ->dehydrateStateUsing(fn ($s) => '/'.ltrim((string) $s, '/')),
-            TextInput::make('to_path')->label('Ke (path atau URL)')->required(),
-            Select::make('code')->label('Kode')->options([301 => '301 Permanen', 302 => '302 Sementara'])->default(301)->required(),
+            TextInput::make('to_path')->label('Ke alamat')->required()
+                ->placeholder('/produk/baru atau https://…')
+                ->helperText('Path di situs ini atau URL lengkap.'),
+            Select::make('code')->label('Jenis pengalihan')->options([301 => '301 Permanen', 302 => '302 Sementara'])->default(301)->required()
+                ->selectablePlaceholder(false)
+                ->helperText('Pakai 301 bila alamat lama tidak akan dipakai lagi.'),
         ]);
     }
 

@@ -5,6 +5,7 @@ namespace App\Filament\Resources\ClickEvents;
 use App\Filament\Resources\ClickEvents\Pages\ListClickEvents;
 use App\Models\ClickEvent;
 use BackedEnum;
+use Filament\Forms\Components\DatePicker;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
@@ -12,7 +13,6 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
-use Filament\Forms\Components\DatePicker;
 use Illuminate\Database\Eloquent\Builder;
 
 class ClickEventResource extends Resource
@@ -26,6 +26,8 @@ class ClickEventResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCursorArrowRays;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Laporan';
+
+    protected static ?int $navigationSort = 1;
 
     public static function canAccess(): bool
     {

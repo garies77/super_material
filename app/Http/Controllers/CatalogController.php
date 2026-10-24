@@ -47,7 +47,7 @@ class CatalogController extends Controller
         $sortParam = $request->query('sort');
         $sort = is_string($sortParam) && array_key_exists($sortParam, self::SORTS) ? $sortParam : 'relevansi';
 
-        $query = $inScope(Product::query())->with(['category', 'brand'])
+        $query = $inScope(Product::query())->with(['category', 'brand', 'media', 'variants'])
             ->when($brandIds, fn ($q) => $q->whereIn('brand_id', $brandIds))
             // Produk dengan rentang harga yang beririsan dengan filter
             ->when($min, fn ($q) => $q->whereRaw('coalesce(price_max, price_min) >= ?', [$min]))

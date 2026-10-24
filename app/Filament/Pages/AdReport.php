@@ -11,16 +11,20 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
-/** Laporan performa iklan per iklan dan per slot, dengan filter tanggal dan ekspor CSV (PRD 8.8). */
+/** Laporan Kampanye: impresi, klik, CTR, dan penutupan pop-up per kampanye dan per posisi, dengan filter tanggal dan ekspor CSV. */
 class AdReport extends Page
 {
     protected string $view = 'filament.pages.ad-report';
 
-    protected static ?string $title = 'Laporan iklan';
+    protected static ?string $title = 'Laporan kampanye';
+
+    protected static ?string $slug = 'laporan-kampanye';
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPresentationChartBar;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Laporan';
+
+    protected static ?int $navigationSort = 2;
 
     public ?string $from = null;
 
@@ -63,16 +67,16 @@ class AdReport extends Page
 
         return response()->streamDownload(function () use ($rows, $names) {
             $out = fopen('php://output', 'w');
-            fputcsv($out, ['dari', 'sampai', 'iklan', 'slot', 'halaman_asal', 'impresi', 'klik', 'ctr_persen']);
+            fputcsv($out, ['dari', 'sampai', 'kampanye', 'posisi', 'halaman_asal', 'impresi', 'klik', 'ditutup', 'ctr_persen']);
             foreach ($rows as $r) {
                 $row = $this->row($r, []);
                 fputcsv($out, [
                     $this->from, $this->until, $names[$r->ad_id] ?? '#'.$r->ad_id, $r->slot,
-                    $r->article?->url() ?? '', $row['impressions'], $row['clicks'], $row['ctr_raw'],
+                    $r->article?->url() ?? '', $row['impressions'], $row['clicks'], $row['closes'], $row['ctr_raw'],
                 ]);
             }
             fclose($out);
-        }, 'iklan-'.now()->format('Ymd-His').'.csv');
+        }, 'kampanye-'.now()->format('Ymd-His').'.csv');
     }
 
     /** Agregasi impresi dan klik manusia (bot dikecualikan) dalam rentang tanggal. */
@@ -83,6 +87,7 @@ class AdReport extends Page
             ->addSelect([
                 DB::raw("SUM(CASE WHEN type = 'impression' THEN 1 ELSE 0 END) as impressions"),
                 DB::raw("SUM(CASE WHEN type = 'click' THEN 1 ELSE 0 END) as clicks"),
+                DB::raw("SUM(CASE WHEN type = 'close' THEN 1 ELSE 0 END) as closes"),
             ])
             ->where('is_bot', false)
             ->when($this->from, fn (Builder $q, $d) => $q->whereDate('created_at', '>=', $d))
@@ -100,6 +105,7 @@ class AdReport extends Page
         return $extra + [
             'impressions' => $imp,
             'clicks' => $clicks,
+            'closes' => (int) ($r->closes ?? 0),
             'ctr' => $imp ? number_format($ctr, 2, ',', '.').'%' : '—',
             'ctr_raw' => $ctr,
         ];

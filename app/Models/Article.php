@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\GuardsCustomCode;
 use App\Models\Concerns\HasSeo;
 use App\Models\Concerns\TracksPublicUrl;
 use Carbon\Carbon;
@@ -11,12 +12,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class Article extends Model
 {
-    use HasSeo, TracksPublicUrl;
+    use GuardsCustomCode, HasSeo, TracksPublicUrl;
 
     public const PUBLIC_ROUTE = 'article.show';
 
@@ -34,6 +34,11 @@ class Article extends Model
     protected static function booted(): void
     {
         static::saving(function (Article $article) {
+            // Penulis hanya boleh menerbitkan atas nama profilnya sendiri, apa pun yang dikirim form
+            if (auth()->user()?->role === 'author') {
+                $article->author_id = auth()->user()->authorProfile()->id;
+            }
+
             if ($article->exists && $article->isDirty(self::MEANINGFUL_FIELDS)) {
                 $article->content_updated_at = now();
             }
@@ -100,7 +105,7 @@ class Article extends Model
 
     public function scopePopular(Builder $q, int $limit = 5): Builder
     {
-        return $q->published()->orderByDesc('views_count')->limit($limit);
+        return $q->published()->with('categories')->orderByDesc('views_count')->limit($limit); // widget menampilkan kategori
     }
 
     public function url(): string
@@ -118,7 +123,7 @@ class Article extends Model
             return $this->image;
         }
 
-        return asset('storage/' . ltrim($this->image, '/'));
+        return asset('storage/'.ltrim($this->image, '/'));
     }
 
     public function readingMinutes(): int
@@ -128,7 +133,7 @@ class Article extends Model
 
     public function readingTime(): string
     {
-        return $this->readingMinutes() . ' menit';
+        return $this->readingMinutes().' menit';
     }
 
     /**
@@ -141,7 +146,7 @@ class Article extends Model
             return '';
         }
 
-        return $this->published_at->locale('id')->translatedFormat('l, d M Y H:i') . ' WIB';
+        return $this->published_at->copy()->setTimezone('Asia/Jakarta')->locale('id')->translatedFormat('l, d M Y H:i').' WIB';
     }
 
     /**
@@ -173,28 +178,24 @@ class Article extends Model
 
         // Tampilkan hanya bila perbedaan pembaruan bermakna (misal beda minimal 2 jam atau beda hari)
         if ($modified->diffInHours($this->published_at) >= 2) {
-            return $modified->locale('id')->translatedFormat('l, d M Y H:i') . ' WIB';
+            return $modified->copy()->setTimezone('Asia/Jakarta')->locale('id')->translatedFormat('l, d M Y H:i').' WIB';
         }
 
         return null;
     }
 
     /**
-     * Format inisial di akhir artikel khas media berita:
-     * Contoh: (gar/ed) atau (gar)
+     * Inisial redaksi gaya cetak "(gar/ed)" tidak lagi ditampilkan; kredibilitas dibaca dari profil penulis
+     * dan JSON-LD Person. Kolom lama tetap ada di database dan diabaikan.
      */
     public function initialsBlock(): ?string
     {
-        $parts = array_filter([$this->author_initials, $this->editor_initials]);
-        if (empty($parts)) {
-            return null;
-        }
-
-        return '(' . implode('/', $parts) . ')';
+        return null;
     }
 
     /**
-     * Beri id pada heading h2/h3, tambahkan dateline di paragraf pertama, dan kembalikan [html, daftar isi].
+     * Beri id pada heading h2/h3 dan kembalikan [html, daftar isi]. Paragraf pembuka dibiarkan apa adanya
+     * (tanpa dateline otomatis).
      *
      * @return array{0: string, 1: array<int, array{id: string, text: string, level: int}>}
      */
@@ -228,17 +229,7 @@ class Article extends Model
             return "<h{$level} id=\"{$id}\"{$attrs}>{$inner}</h{$level}>";
         }, $raw);
 
-        // Prepend dateline di paragraf pertama jika ada dan belum tertulis di teks
-        $dateline = trim((string) ($this->dateline ?: 'Medan, Supermaterial --'));
-        if ($dateline !== '') {
-            $datelinePrefix = '<strong>' . e($dateline) . '</strong> ';
-            // Hanya inject jika dateline belum ada di dalam html
-            if (! str_contains(strip_tags($html), $dateline)) {
-                $html = preg_replace('/<p([^>]*)>/i', '<p$1>' . $datelinePrefix, $html, 1);
-            }
-        }
-
-        return [$html, $toc];
+        return [(string) $html, $toc];
     }
 
     public function seoName(): string

@@ -9,7 +9,11 @@ use App\Filament\Support\CustomCodeFields;
 use App\Filament\Support\DescriptiveFileName;
 use App\Filament\Support\SeoFields;
 use App\Models\Article;
+use App\Rules\MinImagePixels;
+use App\Support\SeoScore;
 use BackedEnum;
+use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -22,6 +26,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
@@ -44,6 +49,8 @@ class ArticleResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Konten';
 
+    protected static ?int $navigationSort = 1;
+
     protected static ?string $recordTitleAttribute = 'title';
 
     public static function getEloquentQuery(): Builder
@@ -51,90 +58,136 @@ class ArticleResource extends Resource
         $query = parent::getEloquentQuery();
         $user = auth()->user();
 
-        return $user?->role === 'author' ? $query->where('author_id', $user->id) : $query;
+        return $user?->role === 'author' ? $query->whereHas('author', fn ($q) => $q->where('user_id', $user->id)) : $query;
     }
 
     public static function form(Schema $schema): Schema
     {
-        return $schema->components([
-            Section::make('Artikel Utama')->columns(2)->schema([
-                TextInput::make('title')->label('Judul (H1)')->required()->maxLength(255)->live(onBlur: true)
-                    ->afterStateUpdated(fn (Set $set, ?string $state, string $operation) => $operation === 'create' ? $set('slug', Str::slug($state)) : null),
-                TextInput::make('slug')->required()->unique(ignoreRecord: true)
-                    ->helperText('Mengubah slug otomatis membuat redirect 301 dari URL lama.'),
-                Textarea::make('summary')->label('Ringkasan')->rows(2)->columnSpanFull()
-                    ->helperText('Dipakai sebagai meta description dan ringkasan kartu artikel.'),
-                RichEditor::make('content')->label('Isi Artikel')->required()->columnSpanFull()
-                    ->helperText('Gunakan heading H2 & H3 untuk daftar isi otomatis.'),
+        // Dua kolom utama: 7:5 di desktop menengah (xl), 8:4 di layar lebar (2xl); satu kolom di bawah 1280 px. Kiri: konten di kiri, publikasi & relasi di kolom pendamping; satu kolom di layar kecil
+        return $schema->columns(['default' => 1, 'lg' => 1, 'xl' => 12])->components([
+            Group::make()->columnSpan(['xl' => 7, '2xl' => 8])->schema([
+                Section::make('Artikel Utama')->columns(2)->schema([
+                    TextInput::make('title')->label('Judul (H1)')->required()->maxLength(255)->live(onBlur: true)
+                        ->afterStateUpdated(fn (Set $set, ?string $state, string $operation) => $operation === 'create' ? $set('slug', Str::slug($state)) : null),
+                    TextInput::make('slug')->required()->unique(ignoreRecord: true)
+                        ->helperText('Mengubah slug otomatis membuat redirect 301 dari URL lama.'),
+                    Textarea::make('summary')->label('Ringkasan')->rows(2)->columnSpanFull()
+                        ->helperText('Dipakai sebagai meta description dan ringkasan kartu artikel.'),
+                    RichEditor::make('content')->label('Isi Artikel')->required()->columnSpanFull()
+                        ->helperText('Gunakan heading H2 & H3 untuk daftar isi otomatis.'),
+                ]),
+
+                Section::make('Gambar Utama & Foto')->columns(2)->schema([
+                    FileUpload::make('image')->label('Foto Utama (16:9)')->image()->disk('public')->directory('articles')->visibility('public')->columnSpanFull()
+                        ->getUploadedFileNameForStorageUsing(DescriptiveFileName::from('title', 'articles'))
+                        ->rule(new MinImagePixels(50000))
+                        ->helperText('Minimal 50.000 piksel (disarankan 1200×675 untuk 16:9). Sistem otomatis membuat turunan 16:9, 4:3, dan 1:1 untuk Google Images & Discover (PRD 9.13.3 & SEO-01).'),
+                    TextInput::make('image_caption')->label('Keterangan Foto')->placeholder('Contoh: Suasana pengaplikasian semen instan untuk dinding bata ringan'),
+                    TextInput::make('image_credit')->label('Kredit Foto')->placeholder('Contoh: Dok. Supermaterial / Antara'),
+                ]),
+
+                CustomCodeFields::make(),
+
+                SeoFields::make(),
             ]),
 
-            CustomCodeFields::make(),
+            // Kolom pendamping
+            Group::make()->columnSpan(['xl' => 5, '2xl' => 4])->schema([
+                Section::make('Publikasi & Penulis')->schema([
+                    // Bawaan: profil penulis milik akun yang login. Penulis terkunci ke profilnya sendiri
+                    // (ditegakkan juga di backend saat simpan); Admin/Editor bebas memilih atau membuat profil kontributor.
+                    Select::make('author_id')->label('Penulis')->relationship('author', 'name')->searchable()->preload()
+                        ->default(fn () => auth()->user()?->author()->value('id'))
+                        ->disabled(fn () => auth()->user()?->role === 'author')
+                        ->dehydrated()
+                        ->createOptionForm(fn () => auth()->user()?->role === 'author' ? null : [
+                            TextInput::make('name')->label('Nama lengkap')->required()->maxLength(150),
+                            TextInput::make('slug')->required()->maxLength(150)->unique('authors', 'slug'),
+                            TextInput::make('job_title')->label('Jabatan / keahlian')->maxLength(100),
+                        ])
+                        ->helperText(fn () => auth()->user()?->role === 'author'
+                            ? 'Artikel diterbitkan atas nama profil penulis Anda.'
+                            : 'Bawaan: profil Anda. Pilih kontributor lain atau tambah profil baru bila perlu.'),
+                    DateTimePicker::make('published_at')->label('Tanggal & Jam Terbit (WIB)')->seconds(false)->timezone('Asia/Jakarta')
+                        ->helperText('Kosong = Draf. Isi waktu mendatang untuk terbit terjadwal.')
+                        ->suffixAction(Action::make('publishNow')->label('Terbitkan Sekarang')->icon('heroicon-o-bolt')
+                            ->tooltip('Isi dengan waktu sekarang (WIB)')
+                            ->action(fn (Set $set) => $set('published_at', now()))), // waktu aplikasi; field mengubahnya ke WIB sendiri
+                    Toggle::make('is_featured')->label('Artikel Unggulan (Headline)')->default(false),
+                    Select::make('schema_type')->label('Jenis Data Terstruktur')->options(Article::SCHEMA_TYPES)
+                        ->default('BlogPosting')->required()->selectablePlaceholder(false)
+                        ->helperText('@type JSON-LD artikel (PRD 9.13.1).'),
+                ]),
 
-            Section::make('Gambar Utama & Foto')->columns(2)->schema([
-                FileUpload::make('image')->label('Foto Utama (16:9)')->image()->disk('public')->directory('articles')->visibility('public')->columnSpanFull()
-                    ->getUploadedFileNameForStorageUsing(DescriptiveFileName::from('title', 'articles'))
-                    ->rule(new \App\Rules\MinImagePixels(50000))
-                    ->helperText('Minimal 50.000 piksel (disarankan 1200×675 untuk 16:9). Sistem otomatis membuat turunan 16:9, 4:3, dan 1:1 untuk Google Images & Discover (PRD 9.13.3 & SEO-01).'),
-                TextInput::make('image_caption')->label('Keterangan Foto')->placeholder('Contoh: Suasana pengaplikasian semen instan untuk dinding bata ringan'),
-                TextInput::make('image_credit')->label('Kredit Foto')->placeholder('Contoh: Dok. Supermaterial / Antara'),
-            ]),
+                Section::make('Kategori, Tag & Relasi')->schema([
+                    Select::make('categories')->label('Kategori Artikel')->relationship('categories', 'name')->multiple()->searchable()->preload(),
+                    Select::make('tags')->label('Topik Terkait (Tag)')->relationship('tags', 'name')->multiple()->searchable()->preload()
+                        ->createOptionForm([
+                            TextInput::make('name')->label('Nama Tag')->required(),
+                            TextInput::make('slug')->label('Slug')->unique('tags', 'slug'),
+                        ]),
+                    Select::make('relatedArticles')->label('Artikel Terkait (Manual)')->relationship('relatedArticles', 'title')->multiple()->searchable()->preload(),
+                    Select::make('products')->label('Produk Terkait (Dibahas dalam Artikel)')->relationship('products', 'name')->multiple()->searchable()->preload(),
+                ]),
 
-            Section::make('Redaksi & Metadata Berita (CNN Style)')->columns(3)->schema([
-                Select::make('author_id')->label('Penulis')->relationship('author', 'name')->searchable()->preload(),
-                TextInput::make('author_initials')->label('Inisial Penulis')->placeholder('gar')->maxLength(20),
-                TextInput::make('editor_name')->label('Nama Editor')->placeholder('Gema Suaria'),
-                TextInput::make('editor_initials')->label('Inisial Editor')->placeholder('ed')->maxLength(20),
-                TextInput::make('dateline')->label('Dateline')->default('Medan, Supermaterial --')->placeholder('Medan, Supermaterial --')->columnSpan(2),
-                Toggle::make('is_featured')->label('Artikel Unggulan (Headline)')->default(false),
-                DateTimePicker::make('published_at')->label('Tanggal & Jam Terbit')
-                    ->helperText('Kosong = Draf. Isi tanggal mendatang untuk penjadwalan terbit otomatis.'),
-                Select::make('schema_type')->label('Jenis Data Terstruktur')->options(Article::SCHEMA_TYPES)
-                    ->default('BlogPosting')->required()->selectablePlaceholder(false)
-                    ->helperText('@type JSON-LD artikel (PRD 9.13.1).'),
-            ]),
-
-            Section::make('Kategori, Tag & Relasi')->columns(2)->schema([
-                Select::make('categories')->label('Kategori Artikel')->relationship('categories', 'name')->multiple()->searchable()->preload(),
-                Select::make('tags')->label('Topik Terkait (Tag)')->relationship('tags', 'name')->multiple()->searchable()->preload()
-                    ->createOptionForm([
-                        TextInput::make('name')->label('Nama Tag')->required(),
-                        TextInput::make('slug')->label('Slug')->unique('tags', 'slug'),
+                Section::make('FAQ')->collapsed()->schema([
+                    Repeater::make('faqs')->relationship()->label('')->defaultItems(0)->orderColumn('sort_order')->schema([
+                        TextInput::make('question')->label('Pertanyaan')->required(),
+                        Textarea::make('answer')->label('Jawaban')->required()->rows(2),
                     ]),
-                Select::make('relatedArticles')->label('Artikel Terkait (Manual)')->relationship('relatedArticles', 'title')->multiple()->searchable()->preload(),
-                Select::make('products')->label('Produk Terkait (Dibahas dalam Artikel)')->relationship('products', 'name')->multiple()->searchable()->preload(),
-            ]),
-
-            Section::make('FAQ')->collapsed()->schema([
-                Repeater::make('faqs')->relationship()->label('')->defaultItems(0)->orderColumn('sort_order')->schema([
-                    TextInput::make('question')->label('Pertanyaan')->required(),
-                    Textarea::make('answer')->label('Jawaban')->required()->rows(2),
                 ]),
             ]),
-
-            SeoFields::make(),
         ]);
     }
 
     public static function table(Table $table): Table
     {
         return $table
-            ->defaultSort('published_at', 'desc')
+            // Draf (belum ada tanggal terbit) di paling atas, lalu terjadwal/terbit terbaru; tanpa ini draf baru tenggelam di halaman terakhir
+            ->defaultSort(fn (Builder $query) => $query
+                ->orderByRaw('CASE WHEN published_at IS NULL THEN 0 ELSE 1 END')
+                ->orderByDesc('published_at')
+                ->orderByDesc('created_at'))
             ->columns([
                 TextColumn::make('title')->label('Judul')->searchable()->limit(60),
                 TextColumn::make('author.name')->label('Penulis'),
                 IconColumn::make('is_featured')->label('Headline')->boolean(),
                 TextColumn::make('views_count')->label('Dibaca')->numeric()->sortable(),
                 TextColumn::make('seo_score')->label('Skor SEO')->badge()
-                    ->state(fn (Article $r) => \App\Support\SeoScore::forArticle($r)['score'].'%')
+                    ->state(fn (Article $r) => SeoScore::forArticle($r)['score'].'%')
                     ->color(fn (string $state) => (int) $state >= 80 ? 'success' : ((int) $state >= 50 ? 'warning' : 'danger'))
-                    ->tooltip(fn (Article $r) => collect(\App\Support\SeoScore::forArticle($r)['checks'])->reject()->keys()->map(fn ($c) => '✗ '.$c)->implode("\n") ?: 'Semua pemeriksaan terpenuhi'),
+                    ->tooltip(fn (Article $r) => collect(SeoScore::forArticle($r)['checks'])->reject()->keys()->map(fn ($c) => '✗ '.$c)->implode("\n") ?: 'Semua pemeriksaan terpenuhi'),
                 TextColumn::make('status')->label('Status')->badge()
                     ->state(fn (Article $r) => ! $r->published_at ? 'Draf' : ($r->published_at->isFuture() ? 'Terjadwal' : 'Terbit'))
-                    ->color(fn (string $state) => match ($state) { 'Terbit' => 'success', 'Terjadwal' => 'warning', default => 'gray' }),
-                TextColumn::make('published_at')->label('Terbit')->dateTime('d M Y H:i')->sortable(),
+                    ->color(fn (string $state) => match ($state) {
+                        'Terbit' => 'success', 'Terjadwal' => 'warning', default => 'gray'
+                    }),
+                TextColumn::make('published_at')->label('Terbit (WIB)')->dateTime('d M Y H:i', 'Asia/Jakarta')->sortable(),
             ])
-            ->recordActions([EditAction::make()])
-            ->toolbarActions([BulkActionGroup::make([DeleteBulkAction::make()])]);
+            ->recordActions([
+                Action::make('publishNow')->label('Terbitkan')->icon('heroicon-o-paper-airplane')->color('success')
+                    ->visible(fn (Article $r) => ! $r->published_at || $r->published_at->isFuture())
+                    ->action(function (Article $r, Action $action) {
+                        $r->update(['published_at' => now()]);
+                        $action->success();
+                    })
+                    ->successNotificationTitle('Artikel diterbitkan'),
+                Action::make('unpublish')->label('Jadikan Draf')->icon('heroicon-o-eye-slash')->color('warning')
+                    ->visible(fn (Article $r) => $r->published_at && ! $r->published_at->isFuture())
+                    ->requiresConfirmation()->modalHeading('Jadikan draf?')
+                    ->modalDescription('Artikel tidak lagi tampil di situs sampai diterbitkan kembali.')
+                    ->action(function (Article $r, Action $action) {
+                        $r->update(['published_at' => null]);
+                        $action->success();
+                    })
+                    ->successNotificationTitle('Artikel dijadikan draf'),
+                EditAction::make(),
+            ])
+            ->toolbarActions([BulkActionGroup::make([
+                BulkAction::make('publishNow')->label('Terbitkan sekarang')->icon('heroicon-o-paper-airplane')->requiresConfirmation()
+                    ->action(fn ($records) => $records->each->update(['published_at' => now()]))->deselectRecordsAfterCompletion(),
+                DeleteBulkAction::make(),
+            ])]);
     }
 
     public static function getPages(): array
