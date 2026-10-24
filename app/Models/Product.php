@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\GuardsCustomCode;
 use App\Models\Concerns\HasSeo;
 use App\Models\Concerns\TracksPublicUrl;
 use Illuminate\Database\Eloquent\Builder;
@@ -14,7 +15,7 @@ use Illuminate\Support\Collection;
 
 class Product extends Model
 {
-    use HasSeo, TracksPublicUrl;
+    use GuardsCustomCode, HasSeo, TracksPublicUrl;
 
     public const PUBLIC_ROUTE = 'product.show';
 

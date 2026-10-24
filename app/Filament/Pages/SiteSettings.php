@@ -2,14 +2,15 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\AuditLog;
 use App\Models\Setting;
+use App\Support\SudoMode;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\FileUpload;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
@@ -30,6 +31,8 @@ class SiteSettings extends Page implements HasSchemas
 
     protected static string|\UnitEnum|null $navigationGroup = 'Pengaturan';
 
+    protected static ?int $navigationSort = 1;
+
     public ?array $data = [];
 
     public static function canAccess(): bool
@@ -40,9 +43,6 @@ class SiteSettings extends Page implements HasSchemas
     public function mount(): void
     {
         $settings = Setting::all_();
-        if (isset($settings['hero_banner_active'])) {
-            $settings['hero_banner_active'] = Setting::getBool('hero_banner_active');
-        }
         $settings['site_brand_name'] ??= Setting::get('site_brand_name', 'Supermaterial');
         $settings['site_brand_accent'] ??= Setting::get('site_brand_accent', 'material');
         foreach (Setting::THEME_DEFAULTS as $key => $default) {
@@ -55,50 +55,10 @@ class SiteSettings extends Page implements HasSchemas
     {
         return $schema->statePath('data')->components([
             Section::make('Hero & Banner Kampanye Beranda')
-                ->description('Kelola gambar banner hero pada halaman utama. Sangat fleksibel untuk kampanye bundling bulanan, diskon seasonal, atau promo khusus.')
-                ->collapsible()
-                ->columns(2)
-                ->schema([
-                    Toggle::make('hero_banner_active')
-                        ->label('Aktifkan Banner Kampanye Hero')
-                        ->helperText('Tampilkan materi visual kampanye bundling / promo di area hero beranda.')
-                        ->default(true),
-                    Select::make('hero_banner_style')
-                        ->label('Gaya Tampilan Hero')
-                        ->options([
-                            'card' => 'Showcase Card di Samping Form Pencarian (Direkomendasikan - 2 Kolom)',
-                            'banner' => 'Banner Strip Lebar di Atas Kategori',
-                            'background' => 'Latar Belakang Gambar Hero Penuh (Dark Overlay)',
-                        ])
-                        ->default('card'),
-                    FileUpload::make('hero_banner_image')
-                        ->label('Gambar Banner / Poster Kampanye')
-                        ->image()
-                        ->disk('public')
-                        ->directory('banners')
-                        ->visibility('public')
-                        ->helperText('Unggah gambar materi kampanye bundling atau flyer promo (JPG, PNG, WebP). Bebas diganti kapan saja.')
-                        ->columnSpanFull(),
-                    TextInput::make('hero_banner_badge')
-                        ->label('Teks Label / Badge Promo')
-                        ->placeholder('Contoh: Promo Bundling Bulan Ini')
-                        ->helperText('Muncul sebagai badge sorotan beranimasi.'),
-                    TextInput::make('hero_banner_title')
-                        ->label('Judul Kampanye')
-                        ->placeholder('Contoh: Paket Bundling Renovasi Rumah Hemat 30%'),
-                    Textarea::make('hero_banner_desc')
-                        ->label('Deskripsi Singkat Kampanye')
-                        ->placeholder('Contoh: Beli paket semen + cat tembok + pelapis anti bocor hemat lebih dari 30%.')
-                        ->rows(2)
-                        ->columnSpanFull(),
-                    TextInput::make('hero_banner_cta_text')
-                        ->label('Teks Tombol Aksi (CTA)')
-                        ->placeholder('Contoh: Lihat Paket Bundling / Pesan via WhatsApp'),
-                    TextInput::make('hero_banner_cta_url')
-                        ->label('Link URL Tujuan (CTA)')
-                        ->placeholder('Contoh: /produk atau link WhatsApp atau URL halaman promo')
-                        ->helperText('Bisa berupa link halaman (/produk) atau link WhatsApp / marketplace.')
-                        ->columnSpanFull(),
+                ->description('Teks hero, banner kampanye, urutan seksi, produk, dan artikel beranda kini diatur di satu tempat: Kustomisasi Beranda. Data banner lama tetap terpakai.')
+                ->afterHeader([
+                    Action::make('openHomepage')->label('Buka Kustomisasi Beranda')->icon('heroicon-o-home')
+                        ->url(fn () => ManageHomepage::getUrl()),
                 ]),
             Section::make('Umum')->columns(2)->schema([
                 TextInput::make('site_tagline')->label('Tagline')->columnSpanFull(),
@@ -127,7 +87,7 @@ class SiteSettings extends Page implements HasSchemas
                         ->directory('logos')
                         ->visibility('public')
                         ->imagePreviewHeight('80')
-                        ->helperText('Unggah logo situs dari perangkat Anda (PNG, JPG, SVG, WebP). Tampil mendampingi nama brand di header & footer.')
+                        ->helperText('PNG, JPG, SVG, atau WebP. Logo dimuat di setiap halaman, jadi usahakan di bawah 50 KB: PNG/WebP tinggi ±96 px, atau SVG vektor murni. SVG hasil ekspor Figma yang berisi gambar bitmap biasanya ratusan KB.')
                         ->columnSpanFull(),
                     TextInput::make('org_name')
                         ->label('Nama Legal Organisasi (Schema SEO)')
@@ -169,14 +129,36 @@ class SiteSettings extends Page implements HasSchemas
                 TextInput::make('ga4_id')->label('Google Analytics 4 ID')->placeholder('G-XXXXXXXXXX'),
                 TextInput::make('meta_pixel_id')->label('Meta Pixel ID (opsional)'),
             ]),
+            Section::make('Konfirmasi')->schema([
+                TextInput::make('confirm_password')->label('Password Anda')->password()->revealable()->dehydrated(false)
+                    ->helperText('Wajib diisi bila nama website, nama singkat, atau palet warna diubah (PRD Keamanan 2.2).'),
+            ]),
         ]);
     }
 
+    /** Kunci branding yang perubahannya memerlukan konfirmasi password. */
+    public const SENSITIVE_KEYS = ['site_brand_name', 'site_brand_accent', 'theme_primary', 'theme_secondary', 'theme_accent'];
+
     public function save(): void
     {
-        foreach ($this->form->getState() as $key => $value) {
+        $state = $this->form->getState();
+        $changes = collect(self::SENSITIVE_KEYS)
+            ->filter(fn ($key) => array_key_exists($key, $state) && (string) $state[$key] !== (string) Setting::get($key))
+            ->mapWithKeys(fn ($key) => [$key => ['from' => Setting::get($key), 'to' => $state[$key]]])
+            ->all();
+
+        if ($changes) {
+            SudoMode::confirm($this->data['confirm_password'] ?? null, 'branding.update', 'data.confirm_password');
+        }
+
+        foreach ($state as $key => $value) {
             Setting::put($key, $value);
         }
+
+        if ($changes) {
+            AuditLog::record(request(), 'branding.update', null, $changes);
+        }
+        $this->data['confirm_password'] = null;
 
         Notification::make()->title('Pengaturan disimpan')->success()->send();
     }

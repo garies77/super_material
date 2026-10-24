@@ -19,7 +19,8 @@ class Setting extends Model
 
     public static function all_(): array
     {
-        return Cache::remember('settings.all', 3600, fn () => static::query()->pluck('value', 'key')->all());
+        // memo: dibaca puluhan kali per halaman; cukup satu kali ambil dari cache store per request
+        return Cache::memo()->remember('settings.all', 3600, fn () => static::query()->pluck('value', 'key')->all());
     }
 
     public static function get(string $key, mixed $default = null): mixed
@@ -85,7 +86,7 @@ class Setting extends Model
             $match = substr($name, $pos, strlen($accent));
             $after = substr($name, $pos + strlen($accent));
 
-            return $before . '<span class="' . $accentClass . '">' . $match . '</span>' . $after;
+            return $before.'<span class="'.$accentClass.'">'.$match.'</span>'.$after;
         }
 
         return $name;
@@ -117,6 +118,23 @@ class Setting extends Model
         return $out;
     }
 
+    /** Rasio kontras WCAG 2 antara dua warna hex. */
+    public static function contrast(string $a, string $b): float
+    {
+        $lum = function (string $hex) {
+            $c = array_map(function ($i) use ($hex) {
+                $v = hexdec(substr($hex, $i, 2)) / 255;
+
+                return $v <= 0.03928 ? $v / 12.92 : (($v + 0.055) / 1.055) ** 2.4;
+            }, [1, 3, 5]);
+
+            return 0.2126 * $c[0] + 0.7152 * $c[1] + 0.0722 * $c[2];
+        };
+        [$hi, $lo] = [max($lum($a), $lum($b)), min($lum($a), $lum($b))];
+
+        return ($hi + 0.05) / ($lo + 0.05);
+    }
+
     /** CSS variabel tema (menimpa token Tailwind brand-* dan ink-*). */
     public static function themeCss(): string
     {
@@ -136,6 +154,9 @@ class Setting extends Model
             'ink-900' => $s,
             'ink-950' => static::mixHex($s, '#000000', 0.4),
         ];
+
+        // Teks di atas warna aksen: hitam atau putih, mana yang kontrasnya lebih tinggi (WCAG)
+        $vars['on-accent'] = static::contrast($a, '#000000') >= static::contrast($a, '#ffffff') ? '#111111' : '#ffffff';
 
         $css = '';
         foreach ($vars as $name => $hex) {
@@ -160,7 +181,6 @@ class Setting extends Model
         }
 
         static::updateOrCreate(['key' => $key], ['value' => $value]);
-        Cache::forget('settings.all');
+        Cache::memo()->forget('settings.all');
     }
 }
-

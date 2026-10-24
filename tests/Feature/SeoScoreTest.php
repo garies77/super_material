@@ -2,6 +2,7 @@
 
 use App\Models\Article;
 use App\Models\Product;
+use App\Models\User;
 use App\Support\SeoScore;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -42,7 +43,7 @@ it('schedules the daily expired-price check', function () {
 });
 
 it('renders the SEO score column in the admin product and article tables', function () {
-    $this->actingAs(\App\Models\User::first());
+    $this->actingAs(User::first());
 
     $this->get('/admin/products')->assertOk()->assertSee('Skor SEO');
     $this->get('/admin/articles')->assertOk()->assertSee('Skor SEO');

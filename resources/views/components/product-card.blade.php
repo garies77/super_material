@@ -2,7 +2,7 @@
 <a href="{{ $product->url() }}" class="card card-hover group flex flex-col overflow-hidden">
     <div class="relative aspect-square overflow-hidden bg-ink-100">
         @if($product->imageUrl())
-            <img src="{{ $product->imageUrl() }}" alt="{{ $product->name }}" width="480" height="480" loading="lazy"
+            <img src="{{ \App\Support\ImageDerivatives::resized($product->imageUrl(), 480) }}" alt="{{ $product->name }}" width="480" height="480" loading="lazy"
                  class="h-full w-full object-contain p-2 transition duration-500 group-hover:scale-105">
         @else
             <div class="placeholder-art grid h-full w-full place-items-center">

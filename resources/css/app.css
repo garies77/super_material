@@ -61,13 +61,24 @@
     .content ol { @apply my-4 list-decimal pl-6; }
     .content a { @apply font-medium text-brand-700 underline underline-offset-2; }
     .content img { @apply my-6 h-auto max-w-full rounded-xl; }
+    /* Gambar block mengikuti perataan paragraf dari editor (kiri/tengah/kanan) */
+    .content [style*="text-align: center"] img { @apply mx-auto; }
+    .content [style*="text-align: right"] img, .content [style*="text-align: end"] img { @apply ml-auto mr-0; }
     .content table { @apply my-6 w-full text-sm; }
     .content th, .content td { @apply border border-ink-200 px-3 py-2 text-left; }
     .content blockquote { @apply my-6 border-l-4 border-brand-400 bg-brand-50 px-5 py-3 italic; }
     /* Slot iklan dalam isi tidak mewarisi gaya tipografi artikel */
-    .content .sm-promo a { @apply font-normal no-underline; color: inherit; }
-    .content .sm-promo img { @apply m-0 rounded-none; }
-    .content .sm-promo p { @apply m-0; }
+    /* Page builder: lebar manual dan rasio aspek blok gambar; tetap tidak melebihi kontainer di mobile */
+    .page-image[style*="--w"] img { width: var(--w) !important; }
+    .page-image[style*="--ratio"] img { aspect-ratio: var(--ratio); object-fit: cover; }
+    .page-blocks h1 { @apply text-3xl font-extrabold sm:text-4xl; }
+    .page-blocks h2 { @apply text-2xl font-bold; }
+    .page-blocks h3 { @apply text-xl font-semibold; }
+    .page-blocks h4 { @apply text-lg font-semibold; }
+    .page-blocks h5, .page-blocks h6 { @apply text-base font-semibold; }
+    .content .sm-feature a { @apply font-normal no-underline; color: inherit; }
+    .content .sm-feature img { @apply m-0 rounded-none; }
+    .content .sm-feature p { @apply m-0; }
 }
 
 .hero-grid {

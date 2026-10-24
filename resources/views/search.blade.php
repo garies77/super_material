@@ -7,7 +7,7 @@
                 @if($q)
                     Hasil Pencarian untuk <span class="text-brand-600">“{{ $q }}”</span>
                 @else
-                    Pencarian Produk &amp; Artikel
+                    {{ ['produk' => 'Pencarian Produk', 'artikel' => 'Pencarian Artikel'][$type] ?? 'Pencarian Produk & Artikel' }}
                 @endif
             </h1>
             <p class="mt-2 text-sm text-ink-600">
@@ -15,6 +15,7 @@
             </p>
 
             <form action="{{ route('search') }}" method="get" role="search" class="mt-5 flex max-w-2xl gap-2">
+                @if($type)<input type="hidden" name="type" value="{{ $type }}">@endif
                 <div class="relative flex-1">
                     <label for="q-page" class="sr-only">Kata kunci pencarian</label>
                     <svg viewBox="0 0 24 24" class="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-ink-400" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>

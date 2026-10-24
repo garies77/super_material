@@ -201,7 +201,7 @@
     @endpush
 
     {{-- Script data untuk State Galeri & Interaksi Varian --}}
-    <script>
+    <script nonce="{{ Vite::cspNonce() }}">
         window.__PRODUCT_DATA__ = {
             id: {{ $product->id }},
             name: @json($product->name),
@@ -478,10 +478,10 @@
                                 {{-- Tombol Beli Sekarang (Solid Oranye Shopee / Brand dengan Logo Marketplace Asli) --}}
                                 @if($marketplaceChannels->isNotEmpty())
                                     <button type="button" id="btn-action-buy-now"
-                                            class="btn flex-1 justify-center gap-2.5 bg-brand-600 py-3.5 font-bold text-white shadow-lg transition-all hover:bg-brand-700 hover:shadow-xl hover:-translate-y-0.5">
+                                            class="btn flex-1 justify-center gap-2.5 bg-brand-400 py-3.5 font-bold text-(--color-on-accent) shadow-lg transition-all hover:bg-brand-300 hover:shadow-xl hover:-translate-y-0.5">
                                         <div class="flex items-center -space-x-1.5 overflow-hidden">
                                             @foreach($marketplaceChannels->take(3) as $c)
-                                                <span class="inline-flex h-5 w-5 rounded-md ring-2 ring-brand-600 overflow-hidden shadow-xs">
+                                                <span class="inline-flex h-5 w-5 rounded-md bg-white ring-2 ring-white overflow-hidden">
                                                     <x-channel-logo :channel="$c->slug" class="h-full w-full" />
                                                 </span>
                                             @endforeach
@@ -756,7 +756,7 @@
                 </div>
 
                 <button type="button" id="mobile-sticky-buy"
-                        class="btn bg-brand-600 px-5 py-2.5 text-sm font-bold text-white shadow-md hover:bg-brand-700">
+                        class="btn bg-brand-400 px-5 py-2.5 text-sm font-bold text-(--color-on-accent) shadow-md hover:bg-brand-300">
                     <span>Beli Sekarang</span>
                 </button>
             </div>
@@ -764,7 +764,7 @@
     @endif
 
     {{-- ==================== JAVASCRIPT LOGIC UNTUK SINGLE PRODUCT ==================== --}}
-    <script>
+    <script nonce="{{ Vite::cspNonce() }}">
         document.addEventListener('DOMContentLoaded', function () {
             const P = window.__PRODUCT_DATA__;
             let currentMediaIndex = 0;

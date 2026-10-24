@@ -131,6 +131,15 @@ return [
             'handler' => NullHandler::class,
         ],
 
+        // Pemantauan API per endpoint: jumlah, status, latensi; alamat dalam bentuk hash (PRD 8.12.8)
+        'api' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/api.log'),
+            'level' => 'info',
+            'days' => 30,
+            'replace_placeholders' => true,
+        ],
+
         'emergency' => [
             'path' => storage_path('logs/laravel.log'),
         ],

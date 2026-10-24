@@ -71,7 +71,7 @@ Keberhasilan MVP diukur berdasarkan pertumbuhan trafik organik, kualitas halaman
 
 | Komponen | Keputusan |
 |---|---|
-| Backend | Laravel 12 |
+| Backend | Laravel 13 |
 | Bahasa backend | PHP 8.2 atau lebih baru, mengikuti persyaratan dependensi |
 | Admin panel | Filament 5 |
 | Interaktivitas admin | Livewire 4, sesuai kompatibilitas resmi |
@@ -1135,6 +1135,288 @@ Aturan:
 - Tombol "Laporkan", "Suka", dan "Bagikan" ala Shopee.
 - Sinkronisasi harga dan stok otomatis dari marketplace.
 - Voucher, flash sale, dan penghitung mundur.
+
+### 8.12 API
+
+#### 8.12.1 Tujuan dan pengguna
+
+Supermaterial menyediakan REST API versi 1 agar data katalog, artikel, dan laporan klik dapat dipakai oleh sistem lain tanpa membuka panel admin atau menyalin data manual.
+Pengguna API
+Kebutuhan
+Frontend lain (aplikasi mobile atau situs headless di fase berikutnya)
+Membaca produk, kategori, artikel, dan pencarian
+Otomatisasi internal (misalnya n8n)
+Mengambil laporan klik, membuat atau memperbarui produk, mengimpor data
+Dasbor eksternal (Google Sheets, Looker Studio)
+Menarik ringkasan klik per kanal, produk, dan artikel
+Admin konten
+Mengelola token akses dari panel Filament
+API memakai model, validasi, dan aturan bisnis yang sama dengan panel admin dan halaman publik. Tidak ada logika bisnis kedua. Pada MVP API hanya dipakai internal, terutama untuk otomatisasi n8n milik pengelola website.
+
+#### 8.12.2 Prinsip
+
+1. REST dengan JSON, awalan /api/v1. GraphQL tidak dipakai pada MVP.
+2. Dua permukaan: API publik (baca saja, tanpa token) dan API admin (token, baca dan tulis sesuai izin).
+3. API publik hanya mengembalikan konten berstatus terbit. Draf, terjadwal, dan produk nonaktif tidak pernah keluar.
+4. Aturan konten yang berlaku di halaman juga berlaku di API: harga disembunyikan tidak dikirim, harga coret hanya muncul jika lebih tinggi dari harga jual, availability hanya ada jika admin mengisinya, dan data rating hanya ada jika tampil di halaman.
+5. Tautan pembelian selalu berupa rute pelacak /go/{produk}/{kanal}, bukan URL marketplace mentah, agar klik tetap tercatat (bagian 8.6).
+6. Pengaturan branding hanya dapat dibaca lewat API, tidak dapat diubah (bagian 8.10 mensyaratkan konfirmasi password).
+7. Seluruh pemeriksaan izin dilakukan di backend.
+
+#### 8.12.3 Autentikasi dan hak akses
+
+- API publik: tanpa autentikasi, dengan pembatasan laju per alamat (alamat IP mentah tidak disimpan, dipakai dalam bentuk hash sementara).
+- API admin: Laravel Sanctum, token pribadi dengan abilities. Token dikirim lewat header Authorization: Bearer {token}.
+- Token dibuat oleh peran Admin di panel Filament, terikat ke satu pengguna. Hak akses efektif adalah irisan antara abilities token dan peran pengguna tersebut (Admin, Editor, Penulis).
+- Token ditampilkan sekali saat dibuat dan disimpan dalam bentuk hash.
+- Setiap token memiliki nama, tanggal kedaluwarsa (bawaan 90 hari), waktu terakhir dipakai, dan dapat dicabut kapan saja.
+- Membuat token dengan ability tulis meminta konfirmasi password ulang, mengikuti pola keputusan besar di bagian 8.10.
+- Pengguna yang dinonaktifkan atau diturunkan perannya langsung kehilangan akses token miliknya.
+Ability
+Cakupan
+catalog:read
+Membaca produk, varian, kategori, merek, tautan kanal, termasuk draf
+catalog:write
+Membuat dan mengubah produk, varian, media, tautan kanal
+import:write
+Menjalankan impor CSV atau Excel
+reports:read
+Membaca laporan klik
+articles:read
+Membaca artikel termasuk draf (Fase 2 untuk tulis)
+Token tidak memiliki ability untuk pengaturan branding, pengguna, peran, redirect, atau iklan.
+
+#### 8.12.4 Konvensi
+
+Format dan tipe data
+- Waktu dalam ISO 8601 beserta zona waktu situs, contoh 2026-10-22T10:22:00+07:00.
+- Harga berupa bilangan bulat rupiah tanpa pemisah (contoh 28000), dengan currency bernilai IDR.
+- Persentase diskon dihitung server, tidak diterima dari klien.
+- Bahasa konten Indonesia. Kunci JSON memakai bahasa Inggris dalam snake_case.
+Respons daftar
+```json
+{
+  "data": [ ],
+  "links": { "next": "https://.../api/v1/products?cursor=abc", "prev": null },
+  "meta": { "per_page": 20, "total": 1284 }
+}
+```
+- Paginasi berbasis cursor untuk daftar besar. per_page bawaan 20, maksimal 50 (publik) dan 100 (admin).
+- Filter lewat filter[category]=slug, filter[brand]=slug, filter[price_min], filter[price_max].
+- Urutan lewat sort=-published_at, sort=price, dan sejenisnya, hanya pada kolom yang diizinkan.
+- Relasi lewat include=category,brand,variants,media. Kolom terbatas lewat fields.
+Kesalahan
+```json
+{
+  "error": {
+    "code": "validation_failed",
+    "message": "Data tidak valid.",
+    "fields": { "compare_at_price": ["Harga coret harus lebih besar dari harga jual."] }
+  }
+}
+```
+Kode HTTP: 200, 201, 204, 304, 401, 403, 404, 409, 422, 429, 503. Saat mode pemeliharaan (9.11.6), API juga mengembalikan 503 dengan Retry-After.
+Versi
+Versi ada di URL (/api/v1). Perubahan yang merusak kompatibilitas masuk versi baru. Endpoint yang akan dihentikan diberi header Deprecation dan Sunset, dengan masa peralihan minimal 6 bulan.
+Idempotensi
+Permintaan POST pada API admin menerima header Idempotency-Key. Permintaan ulang dengan kunci yang sama dalam 24 jam mengembalikan hasil semula dan tidak membuat data ganda. Ini penting untuk otomatisasi yang mengulang permintaan saat gagal.
+
+#### 8.12.5 Endpoint publik (baca saja)
+
+Metode dan jalur
+Fungsi
+GET /api/v1/site
+Nama, nama singkat, tagline, logo, favicon, palet warna, dan kontak dari pengaturan branding
+GET /api/v1/categories
+Pohon kategori (maksimal tiga level)
+GET /api/v1/categories/{slug}
+Detail kategori, teks pengantar, dan konten pendukung
+GET /api/v1/brands
+Daftar merek
+GET /api/v1/products
+Daftar produk dengan filter, urutan, dan paginasi
+GET /api/v1/products/{slug}
+Detail produk: spesifikasi, media, varian, FAQ, produk dan artikel terkait
+GET /api/v1/products/{slug}/links
+Tautan pembelian aktif per kanal dalam bentuk go_url, dengan parameter variant dan quantity
+GET /api/v1/sales-channels
+Kanal pembelian yang aktif
+GET /api/v1/articles
+Daftar artikel terbit, filter kategori dan tag
+GET /api/v1/articles/{slug}
+Detail artikel, penulis, tag, dan produk tertaut
+GET /api/v1/tags, GET /api/v1/authors/{slug}
+Tag dan profil penulis
+GET /api/v1/search?q=
+Pencarian produk dan artikel
+Isi artikel dikirim sebagai HTML yang sudah disanitasi. Blok HTML kustom mode Terisolasi dikirim sebagai penanda blok beserta alamat iframe, bukan sebagai skrip mentah.
+
+#### 8.12.6 Endpoint admin (token)
+
+Metode dan jalur
+Ability
+Fungsi
+GET /api/v1/admin/products
+catalog:read
+Daftar produk semua status
+POST /api/v1/admin/products
+catalog:write
+Membuat produk
+PATCH /api/v1/admin/products/{id}
+catalog:write
+Mengubah produk (perubahan slug memicu redirect 301 seperti di 9.16)
+PUT /api/v1/admin/products/{id}/variants
+catalog:write
+Mengganti set varian beserta harga dan harga coret
+POST /api/v1/admin/products/{id}/media
+catalog:write
+Unggah gambar atau video, atau tautan YouTube, dengan teks alternatif
+PUT /api/v1/admin/products/{id}/links
+catalog:write
+Mengatur tautan kanal pembelian
+POST /api/v1/admin/imports
+import:write
+Mengunggah berkas CSV atau Excel, diproses lewat antrean
+GET /api/v1/admin/imports/{id}
+import:write
+Status impor dan daftar baris yang gagal
+GET /api/v1/admin/reports/clicks
+reports:read
+Ringkasan klik, filter tanggal, kanal, kategori, dan pengelompokan per produk, kategori, atau artikel
+GET /api/v1/admin/reports/clicks/export
+reports:read
+Ekspor CSV
+Aturan tambahan:
+- Validasi sama dengan Filament: harga coret lebih besar dari harga jual, tanggal diskon wajib bila ada harga coret, slug unik, URL kanal divalidasi, dan teks alternatif gambar wajib. Data yang dikirim lewat API langsung terbit tanpa tahap draf. Karena itu data yang gagal validasi ditolak seluruhnya dengan kode 422 dan tidak disimpan sebagian. Pengirim dapat mengirim status draft secara eksplisit bila ingin menyimpan tanpa menayangkan.
+- Unggah gambar menjalankan pipeline yang sama: ganti nama file otomatis, tiga turunan rasio, dan batas minimum 50.000 piksel (9.13.3).
+- Pembuatan dan perubahan lewat API tercatat di audit_logs dengan pelaku, token, waktu, dan ringkasan perubahan. Alamat IP mentah tidak disimpan.
+- Laporan klik hanya berisi data agregat dan tidak memuat data pribadi.
+- Penulisan artikel lewat API ditunda ke Fase 2, karena blok HTML kustom dan pembatasan JavaScript per peran (8.3) perlu uji tersendiri.
+
+#### 8.12.7 Contoh bentuk data produk
+
+```json
+{
+  "data": {
+    "id": 412,
+    "slug": "rangka-baja-ringan-c75",
+    "name": "Rangka Baja Ringan C75",
+    "badge": "Resmi",
+    "brand": { "slug": "merek-a", "name": "Merek A" },
+    "category": { "slug": "rangka-baja-ringan", "name": "Rangka Baja Ringan" },
+    "summary": "Ringkasan produk.",
+    "price": { "mode": "range", "min": 25000, "max": 40000, "currency": "IDR", "updated_at": "2026-10-20T09:00:00+07:00" },
+    "availability": "InStock",
+    "media": [
+      { "type": "image", "url": "https://.../rangka-baja-ringan-c75-1.webp", "alt": "Rangka baja ringan C75 tampak depan", "width": 800, "height": 800 }
+    ],
+    "variants": [
+      { "slug": "c75-070", "name": "C75 0,70 mm", "sku": "C75-070", "price": 28000, "compare_at_price": 70000, "discount_percent": 60, "discount_ends_at": "2026-10-31T23:59:00+07:00", "is_active": true }
+    ],
+    "links": [
+      { "channel": "shopee", "go_url": "https://.../go/rangka-baja-ringan-c75/shopee" },
+      { "channel": "whatsapp", "go_url": "https://.../go/rangka-baja-ringan-c75/whatsapp" }
+    ],
+    "canonical_url": "https://.../produk/rangka-baja-ringan-c75",
+    "updated_at": "2026-10-20T09:00:00+07:00"
+  }
+}
+```
+Bila price_display produk bernilai hidden, objek price bernilai null dan varian tidak memuat harga.
+
+#### 8.12.8 Keamanan, laju, dan cache
+
+Aspek
+Ketentuan
+Pembatasan laju
+Publik 60 permintaan per menit per alamat. Admin 120 permintaan per menit per token. Header X-RateLimit-Limit, X-RateLimit-Remaining, dan Retry-After dikirim. Nilai dapat diatur di konfigurasi.
+CORS
+Daftar asal yang diizinkan diatur di konfigurasi environment. API admin tidak membuka CORS untuk asal bebas.
+Transport
+HTTPS dan HSTS (9.11.1).
+Validasi
+Parameter filter dan urutan memakai daftar putih. Unggahan dibatasi jenis dan ukuran.
+Konten
+Semua HTML melewati sanitasi yang sama dengan halaman. API tidak mengembalikan JavaScript dari blok HTML kustom.
+Cache
+API publik memakai Cache-Control, ETag, dan Last-Modified, serta mendukung respons 304. Cache dibersihkan oleh observer model yang sama dengan sitemap dan cache halaman (9.16).
+Perayapan
+/api/ didaftarkan Disallow di robots.txt dan tidak masuk sitemap, mengikuti pola /go/ (9.11.3).
+Privasi
+Tidak ada data pengunjung yang keluar lewat API. Log permintaan memakai hash alamat, bukan IP mentah.
+Pemantauan
+Jumlah permintaan, galat 4xx dan 5xx, dan latensi dicatat per endpoint.
+
+#### 8.12.9 Dokumentasi dan pengujian
+
+- Spesifikasi OpenAPI 3.1 dihasilkan dari kode dan tersedia di /api/docs. Dokumentasi endpoint admin hanya terlihat oleh admin yang sedang login.
+- Koleksi Postman atau berkas OpenAPI dapat diunduh untuk dipakai di n8n dan alat lain.
+- Paket pembuat dokumentasi (kandidat: dedoc/scramble) wajib diverifikasi kompatibel dengan versi Laravel yang dipakai sebelum dipasang, sesuai prinsip 2.2.
+- Setiap endpoint memiliki pengujian fitur: akses tanpa token, token salah, ability kurang, peran kurang, data valid, data tidak valid, dan batas laju.
+- Pengujian kontrak mencocokkan respons dengan spesifikasi OpenAPI.
+- Pengujian khusus: API publik tidak pernah mengembalikan draf, harga tersembunyi, atau tautan marketplace mentah.
+
+#### 8.12.10 Di luar cakupan
+
+- GraphQL.
+- OAuth untuk pihak ketiga dan akun pengunjung.
+- Perubahan pengaturan branding, pengguna, peran, redirect, dan iklan lewat API.
+- Penulisan artikel lewat API (Fase 2).
+- Webhook keluar (Fase 2): peristiwa product.published, product.price_changed, dan article.published, dengan tanda tangan HMAC dan percobaan ulang.
+- Perjanjian tingkat layanan (SLA) untuk pihak luar.
+- Sinkronisasi stok dan harga dari marketplace (tetap mengikuti bagian 5).
+
+#### 8.12.11 Kriteria penerimaan
+
+1. Seluruh endpoint di 8.12.5 dan 8.12.6 tersedia di /api/v1 dan sesuai spesifikasi OpenAPI.
+2. API publik hanya mengembalikan konten terbit dan aktif.
+3. Produk dengan harga disembunyikan tidak mengirim harga di API.
+4. Tautan pembelian di API selalu berupa go_url, dan klik lewat go_url tercatat di click_events.
+5. Token dapat dibuat, dicabut, dan kedaluwarsa dari Filament. Token dengan ability tulis tidak dapat dibuat tanpa konfirmasi password.
+6. Permintaan dengan token yang abilitiy atau perannya kurang ditolak dengan 403, termasuk bila dikirim langsung ke server.
+7. Perubahan lewat API menjalankan validasi, pipeline gambar, redirect 301, dan pembersihan cache yang sama dengan panel admin. Data yang gagal validasi ditolak seluruhnya, dan data yang lolos langsung terbit.
+8. Permintaan POST dengan Idempotency-Key yang sama tidak membuat data ganda.
+9. Respons melewati batas laju mengembalikan 429 dengan Retry-After.
+10. Respons API publik mendukung ETag dan 304, dan latensi persentil ke-95 di bawah 300 ms untuk respons dari cache.
+11. /api/ ada di Disallow robots.txt dan tidak ada di sitemap.
+12. Pengaturan branding tidak dapat diubah lewat API.
+Perubahan pada bagian lain PRD v0.11
+Bagian
+Perubahan
+Header
+Versi menjadi 0.12
+1 Ringkasan
+Tambahkan: "Supermaterial menyediakan REST API versi 1 untuk membaca katalog dan artikel, serta untuk otomatisasi pengelolaan produk dan pengambilan laporan klik."
+
+### 2.3 Keputusan teknologi
+
+Tambahkan baris: API memakai Laravel API Resources, Laravel Sanctum untuk token, dan OpenAPI 3.1 untuk dokumentasi
+4 Tujuan produk
+Tambahkan tujuan 8: membuka akses data katalog dan laporan klik bagi sistem lain melalui API
+5 Bukan tujuan MVP
+Tambahkan: GraphQL, OAuth pihak ketiga, penulisan artikel lewat API, webhook, dan SLA API untuk pihak luar
+7 Ruang lingkup
+Fase 1: API publik baca saja, manajemen token, API admin untuk produk, varian, media, tautan kanal, impor, dan laporan klik. Fase 2: penulisan artikel lewat API dan webhook
+
+### 8.7 Panel admin
+
+Tambahkan "Token API" (nama, ability, kedaluwarsa, terakhir dipakai, cabut) dan akses ke dokumentasi API
+
+### 9.4 dan 9.11.3
+
+Tambahkan /api/ ke daftar Disallow robots.txt, tanpa noindex, dan keluarkan dari sitemap
+10 Model data
+Tambahkan personal_access_tokens (bawaan Sanctum), idempotency_keys, dan import_jobs. Tabel audit_logs juga mencatat perubahan lewat API
+12 Non-fungsional
+Tambahkan baris API: latensi p95 di bawah 300 ms untuk respons cache, pembatasan laju, dan pengujian kontrak OpenAPI
+14 Rencana implementasi
+Tahap 2: Sanctum, token, dan kerangka API. Tahap 3: endpoint katalog, go_url, impor, dan laporan klik. Tahap 4: endpoint artikel, tag, penulis, dan pencarian. Tahap 5: cache dan ETag, pembersihan cache oleh observer. Tahap 6: pengujian fitur, kontrak, dan keamanan API
+15 Risiko
+Tambahkan: kebocoran token (hash, kedaluwarsa, pencabutan, konfirmasi password untuk token tulis) dan data draf atau harga tersembunyi bocor lewat API (pengujian khusus dan Resource yang sama dengan halaman)
+Keputusan dan pertanyaan terbuka tambahan (bagian 16)
+1. Ditetapkan: API hanya untuk pemakaian internal dan akan disambungkan ke n8n setelah website selesai. Token per mitra dan batas laju bertingkat tidak dikerjakan.
+2. Apakah ada rencana aplikasi mobile atau situs headless dalam waktu dekat? Jika ada, endpoint pencarian, kategori, dan artikel perlu diprioritaskan sebelum endpoint admin.
+3. Ditetapkan: data yang masuk lewat API langsung terbit di website, dengan validasi yang sama seperti panel admin.
 
 ## 9. Kebutuhan SEO
 

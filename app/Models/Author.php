@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Str;
 
 class Author extends Model
 {
@@ -67,7 +66,7 @@ class Author extends Model
         $parts[] = $this->name;
         $title = implode(' ', $parts);
         if ($this->honorific_suffix) {
-            $title .= ', ' . trim($this->honorific_suffix);
+            $title .= ', '.trim($this->honorific_suffix);
         }
 
         return $title;
@@ -83,7 +82,7 @@ class Author extends Model
             return $this->avatar;
         }
 
-        return asset('storage/' . ltrim((string) $this->avatar, '/'));
+        return asset('storage/'.ltrim((string) $this->avatar, '/'));
     }
 
     public function url(): string

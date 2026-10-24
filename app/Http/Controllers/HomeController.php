@@ -2,18 +2,23 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Article;
-use App\Models\Category;
-use App\Models\Product;
+use App\Services\HomepageService;
 
 class HomeController extends Controller
 {
+    // Tanpa parameter: pratinjau kampanye & layout memanggil controller ini langsung
     public function __invoke()
     {
+        $homepage = app(HomepageService::class);
+
+        $sections = $homepage->sections()->map(fn ($section) => [
+            'section' => $section,
+            'data' => $homepage->resolve($section),
+        ]);
+
         return view('home', [
-            'categories' => Category::active()->whereNull('parent_id')->withCount('products')->orderBy('sort_order')->orderBy('name')->get(),
-            'featured' => Product::published()->with(['category', 'brand'])->orderByDesc('is_featured')->latest()->take(8)->get(),
-            'articles' => Article::published()->latest('published_at')->take(3)->get(),
+            'sections' => $sections,
+            'heroBanner' => $sections->contains(fn ($s) => $s['section']->type === 'hero') ? HomepageService::heroBanner() : null,
         ]);
     }
 }

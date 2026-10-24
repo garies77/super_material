@@ -208,29 +208,13 @@
                 @endif
 
                 {{-- Banner Konsultasi Proyek --}}
-                <div class="rounded-2xl bg-gradient-to-br from-ink-900 to-ink-950 p-6 text-white shadow-lg relative overflow-hidden">
-                    <div class="relative z-10">
-                        <span class="inline-block rounded-md bg-brand-500 px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-ink-950 mb-3">
-                            Konsultasi Gratis
-                        </span>
-                        <h4 class="font-display text-lg font-bold leading-tight text-white">
-                            Tanya Kebutuhan Bahan Bangunan Anda
-                        </h4>
-                        <p class="mt-2 text-xs text-ink-300 leading-relaxed">
-                            Spesialis teknis Supermaterial siap membantu menghitung kebutuhan semen, baja ringan, lantai, dan cat sesuai rancangan bangunan Anda.
-                        </p>
-                        @php
-                            $waRaw = preg_replace('/\D+/', '', (string) \App\Models\Setting::get('whatsapp_number', '081234567890'));
-                            $waNum = str_starts_with($waRaw, '0') ? '62' . substr($waRaw, 1) : $waRaw;
-                        @endphp
-                        <a href="https://api.whatsapp.com/send?phone={{ $waNum }}&text={{ rawurlencode('Halo Supermaterial, saya ingin konsultasi kebutuhan material proyek.') }}"
-                           target="_blank" rel="noopener noreferrer"
-                           class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-xs font-bold text-white shadow-md transition hover:bg-emerald-500">
-                            <x-channel-logo channel="whatsapp" class="h-4 w-4" />
-                            <span>Chat WhatsApp Rekanan</span>
-                        </a>
-                    </div>
-                </div>
+                @include('partials.consult-card', [
+                    'badge' => 'Konsultasi Gratis',
+                    'title' => 'Tanya Kebutuhan Bahan Bangunan Anda',
+                    'description' => 'Spesialis teknis Supermaterial siap membantu menghitung kebutuhan semen, baja ringan, lantai, dan cat sesuai rancangan bangunan Anda.',
+                    'button' => 'Chat WhatsApp Rekanan',
+                    'message' => 'Halo Supermaterial, saya ingin konsultasi kebutuhan material proyek.',
+                ])
             </aside>
 
         </div>

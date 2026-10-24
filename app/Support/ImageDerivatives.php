@@ -15,8 +15,8 @@ class ImageDerivatives
      */
     public const SIZES = [
         '16x9' => ['width' => 1200, 'height' => 675],
-        '4x3'  => ['width' => 1200, 'height' => 900],
-        '1x1'  => ['width' => 1200, 'height' => 1200],
+        '4x3' => ['width' => 1200, 'height' => 900],
+        '1x1' => ['width' => 1200, 'height' => 1200],
     ];
 
     /**
@@ -41,7 +41,7 @@ class ImageDerivatives
             File::makeDirectory($derivativesDir, 0755, true, true);
         }
 
-        $hash = substr(md5($localPath . '_' . filemtime($localPath)), 0, 16);
+        $hash = substr(md5($localPath.'_'.filemtime($localPath)), 0, 16);
 
         foreach (self::SIZES as $ratio => $dimensions) {
             $filename = "{$hash}_{$ratio}.webp";
@@ -50,6 +50,7 @@ class ImageDerivatives
 
             if (file_exists($targetPath)) {
                 $urls[] = $targetUrl;
+
                 continue;
             }
 
@@ -65,6 +66,76 @@ class ImageDerivatives
         }
 
         return ! empty($urls) ? array_values(array_unique($urls)) : [$sourceUrlOrPath];
+    }
+
+    /**
+     * URL versi WebP selebar $width (rasio asli, tidak diperbesar), dibuat sekali lalu disimpan di disk.
+     * SVG, gambar eksternal, atau bila GD gagal: kembalikan URL asli.
+     */
+    public static function resized(?string $sourceUrlOrPath, int $width): ?string
+    {
+        if (empty($sourceUrlOrPath) || str_ends_with(strtolower(parse_url($sourceUrlOrPath, PHP_URL_PATH) ?? ''), '.svg')) {
+            return $sourceUrlOrPath;
+        }
+
+        $localPath = self::resolveLocalPath($sourceUrlOrPath);
+        $size = $localPath ? @getimagesize($localPath) : false;
+        if (! $size || ! extension_loaded('gd') || ! function_exists('imagewebp')) {
+            return $sourceUrlOrPath;
+        }
+
+        $width = min($width, $size[0]);
+        $filename = substr(md5($localPath.'_'.filemtime($localPath)), 0, 16)."_w{$width}.webp";
+        $targetPath = storage_path("app/public/derivatives/{$filename}");
+
+        if (! file_exists($targetPath)) {
+            File::ensureDirectoryExists(dirname($targetPath));
+            try {
+                if (! self::createDerivative($localPath, $targetPath, $width, (int) round($size[1] * $width / $size[0]))) {
+                    return $sourceUrlOrPath;
+                }
+            } catch (\Throwable) {
+                return $sourceUrlOrPath;
+            }
+        }
+
+        return asset("storage/derivatives/{$filename}");
+    }
+
+    /** Atribut srcset dari beberapa lebar; kosong bila gambar tidak bisa diubah ukurannya (mis. SVG). */
+    public static function srcset(?string $sourceUrlOrPath, array $widths): string
+    {
+        $urls = collect($widths)->mapWithKeys(fn ($w) => [$w => self::resized($sourceUrlOrPath, $w)])
+            ->reject(fn ($url) => $url === $sourceUrlOrPath)->unique();
+
+        return $urls->map(fn ($url, $w) => "{$url} {$w}w")->implode(', ');
+    }
+
+    /**
+     * Lebar & tinggi asli gambar lokal (raster atau atribut SVG) untuk atribut width/height (mencegah CLS).
+     *
+     * @return array{0: int, 1: int}|null
+     */
+    public static function dimensions(?string $sourceUrlOrPath): ?array
+    {
+        $localPath = $sourceUrlOrPath ? self::resolveLocalPath($sourceUrlOrPath) : null;
+        if (! $localPath) {
+            return null;
+        }
+
+        if (str_ends_with(strtolower($localPath), '.svg')) {
+            $head = (string) file_get_contents($localPath, false, null, 0, 1024);
+            if (preg_match('/<svg[^>]*\bwidth="([\d.]+)"[^>]*\bheight="([\d.]+)"/i', $head, $m)
+                || preg_match('/viewBox="[\d.\-]+ [\d.\-]+ ([\d.]+) ([\d.]+)"/i', $head, $m)) {
+                return [(int) round((float) $m[1]), (int) round((float) $m[2])];
+            }
+
+            return null;
+        }
+
+        $size = @getimagesize($localPath);
+
+        return $size ? [$size[0], $size[1]] : null;
     }
 
     /**
@@ -96,14 +167,14 @@ class ImageDerivatives
         // Jika path berupa "storage/..."
         if (str_starts_with($clean, 'storage/')) {
             $relative = substr($clean, strlen('storage/'));
-            $path = storage_path('app/public/' . $relative);
+            $path = storage_path('app/public/'.$relative);
             if (file_exists($path)) {
                 return $path;
             }
         }
 
         // Cek langsung di storage/app/public
-        $publicStorage = storage_path('app/public/' . $clean);
+        $publicStorage = storage_path('app/public/'.$clean);
         if (file_exists($publicStorage)) {
             return $publicStorage;
         }
@@ -130,10 +201,10 @@ class ImageDerivatives
 
         $srcImg = match ($mime) {
             'image/jpeg' => @imagecreatefromjpeg($sourcePath),
-            'image/png'  => @imagecreatefrompng($sourcePath),
+            'image/png' => @imagecreatefrompng($sourcePath),
             'image/webp' => function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($sourcePath) : null,
-            'image/gif'  => @imagecreatefromgif($sourcePath),
-            default      => null,
+            'image/gif' => @imagecreatefromgif($sourcePath),
+            default => null,
         };
 
         if (! $srcImg) {

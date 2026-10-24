@@ -4,6 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 return new class extends Migration
 {
@@ -32,7 +33,7 @@ return new class extends Migration
                     'id' => $firstUser->id,
                     'user_id' => $firstUser->id,
                     'name' => $firstUser->name,
-                    'slug' => \Illuminate\Support\Str::slug($firstUser->name) ?: 'admin',
+                    'slug' => Str::slug($firstUser->name) ?: 'admin',
                     'job_title' => 'Technical Specialist & Editor',
                     'bio' => 'Spesialis teknis bahan bangunan dan editor ulasan material konstruksi Supermaterial.',
                     'is_active' => true,

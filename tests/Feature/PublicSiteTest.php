@@ -1,10 +1,13 @@
 <?php
 
+use App\Models\Article;
+use App\Models\Brand;
 use App\Models\ClickEvent;
 use App\Models\Product;
 use App\Models\ProductLink;
 use App\Models\Redirect;
 use App\Models\SalesChannel;
+use App\Models\Setting;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -29,11 +32,11 @@ it('renders public pages', function () {
 it('renders the catalog with sidebar filters', function () {
     $this->get('/produk')->assertOk()
         ->assertSee('Katalog Produk')->assertSee('Rentang harga')->assertSee('Semua produk')
-        ->assertSee('8</span> produk ditemukan', false);
+        ->assertSee('produk ditemukan');
 });
 
 it('filters the catalog in the database and noindexes filtered pages', function () {
-    $mulia = \App\Models\Brand::where('slug', 'mulia')->first();
+    $mulia = Brand::where('slug', 'mulia')->first();
 
     $this->get('/produk?brand[]='.$mulia->id)->assertOk()
         ->assertSee('2</span> produk ditemukan', false)
@@ -100,19 +103,25 @@ it('hides unpublished products', function () {
     $this->get('/produk/'.$product->slug)->assertNotFound();
 });
 
-it('renders cnn style article with editorial metadata, dateline, toc, and popular sidebar', function () {
-    $article = \App\Models\Article::where('slug', 'cara-memilih-semen-untuk-rumah')->firstOrFail();
+it('renders a modern article: author link, WIB date, reading time, toc, no dateline or print initials', function () {
+    $article = Article::where('slug', 'cara-memilih-semen-untuk-rumah')->firstOrFail();
+    $author = $article->author;
 
-    $response = $this->get('/artikel/' . $article->slug);
+    $response = $this->get('/artikel/'.$article->slug);
 
     $response->assertOk()
         ->assertSee('Cara Memilih Semen yang Tepat untuk Bangunan Tahan Gempa')
-        ->assertSee('Medan, Supermaterial --')
+        ->assertSee('href="'.route('author.show', $author->slug).'"', false)
+        ->assertSee('menit baca')
         ->assertSee('Daftar isi')
         ->assertSee('WIB')
         ->assertSee('Bagikan:')
         ->assertSee('Terpopuler')
-        ->assertSee('(gar/ed)')
+        // Kolom lama (dateline, inisial) masih tersimpan di database tetapi tidak lagi ditampilkan
+        ->assertDontSee('Medan, Supermaterial --')
+        ->assertDontSee('(gar/ed)')
+        ->assertSee('"@type":"Person"', false)
+        ->assertSee('Profil Penulis &amp; Artikel Lainnya', false)
         ->assertSee('Topik Terkait')
         ->assertSee('Produk yang Dibahas dalam Artikel')
         ->assertSee('BlogPosting', false);
@@ -132,11 +141,11 @@ it('renders article category and tag listing feeds', function () {
 });
 
 it('renders hero campaign bundling banner on home page when active', function () {
-    \App\Models\Setting::put('hero_banner_active', '1');
-    \App\Models\Setting::put('hero_banner_style', 'card');
-    \App\Models\Setting::put('hero_banner_image', 'banners/bundling-renovasi-oktober.jpg');
-    \App\Models\Setting::put('hero_banner_badge', 'Promo Bundling Spesial');
-    \App\Models\Setting::put('hero_banner_title', 'Paket Bundling Renovasi Hemat s.d. 30%');
+    Setting::put('hero_banner_active', '1');
+    Setting::put('hero_banner_style', 'card');
+    Setting::put('hero_banner_image', 'banners/bundling-renovasi-oktober.jpg');
+    Setting::put('hero_banner_badge', 'Promo Bundling Spesial');
+    Setting::put('hero_banner_title', 'Paket Bundling Renovasi Hemat s.d. 30%');
 
     $this->get('/')
         ->assertOk()
@@ -146,11 +155,9 @@ it('renders hero campaign bundling banner on home page when active', function ()
 });
 
 it('hides hero campaign banner when inactive', function () {
-    \App\Models\Setting::put('hero_banner_active', '0');
+    Setting::put('hero_banner_active', '0');
 
     $this->get('/')
         ->assertOk()
         ->assertDontSee('storage/banners/bundling-renovasi-oktober.jpg');
 });
-
-

@@ -12,7 +12,7 @@ beforeEach(fn () => $this->seed(DatabaseSeeder::class));
 it('renders single product page with Shopee-style layout and components', function () {
     $product = Product::where('slug', 'semen-tiga-roda-50-kg')->first();
 
-    $response = $this->get('/produk/' . $product->slug);
+    $response = $this->get('/produk/'.$product->slug);
 
     $response->assertOk()
         ->assertSee($product->name)
@@ -39,11 +39,11 @@ it('supports variant query parameter in single product URL', function () {
     $product = Product::where('slug', 'semen-tiga-roda-50-kg')->first();
     $variant = $product->variants->firstWhere('slug', 'sak-40-kg');
 
-    $response = $this->get('/produk/' . $product->slug . '?varian=' . $variant->slug);
+    $response = $this->get('/produk/'.$product->slug.'?varian='.$variant->slug);
 
     $response->assertOk()
         ->assertSee('Sak 40 kg')
-        ->assertSee('initialVariantId: ' . $variant->id, false);
+        ->assertSee('initialVariantId: '.$variant->id, false);
 });
 
 it('records variant and redirects with quantity via /go route', function () {
@@ -68,6 +68,6 @@ it('includes variant and quantity in WhatsApp redirection message', function () 
 
     $response->assertStatus(302);
     $location = urldecode($response->headers->get('Location'));
-    expect($location)->toContain('Varian: ' . $variant->name)
+    expect($location)->toContain('Varian: '.$variant->name)
         ->and($location)->toContain('Jumlah: 10 sak');
 });
