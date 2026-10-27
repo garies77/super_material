@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\ProductMedia;
 use App\Rules\MinImagePixels;
 use App\Support\ImageDerivatives;
+use App\Support\MediaLibrary;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\Rule;
@@ -55,11 +56,12 @@ class ProductMediaUploader
         /** @var UploadedFile $file */
         $file = $data['file'];
         $type = ($data['type'] ?? 'image') === 'video' ? 'video' : 'image';
-        $name = DescriptiveFileName::for($file, $product->slug, self::DIRECTORY, $type === 'video' ? 'video' : null);
-        $path = $file->storeAs(self::DIRECTORY, $name, 'public');
-
         if ($type === 'image') {
+            // Lewat Pustaka Media: gambar identik yang sudah ada dipakai ulang, gambar baru didaftarkan
+            $path = MediaLibrary::storeUploadedFile($file, self::DIRECTORY, $product->slug);
             ImageDerivatives::multiRatioUrls(storage_path('app/public/'.$path));
+        } else {
+            $path = $file->storeAs(self::DIRECTORY, DescriptiveFileName::for($file, $product->slug, self::DIRECTORY, 'video'), 'public');
         }
 
         $media = $product->media()->create([

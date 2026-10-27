@@ -1,0 +1,35 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Pustaka media: indeks berkas gambar di disk publik agar bisa dipakai ulang lintas konten.
+     * Kolom gambar di tabel lain tetap menyimpan path teks; tabel ini tidak menggantikannya.
+     */
+    public function up(): void
+    {
+        Schema::create('media', function (Blueprint $table) {
+            $table->id();
+            $table->string('path')->unique();
+            $table->string('folder', 100)->index();
+            $table->string('name');
+            $table->string('mime_type', 100);
+            $table->unsignedBigInteger('size');
+            $table->unsignedInteger('width')->nullable();
+            $table->unsignedInteger('height')->nullable();
+            $table->char('hash', 64)->index();
+            $table->string('alt_text')->nullable();
+            $table->foreignId('uploaded_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('media');
+    }
+};

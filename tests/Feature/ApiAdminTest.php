@@ -4,6 +4,7 @@ use App\Filament\Resources\ApiTokens\Pages\ManageApiTokens;
 use App\Models\ApiToken;
 use App\Models\AuditLog;
 use App\Models\ClickEvent;
+use App\Models\Media;
 use App\Models\Product;
 use App\Models\Redirect;
 use App\Models\SalesChannel;
@@ -222,6 +223,24 @@ it('uploads images through the same pipeline and enforces alt text and minimum p
         'youtube_url' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
         'alt_text' => 'Video pemasangan',
     ])->assertCreated()->assertJsonPath('data.provider', 'youtube');
+});
+
+it('reuses an identical image uploaded through the API and registers it in the media library', function () {
+    Storage::fake('public');
+    $product = Product::published()->first();
+    $token = apiToken();
+    $image = UploadedFile::fake()->image('foto.jpg', 400, 400);
+
+    foreach (['Tampak depan', 'Tampak depan lagi'] as $alt) {
+        $this->withToken($token)->post("/api/v1/admin/products/{$product->id}/media", ['file' => $image, 'alt_text' => $alt],
+            ['Accept' => 'application/json'])->assertCreated();
+    }
+
+    $uploaded = collect(Storage::disk('public')->files('products'))->filter(fn (string $path) => str_starts_with($path, "products/{$product->slug}-"));
+
+    expect($product->media()->whereIn('alt_text', ['Tampak depan', 'Tampak depan lagi'])->pluck('path')->unique()->all())->toBe(["products/{$product->slug}-1.jpg"])
+        ->and($uploaded->values()->all())->toBe(["products/{$product->slug}-1.jpg"])
+        ->and(Media::pluck('path')->all())->toBe(["products/{$product->slug}-1.jpg"]);
 });
 
 it('imports CSV through the queue and reports failed rows', function () {

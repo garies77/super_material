@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Filament\Support\LibraryFileUpload;
+use App\Filament\Support\MediaPicker;
 use App\Http\Middleware\EnsureAdminSession;
 use App\Models\ApiToken;
 use App\Models\Article;
@@ -19,6 +21,7 @@ use App\Models\Tag;
 use App\Support\Api\ApiCache;
 use App\Support\Api\ApiError;
 use App\Support\Api\ClientHash;
+use App\Support\MediaLibrary;
 use App\Support\SvgSanitizer;
 use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
@@ -69,14 +72,19 @@ class AppServiceProvider extends ServiceProvider
         // Password pengguna: lebih dari 8 karakter dengan huruf, angka, dan simbol (dipakai form Pengguna dan Profil)
         Password::defaults(fn () => Password::min(9)->letters()->numbers()->symbols());
 
-        // Setiap unggahan Filament: SVG dibersihkan dulu, lalu disimpan lewat jalur bawaan
-        FileUpload::configureUsing(fn (FileUpload $upload) => $upload->saveUploadedFileUsing(
-            function (FileUpload $component, TemporaryUploadedFile $file): ?string {
+        // Setiap unggahan Filament: SVG dibersihkan dulu, lalu disimpan lewat Pustaka Media (berkas identik dipakai ulang).
+        // Field gambar di disk publik mendapat tombol "Pilih dari Media".
+        FileUpload::configureUsing(function (FileUpload $upload): void {
+            $upload->saveUploadedFileUsing(function (FileUpload $component, TemporaryUploadedFile $file): ?string {
                 SvgSanitizer::cleanInPlace($file, $component->getStatePath());
 
-                return $component->saveUploadedFile($file);
+                return MediaLibrary::storeFileUpload($component, $file);
+            });
+
+            if (! $upload instanceof LibraryFileUpload) {
+                $upload->hintAction(MediaPicker::action());
             }
-        ));
+        });
     }
 
     /**

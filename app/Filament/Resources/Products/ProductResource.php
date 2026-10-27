@@ -7,6 +7,7 @@ use App\Filament\Resources\Products\Pages\EditProduct;
 use App\Filament\Resources\Products\Pages\ListProducts;
 use App\Filament\Support\CustomCodeFields;
 use App\Filament\Support\DescriptiveFileName;
+use App\Filament\Support\MediaPicker;
 use App\Filament\Support\SeoFields;
 use App\Models\AuditLog;
 use App\Models\Product;
@@ -31,6 +32,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -99,7 +101,8 @@ class ProductResource extends Resource
                             ->options(['upload' => 'Upload File', 'youtube' => 'YouTube Embed'])
                             ->default('upload')->required()->live(),
                         TextInput::make('path')->label('URL / Path')
-                            ->helperText('Jika YouTube masukkan URL video, jika upload masukkan path berkas.')
+                            ->helperText('Upload: klik "Pilih dari Media" untuk memilih atau mengunggah gambar. YouTube: tempel URL video.')
+                            ->hintAction(MediaPicker::action('products', 50000)->visible(fn (Get $get) => $get('provider') === 'upload'))
                             ->required()->columnSpan(2),
                         TextInput::make('poster_path')->label('URL Poster (Video)')->placeholder('Opsional untuk thumbnail video'),
                         TextInput::make('alt_text')->label('Alt Text')->placeholder('Keterangan aksesibilitas'),
@@ -131,7 +134,8 @@ class ProductResource extends Resource
                             ->requiredWith('compare_at_price')
                             ->afterOrEqual('discount_starts_at')
                             ->helperText('Wajib >= tanggal mulai.'),
-                        TextInput::make('image_path')->label('URL / Path Gambar Varian')->columnSpan(3),
+                        TextInput::make('image_path')->label('URL / Path Gambar Varian')->columnSpan(3)
+                            ->hintAction(MediaPicker::action('products', 50000)),
                         Toggle::make('is_active')->label('Aktif')->default(true),
                     ]),
                 ]),
