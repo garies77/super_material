@@ -1,4 +1,4 @@
-{{-- Kartu XP & lencana (App\Filament\Widgets\XpProfile). Gaya: .sm-xp-* di filament/admin-styles.blade.php --}}
+{{-- Kartu XP & lencana (App\Filament\Widgets\XpProfile). Gaya: .sm-xp-* di resources/css/filament/admin/theme.css --}}
 <x-filament-widgets::widget>
     <x-filament::section>
         <div class="sm-xp">

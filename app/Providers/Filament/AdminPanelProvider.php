@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Pages\Auth\Login;
 use App\Models\Setting;
+use Filament\FontProviders\GoogleFontProvider;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -45,7 +46,10 @@ class AdminPanelProvider extends PanelProvider
                 PanelsIconAlias::SIDEBAR_EXPAND_BUTTON,
                 PanelsIconAlias::SIDEBAR_EXPAND_BUTTON_RTL,
             ], new HtmlString('<svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9.5 4v16"/></svg>')))
-            ->renderHook(PanelsRenderHook::STYLES_AFTER, fn () => view('filament.admin-styles'))
+            // Tema & design token (resources/css/filament/admin/theme.css, dikompilasi Vite: npm run build)
+            ->viteTheme('resources/css/filament/admin/theme.css')
+            // Font sama dengan situs publik: Plus Jakarta Sans (teks) + Outfit (judul, lihat theme.css); Google Fonts sudah diizinkan CSP
+            ->font('Plus Jakarta Sans', url: 'https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap', provider: GoogleFontProvider::class)
             // Gamifikasi: confetti saat misi kelengkapan 100% atau konten diajukan dengan skor tinggi
             ->renderHook(PanelsRenderHook::BODY_END, fn () => view('filament.celebrate'))
             // Grup tanpa ikon: Filament melarang ikon di grup sekaligus di itemnya, dan ikon item diperlukan untuk mode ciut
@@ -56,8 +60,10 @@ class AdminPanelProvider extends PanelProvider
                 NavigationGroup::make('Pengaturan Tampilan')->collapsed(),
                 NavigationGroup::make('Pengaturan')->collapsed(),
             ])
+            // Oranye brand (= theme_primary situs) dan abu-abu kebiruan yang selaras dengan navy brand (#121826)
             ->colors([
-                'primary' => Color::Amber,
+                'primary' => Color::hex('#f59309'),
+                'gray' => Color::Slate,
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')

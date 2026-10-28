@@ -1,6 +1,6 @@
 {{--
     Perayaan confetti panel admin (render hook BODY_END). Tanpa pustaka tambahan: potongan kertas berupa <span>
-    dengan animasi CSS (.sm-confetti di admin-styles). window.smConfetti() dipanggil panel misi saat skor naik ke 100%;
+    dengan animasi CSS (.sm-confetti di theme.css). window.smConfetti() dipanggil panel misi saat skor naik ke 100%;
     sesi "sm_celebrate" (diisi saat konten diajukan dengan skor tinggi) memutarnya sekali setelah halaman dimuat.
 --}}
 <script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">

@@ -107,7 +107,7 @@ class MediaResource extends Resource
             // Klik kartu = Detail. Dalam mode pilih (ManageMedia) klik kartu ditangani di browser tanpa request ke server,
             // jadi kartu tidak memanggil aksi apa pun
             ->recordAction(fn (HasTable $livewire) => self::isSelecting($livewire) ? null : 'detail')
-            // sm-media-card: tombol ⋮ di pojok kanan atas kartu (admin-styles), bukan baris sendiri di bawah
+            // sm-media-card: tombol ⋮ di pojok kanan atas kartu (theme.css), bukan baris sendiri di bawah
             ->recordClasses(fn (HasTable $livewire) => ['sm-media-card', 'sm-media-card-selectable' => self::isSelecting($livewire)])
             ->recordActions([
                 // Aksi lain di menu ⋮ agar kartu sempit tidak penuh tombol

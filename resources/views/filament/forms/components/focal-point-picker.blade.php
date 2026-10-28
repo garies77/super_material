@@ -1,4 +1,4 @@
-{{-- Pemilih titik fokus: klik gambar untuk memindahkan penanda. Gaya: .sm-focal-* di filament/admin-styles.blade.php --}}
+{{-- Pemilih titik fokus: klik gambar untuk memindahkan penanda. Gaya: .sm-focal-* di resources/css/filament/admin/theme.css --}}
 <x-dynamic-component :component="$getFieldWrapperView()" :field="$field">
     <div
         x-data="{

@@ -2,7 +2,7 @@
     Mode pilih Pustaka Media: klik kartu menandai/melepas gambar sepenuhnya di browser (tanpa request ke server).
     Shift + klik memilih semua kartu di antara klik terakhir dan kartu ini. Pilihan disimpan di $wire.selectedMediaIds
     (entangle tunda) dan baru terkirim saat "Hapus terpilih" dipanggil; "Semua yang belum dipakai" diisi server.
-    Kartu dikenali dari atribut data-media-id pada kolom thumbnail. Gaya: .sm-media-* & .sm-select-bar di admin-styles.
+    Kartu dikenali dari atribut data-media-id pada kolom thumbnail. Gaya: .sm-media-* & .sm-select-bar di theme.css.
 --}}
 <div
     x-data="{

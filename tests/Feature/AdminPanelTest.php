@@ -4,6 +4,7 @@ use App\Filament\Resources\Users\Pages\ManageUsers;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Vite;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
@@ -71,9 +72,12 @@ it('uses the panel-layout toggle icon and the slim sidebar scrollbar', function 
     $html = $this->get('/admin')->assertOk()->getContent();
 
     // Tombol ciut & buka sidebar sama-sama memakai ikon panel, bukan chevron
-    expect(substr_count($html, '<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9.5 4v16"/>'))->toBeGreaterThanOrEqual(2)
-        ->and($html)->toContain('.fi-sidebar-nav::-webkit-scrollbar-button')->toContain('.sm-sudo-callout')
-        ->toContain('.dark .fi-sidebar-nav');
+    expect(substr_count($html, '<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9.5 4v16"/>'))->toBeGreaterThanOrEqual(2);
+
+    // Gaya custom kini di tema Vite (resources/css/filament/admin/theme.css), dimuat sebagai stylesheet panel
+    $theme = file_get_contents(resource_path('css/filament/admin/theme.css'));
+    expect($html)->toContain(Vite::asset('resources/css/filament/admin/theme.css'))
+        ->and($theme)->toContain('.fi-sidebar-nav::-webkit-scrollbar-button')->toContain('.sm-sudo-callout')->toContain('.dark .fi-sidebar-nav');
 });
 
 it('asks for the admin password only when granting higher privileges', function () {

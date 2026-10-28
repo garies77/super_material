@@ -1,5 +1,5 @@
 {{--
-    Panel misi kelengkapan (App\Filament\Support\SeoScorePanel). Gaya: .sm-seo-* di filament/admin-styles.blade.php.
+    Panel misi kelengkapan (App\Filament\Support\SeoScorePanel). Gaya: .sm-seo-* di resources/css/filament/admin/theme.css.
     Misi yang belum selesai tampil di atas (bisa diklik untuk menggulir ke field-nya); yang selesai dilipat.
     wire:key berubah setiap skor berubah agar x-init berjalan lagi; confetti (window.smConfetti, filament/celebrate)
     hanya diputar saat skor NAIK menjadi 100% selama mengedit, bukan saat halaman dibuka sudah 100%.

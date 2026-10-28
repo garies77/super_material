@@ -1,4 +1,4 @@
-{{-- Papan misi dashboard (App\Filament\Widgets\MissionBoard). Gaya: .sm-mission-* di filament/admin-styles.blade.php --}}
+{{-- Papan misi dashboard (App\Filament\Widgets\MissionBoard). Gaya: .sm-mission-* di resources/css/filament/admin/theme.css --}}
 <x-filament-widgets::widget>
     <x-filament::section icon="heroicon-o-clipboard-document-check" heading="Papan misi" description="Pekerjaan berikutnya untuk Anda. Klik Kerjakan untuk membuka item berikutnya.">
         @if ($missions === [])

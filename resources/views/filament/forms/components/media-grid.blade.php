@@ -1,4 +1,4 @@
-{{-- Grid pilih gambar Pustaka Media. Gaya: .sm-media-* di filament/admin-styles.blade.php --}}
+{{-- Grid pilih gambar Pustaka Media. Gaya: .sm-media-* di resources/css/filament/admin/theme.css --}}
 @php
     // Item diambil satu lebih banyak dari ukuran halaman: kelebihannya menandakan masih ada gambar lain
     $pageSize = $getPageSize();
