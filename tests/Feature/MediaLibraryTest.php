@@ -5,7 +5,9 @@ use App\Filament\Resources\Brands\Pages\ManageBrands;
 use App\Filament\Resources\Categories\Pages\EditCategory;
 use App\Filament\Resources\Media\MediaResource;
 use App\Filament\Resources\Media\Pages\ManageMedia;
+use App\Filament\Support\MediaPicker;
 use App\Models\Ad;
+use App\Models\Article;
 use App\Models\AuditLog;
 use App\Models\Brand;
 use App\Models\Category;
@@ -13,6 +15,7 @@ use App\Models\Media;
 use App\Models\Product;
 use App\Models\Setting;
 use App\Models\User;
+use App\Support\Catalog\ProductImporter;
 use App\Support\MediaLibrary;
 use App\Support\MediaUsage;
 use Filament\Actions\Testing\TestAction;
@@ -20,6 +23,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\ViewErrorBag;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
@@ -333,6 +337,98 @@ it('hides deleting from authors', function () {
     Livewire::test(ManageMedia::class)
         ->assertTableActionHidden('delete', $media)
         ->assertActionHidden('select');
+});
+
+/** Tulis CSV impor produk sementara dan jalankan importer yang sama dengan tombol "Impor CSV". */
+function importProducts(string $csv): array
+{
+    $path = tempnam(sys_get_temp_dir(), 'impor').'.csv';
+    file_put_contents($path, $csv);
+
+    return ProductImporter::import($path);
+}
+
+it('attaches library images listed in the gambar column of a product import', function () {
+    libraryImage('media/semen-depan.png', UploadedFile::fake()->image('a.png', 500, 500));
+    libraryImage('media/semen-samping.png', UploadedFile::fake()->image('b.png', 800, 400));
+
+    $result = importProducts("nama,slug,gambar\nSemen Gresik,semen-gresik,\"semen-depan.png, media/semen-samping.png\"\n");
+    $product = Product::firstWhere('slug', 'semen-gresik');
+
+    // Gambar 2:1 dipotong ke 1:1 (salinan baru); urutan kolom = urutan galeri
+    expect($result['failed'])->toBe([])
+        ->and($product->media()->pluck('path')->all())->toBe(['media/semen-depan.png', 'media/semen-samping-400x400.webp'])
+        ->and($product->image)->toBe('media/semen-depan.png');
+
+    importProducts("nama,slug,gambar\nSemen Gresik Baru,semen-gresik,\n");
+
+    expect($product->media()->count())->toBe(2);
+});
+
+it('skips import rows whose gambar column names images missing from the library', function () {
+    $result = importProducts("nama,slug,gambar\nSemen Gresik,semen-gresik,tidak-ada.jpg\n");
+
+    expect(Product::count())->toBe(0)
+        ->and($result['failed'][0]['errors']['gambar'][0])->toContain('tidak-ada.jpg');
+});
+
+it('warns when a picked image is too small for the section width', function () {
+    $small = libraryImage('products/kecil.png', UploadedFile::fake()->image('kecil.png', 200, 200));
+    $category = Category::create(['name' => 'Semen', 'slug' => 'semen', 'is_active' => true]);
+
+    Livewire::test(EditCategory::class, ['record' => $category->getRouteKey()])
+        ->callAction(TestAction::make('pickFromMediaLibrary')->schemaComponent('image'), ['selected' => [$small->path]])
+        ->assertNotified('Resolusi gambar rendah untuk section ini');
+});
+
+it('loads more images in the picker beyond the first page', function () {
+    foreach (range(1, MediaPicker::LIMIT + 1) as $i) {
+        Media::factory()->create(['path' => "products/foto-{$i}.jpg", 'name' => "foto-{$i}.jpg"]);
+    }
+    $category = Category::create(['name' => 'Semen', 'slug' => 'semen', 'is_active' => true]);
+    view()->share('errors', new ViewErrorBag);
+    $grid = fn (Testable $page) => (fn ($livewire) => $livewire->getSchema($livewire->getMountedActionSchemaName())->toHtml())($page->instance());
+
+    $page = Livewire::test(EditCategory::class, ['record' => $category->getRouteKey()])
+        ->mountAction(TestAction::make('pickFromMediaLibrary')->schemaComponent('image'));
+
+    expect(substr_count($grid($page), 'class="sm-media-item'))->toBe(MediaPicker::LIMIT)
+        ->and($grid($page))->toContain('Muat lebih banyak');
+
+    $page->set('mountedActions.0.data.limit', MediaPicker::LIMIT * 2);
+
+    expect(substr_count($grid($page), 'class="sm-media-item'))->toBe(MediaPicker::LIMIT + 1)
+        ->and($grid($page))->not->toContain('Muat lebih banyak');
+});
+
+it('replaces an image everywhere it is used, including JSON and article HTML', function () {
+    $old = libraryImage('products/lama.png', UploadedFile::fake()->image('lama.png', 400, 400));
+    $new = libraryImage('products/baru.png', UploadedFile::fake()->image('baru.png', 500, 500));
+    $product = Product::create(['name' => 'Semen', 'slug' => 'semen', 'image' => $old->path, 'gallery' => [$old->path]]);
+    $product->media()->create(['type' => 'image', 'provider' => 'upload', 'path' => $old->path, 'alt_text' => 'Semen']);
+    $article = Article::create(['title' => 'Artikel', 'slug' => 'artikel', 'content' => '<p><img src="/storage/products/lama.png" alt="x"></p>']);
+    Setting::put('site_og_image', $old->path);
+
+    Livewire::test(ManageMedia::class)
+        ->callTableAction('replace', $old, ['replacement' => $new->id, 'match_ratio' => true])
+        ->assertHasNoTableActionErrors();
+
+    expect($product->refresh()->only(['image', 'gallery']))->toBe(['image' => $new->path, 'gallery' => [$new->path]])
+        ->and($product->media()->first()->only(['path', 'alt_text']))->toBe(['path' => $new->path, 'alt_text' => 'Semen'])
+        ->and($article->refresh()->content)->toContain('/storage/products/baru.png')
+        ->and(Setting::get('site_og_image'))->toBe($new->path)
+        ->and(MediaUsage::for($old))->toBe([])
+        ->and(AuditLog::where('action', 'media.replaced')->value('changes'))->toMatchArray(['updated' => 4]);
+});
+
+it('crops the replacement to the ratio of the image it replaces', function () {
+    $old = libraryImage('products/persegi.png', UploadedFile::fake()->image('a.png', 400, 400));
+    $wide = libraryImage('articles/lebar.png', UploadedFile::fake()->image('b.png', 1600, 900));
+    $product = Product::create(['name' => 'Semen', 'slug' => 'semen', 'image' => $old->path]);
+
+    Livewire::test(ManageMedia::class)->callTableAction('replace', $old, ['replacement' => $wide->id, 'match_ratio' => true]);
+
+    expect($product->refresh()->image)->toBe('articles/lebar-900x900.webp');
 });
 
 it('lets every active panel role open the media library', function (string $role) {

@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Media;
 use App\Filament\Resources\Media\Pages\ManageMedia;
 use App\Filament\Support\FocalPointPicker;
 use App\Filament\Support\ImagePreset;
+use App\Models\AuditLog;
 use App\Models\Media;
 use App\Support\ImageDerivatives;
 use App\Support\MediaLibrary;
@@ -15,6 +16,7 @@ use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -154,6 +156,35 @@ class MediaResource extends Resource
                             Notification::make()->title($crop->is($record) ? 'Gambar ini sudah sesuai atau tidak bisa dipotong' : "Potongan dibuat: {$crop->name}")
                                 ->success()->send();
                         }),
+                    Action::make('replace')->label('Ganti di semua tempat')->icon(Heroicon::OutlinedArrowPath)
+                        ->visible(fn () => self::canDeleteMedia())
+                        ->modalHeading('Ganti gambar ini di semua konten')
+                        ->modalDescription(fn (Media $record) => 'Dipakai di '.count(MediaUsage::for($record)).' tempat. Semua tempat itu akan memakai gambar pengganti; gambar ini tetap ada di pustaka.')
+                        ->modalSubmitActionLabel('Ganti sekarang')
+                        ->schema(fn (Media $record) => [
+                            Select::make('replacement')->label('Gambar pengganti')->required()->searchable()
+                                ->getSearchResultsUsing(fn (string $search) => Media::query()->whereKeyNot($record->getKey())
+                                    ->where(fn (Builder $q) => $q->where('name', 'like', "%{$search}%")->orWhere('path', 'like', "%{$search}%"))
+                                    ->latest('id')->limit(30)->get()->mapWithKeys(fn (Media $media) => [$media->getKey() => self::optionLabel($media)]))
+                                ->getOptionLabelUsing(fn ($value) => ($media = Media::find($value)) ? self::optionLabel($media) : null)
+                                ->helperText('Ketik nama berkas. Unggah dulu lewat "Unggah gambar" bila belum ada di pustaka.'),
+                            Toggle::make('match_ratio')->label('Potong pengganti ke rasio gambar ini ('.($record->ratioLabel() ?? $record->dimensionsLabel()).')')
+                                ->default(true)->visible($record->isCroppable())
+                                ->helperText('Disarankan: tata letak konten tidak berubah. Potongan berpusat di titik fokus gambar pengganti.'),
+                        ])
+                        ->action(function (Media $record, array $data): void {
+                            $replacement = Media::findOrFail($data['replacement']);
+                            if (($data['match_ratio'] ?? false) && $record->isCroppable() && ! $replacement->matchesRatio($record->width / $record->height)) {
+                                $replacement = MediaLibrary::cropToRatio($replacement, $record->width / $record->height);
+                            }
+
+                            $count = MediaUsage::replace($record, $replacement);
+                            AuditLog::record(request(), 'media.replaced', $record, ['from' => $record->path, 'to' => $replacement->path, 'updated' => $count]);
+
+                            Notification::make()->title($count ? "Gambar diganti di {$count} konten" : 'Gambar ini tidak dipakai konten mana pun')
+                                ->body($count ? 'Gambar lama tidak lagi dipakai dan bisa dihapus lewat filter "Belum dipakai".' : null)
+                                ->success()->send();
+                        }),
                     // Hapus aman: ditolak bila gambar masih dipakai, dengan daftar lokasinya
                     Action::make('delete')->label('Hapus')->icon(Heroicon::OutlinedTrash)->color('danger')
                         ->visible(fn () => self::canDeleteMedia())
@@ -176,6 +207,11 @@ class MediaResource extends Resource
                 ])->tooltip('Aksi')->iconButton()
                     ->visible(fn (HasTable $livewire) => ! self::isSelecting($livewire)),
             ]);
+    }
+
+    private static function optionLabel(Media $media): string
+    {
+        return collect([$media->name, $media->ratioLabel(), $media->dimensionsLabel()])->filter()->implode(' · ');
     }
 
     private static function isSelecting(HasTable $livewire): bool

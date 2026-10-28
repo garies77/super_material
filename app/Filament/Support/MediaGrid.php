@@ -6,6 +6,7 @@ use App\Models\Media;
 use Closure;
 use Filament\Forms\Components\Field;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 /**
  * Grid gambar pustaka media yang bisa dipilih (satu atau banyak). State berisi daftar path terpilih
@@ -19,6 +20,10 @@ class MediaGrid extends Field
 
     /** @var array<int, float> */
     protected array $targetRatios = [];
+
+    protected ?int $targetWidth = null;
+
+    protected int|Closure $pageSize = MediaPicker::LIMIT;
 
     /** @var Closure(): Collection<int, Media>|null */
     protected ?Closure $getItemsUsing = null;
@@ -58,6 +63,39 @@ class MediaGrid extends Field
         }
 
         return collect($this->targetRatios)->contains(fn (float $ratio) => $media->matchesRatio($ratio));
+    }
+
+    public function pageSize(int|Closure $size): static
+    {
+        $this->pageSize = $size;
+
+        return $this;
+    }
+
+    public function getPageSize(): int
+    {
+        return max(1, (int) $this->evaluate($this->pageSize));
+    }
+
+    /** Field tersembunyi "limit" di modal yang sama; tombol "Muat lebih banyak" menaikkan nilainya. */
+    public function getLimitStatePath(): string
+    {
+        return Str::beforeLast($this->getStatePath(), '.').'.limit';
+    }
+
+    public function targetWidth(?int $width): static
+    {
+        $this->targetWidth = $width;
+
+        return $this;
+    }
+
+    /** Lebar target dalam piksel bila gambar ini terlalu kecil untuk section; null bila cukup. */
+    public function lowResolutionTarget(Media $media): ?int
+    {
+        $ratio = count($this->targetRatios) === 1 ? $this->targetRatios[0] : null;
+
+        return $media->isTooSmallFor($this->targetWidth, $ratio) ? $this->targetWidth : null;
     }
 
     /** Sama dengan syarat MediaLibrary::cropToRatio(): satu rasio wajib dan gambar raster. */

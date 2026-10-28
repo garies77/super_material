@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductLink;
 use App\Models\SalesChannel;
+use App\Support\MediaLibrary;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -14,7 +15,9 @@ use Illuminate\Support\Str;
 /**
  * Impor produk dari CSV/Excel, dipakai panel admin dan API (PRD 8.12.6).
  * Kolom: nama, slug, kategori, merek, harga_min, harga_max, satuan, badge, shopee_url,
- * tokopedia_url, lazada_url, tiktok_url, whatsapp_message, terbit.
+ * tokopedia_url, lazada_url, tiktok_url, whatsapp_message, terbit, gambar.
+ * Kolom gambar: nama berkas/path dari Pustaka Media (pisah koma, titik koma, atau baris baru); foto pertama = utama.
+ * Kosong = foto produk tidak diubah.
  * Baris yang gagal validasi dilewati dan dicatat; baris lain tetap diproses.
  */
 class ProductImporter
@@ -71,6 +74,7 @@ class ProductImporter
             'badge' => ['nullable', 'string', 'max:255'],
             'whatsapp_message' => ['nullable', 'string', 'max:255'],
             'terbit' => ['nullable', 'in:0,1,ya,tidak,true,false'],
+            'gambar' => ['nullable', 'string', 'max:2000'],
         ]);
 
         $validator->after(function ($v) use ($row, $channels) {
@@ -78,6 +82,11 @@ class ProductImporter
             $max = $row['harga_max'] ?? '';
             if ($min !== '' && $max !== '' && is_numeric($min) && is_numeric($max) && (int) $max < (int) $min) {
                 $v->errors()->add('harga_max', 'Harga maksimum harus lebih besar atau sama dengan harga minimum.');
+            }
+
+            $missing = array_filter(self::imageReferences($row), fn (string $reference) => ! MediaLibrary::findByReference($reference));
+            if ($missing) {
+                $v->errors()->add('gambar', 'Gambar tidak ditemukan di Pustaka Media: '.implode(', ', $missing).'. Unggah dulu lewat menu Media.');
             }
 
             foreach (self::CHANNEL_COLUMNS as $column => $slug) {
@@ -142,6 +151,20 @@ class ProductImporter
             );
         }
 
+        if ($references = self::imageReferences($row)) {
+            // Foto dari pustaka disesuaikan ke ukuran baku produk (1:1); berkas asli tetap utuh
+            ProductPhotos::sync($product, array_map(
+                fn (string $reference) => MediaLibrary::fitToPreset(MediaLibrary::findByReference($reference), 'product')->path,
+                $references,
+            ));
+        }
+
         return $created;
+    }
+
+    /** @return array<int, string> */
+    private static function imageReferences(array $row): array
+    {
+        return array_values(array_unique(array_filter(array_map('trim', preg_split('/[,;\r\n]+/', (string) ($row['gambar'] ?? '')) ?: []))));
     }
 }

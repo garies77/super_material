@@ -1,6 +1,10 @@
 {{-- Grid pilih gambar Pustaka Media. Gaya: .sm-media-* di filament/admin-styles.blade.php --}}
 @php
+    // Item diambil satu lebih banyak dari ukuran halaman: kelebihannya menandakan masih ada gambar lain
+    $pageSize = $getPageSize();
     $items = $getItems();
+    $hasMore = $items->count() > $pageSize;
+    $items = $items->take($pageSize);
 @endphp
 
 <x-dynamic-component :component="$getFieldWrapperView()" :field="$field">
@@ -51,13 +55,26 @@
                         <span class="sm-media-caption">
                             <span class="sm-media-name">{{ $media->name }}</span>
                             <span class="sm-media-meta">{{ collect([$media->ratioLabel(), $media->dimensionsLabel() ?? $media->folderLabel()])->filter()->implode(' · ') }}</span>
+                            @if ($lowTarget = $field->lowResolutionTarget($media))
+                                <span class="sm-media-warning" title="Section ini memakai lebar {{ $lowTarget }} px; gambar ini akan tampil buram.">⚠ Resolusi rendah</span>
+                            @endif
                         </span>
                     </button>
                 @endforeach
             </div>
 
-            @if ($items->count() >= \App\Filament\Support\MediaPicker::LIMIT)
-                <p class="sm-media-empty">Menampilkan {{ \App\Filament\Support\MediaPicker::LIMIT }} gambar terbaru. Gunakan pencarian untuk menemukan gambar lain.</p>
+            @if ($hasMore)
+                <div class="sm-media-more">
+                    <x-filament::button
+                        color="gray"
+                        size="sm"
+                        x-on:click="$wire.set(@js($getLimitStatePath()), {{ $pageSize + \App\Filament\Support\MediaPicker::LIMIT }})"
+                        wire:loading.attr="disabled"
+                    >
+                        Muat lebih banyak
+                    </x-filament::button>
+                    <span class="sm-media-empty">Menampilkan {{ $pageSize }} gambar terbaru</span>
+                </div>
             @endif
         @endif
     </div>

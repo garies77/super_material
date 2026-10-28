@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Filament\Support\DescriptiveFileName;
+use App\Filament\Support\ImagePreset;
 use App\Models\AuditLog;
 use App\Models\Media;
 use Filament\Forms\Components\BaseFileUpload;
@@ -161,6 +162,33 @@ class MediaLibrary
 
         AuditLog::record(request(), 'media.deleted', $media, ['path' => $media->path]);
         $media->delete();
+    }
+
+    /**
+     * Cari gambar pustaka dari teks yang ditulis admin (mis. di Excel): path lengkap, nama, atau nama berkas.
+     * Bila beberapa gambar bernama sama, yang terbaru dipakai.
+     */
+    public static function findByReference(string $reference): ?Media
+    {
+        $reference = trim(str_replace('\\', '/', $reference), " /\t");
+
+        if ($reference === '') {
+            return null;
+        }
+
+        return Media::where('path', $reference)->first()
+            ?? Media::whereRaw('LOWER(name) = ?', [mb_strtolower($reference)])->latest('id')->first()
+            ?? Media::where('path', 'like', '%/'.$reference)->latest('id')->get()
+                ->first(fn (Media $media) => strcasecmp(basename($media->path), $reference) === 0);
+    }
+
+    /** Sesuaikan gambar dengan preset section (config/media.php): rasio lain dibuatkan salinan terpotong. */
+    public static function fitToPreset(Media $media, string $presetKey): Media
+    {
+        $preset = ImagePreset::get($presetKey);
+        $ratio = ImagePreset::singleRatio($preset);
+
+        return $ratio === null || $media->matchesRatio($ratio) ? $media : self::cropToRatio($media, $ratio, $preset['width'] ?? null);
     }
 
     public static function folderFor(string $path): string

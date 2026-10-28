@@ -324,6 +324,23 @@
         font-weight: 500;
     }
 
+    .sm-media-more {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-top: 0.75rem;
+    }
+
+    .sm-media-more .sm-media-empty {
+        margin-top: 0;
+    }
+
+    .sm-media-warning {
+        font-size: 0.6875rem;
+        font-weight: 600;
+        color: rgb(217 119 6);
+    }
+
     .sm-media-meta,
     .sm-media-empty {
         font-size: 0.75rem;

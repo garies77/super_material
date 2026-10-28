@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Products\Pages;
 
 use App\Filament\Resources\Products\ProductResource;
 use App\Support\Catalog\ProductImporter;
+use App\Support\Catalog\ProductPhotos;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Forms\Components\FileUpload;
@@ -26,7 +27,7 @@ class ListProducts extends ListRecords
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('gray')
                 ->action(function () {
-                    $query = $this->getFilteredTableQuery()->with(['category', 'brand', 'links.channel']);
+                    $query = $this->getFilteredTableQuery()->with(['category', 'brand', 'links.channel', 'media']);
 
                     return response()->streamDownload(function () use ($query) {
                         $out = fopen('php://output', 'w');
@@ -44,6 +45,7 @@ class ListProducts extends ListRecords
                             'lazada_url',
                             'tiktok_url',
                             'terbit',
+                            'gambar',
                         ]);
 
                         $query->reorder('id')->chunk(500, function ($products) use ($out) {
@@ -63,6 +65,8 @@ class ListProducts extends ListRecords
                                     $links['lazada']->url ?? '',
                                     $links['tiktok-shop']->url ?? '',
                                     $p->is_published ? '1' : '0',
+                                    // Path foto pustaka: berkas ekspor bisa diimpor ulang tanpa kehilangan foto
+                                    implode(', ', ProductPhotos::paths($p)),
                                 ]);
                             }
                         });
@@ -82,7 +86,7 @@ class ListProducts extends ListRecords
                         ->disk('local')
                         ->directory('imports')
                         ->required()
-                        ->helperText('CSV atau Excel (.xlsx). Kolom: nama, slug, kategori, merek, harga_min, harga_max, satuan, badge, shopee_url, tokopedia_url, lazada_url, tiktok_url, whatsapp_message, terbit. Baris tidak valid dilewati.'),
+                        ->helperText('CSV atau Excel (.xlsx). Kolom: nama, slug, kategori, merek, harga_min, harga_max, satuan, badge, shopee_url, tokopedia_url, lazada_url, tiktok_url, whatsapp_message, terbit, gambar. Kolom gambar berisi nama berkas dari Pustaka Media (pisah koma; foto pertama = utama; kosong = foto tidak diubah). Baris tidak valid dilewati.'),
                 ])
                 ->action(function (array $data) {
                     $path = Storage::disk('local')->path($data['csv_file']);

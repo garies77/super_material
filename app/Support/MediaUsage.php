@@ -66,6 +66,51 @@ class MediaUsage
     }
 
     /**
+     * Ganti semua pemakaian berkas lama dengan berkas baru di seluruh konten. Disimpan lewat model agar event
+     * (bersihkan cache API, beranda, pengaturan) tetap berjalan; kolom JSON/HTML diganti pada teks mentahnya.
+     *
+     * @return int jumlah konten yang diperbarui
+     */
+    public static function replace(Media $old, Media $new): int
+    {
+        $search = [$old->path, str_replace('/', '\/', $old->path)];
+        $replace = [$new->path, str_replace('/', '\/', $new->path)];
+        $updated = 0;
+
+        foreach (self::sources() as [, $model, $columns]) {
+            $candidates = $model::query()->where(function (Builder $q) use ($columns, $old) {
+                foreach ($columns as $column) {
+                    $q->orWhere($column, 'like', '%'.basename($old->path).'%');
+                }
+            })->get();
+
+            foreach ($candidates as $record) {
+                $changes = collect($columns)
+                    ->mapWithKeys(fn (string $column) => [$column => $record->getRawOriginal($column)])
+                    ->filter(fn ($raw) => is_string($raw))
+                    ->map(fn (string $raw) => str_replace($search, $replace, $raw))
+                    ->filter(fn (string $raw, string $column) => $raw !== $record->getRawOriginal($column));
+
+                if ($changes->isEmpty()) {
+                    continue;
+                }
+
+                if ($record instanceof Setting) {
+                    Setting::put($record->key, $changes->first());
+                } else {
+                    // Nilai mentah (bukan lewat cast) agar JSON/HTML tersimpan persis seperti hasil penggantian
+                    $record->setRawAttributes([...$record->getAttributes(), ...$changes->all()]);
+                    $record->save();
+                }
+
+                $updated++;
+            }
+        }
+
+        return $updated;
+    }
+
+    /**
      * ID media yang dipakai konten mana pun. Semua kolom sumber dibaca sekali lalu dicocokkan per path,
      * agar filter "Belum dipakai" dan hapus massal tidak menjalankan belasan query per gambar.
      *

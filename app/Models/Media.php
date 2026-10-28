@@ -123,6 +123,24 @@ class Media extends Model
         return $this->width && $this->height && abs($this->width / $this->height - $ratio) <= $ratio * self::RATIO_TOLERANCE;
     }
 
+    /** Lebar minimum relatif terhadap lebar target section sebelum gambar dianggap akan tampil buram. */
+    public const LOW_RESOLUTION_THRESHOLD = 0.75;
+
+    /**
+     * Gambar raster yang lebarnya, setelah dipotong ke rasio section, jauh di bawah lebar target section.
+     * SVG (vektor) dan gambar tanpa dimensi tidak pernah dianggap rendah.
+     */
+    public function isTooSmallFor(?int $targetWidth, ?float $ratio = null): bool
+    {
+        if (! $targetWidth || ! $this->isCroppable()) {
+            return false;
+        }
+
+        $usableWidth = $ratio ? min($this->width, $this->height * $ratio) : $this->width;
+
+        return $usableWidth < $targetWidth * self::LOW_RESOLUTION_THRESHOLD;
+    }
+
     /** Gambar raster dengan dimensi diketahui yang bisa dipotong GD (SVG tidak). */
     public function isCroppable(): bool
     {

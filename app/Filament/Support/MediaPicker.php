@@ -8,6 +8,7 @@ use App\Support\MediaLibrary;
 use Filament\Actions\Action;
 use Filament\Forms\Components\BaseFileUpload;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -63,9 +64,13 @@ class MediaPicker
                 $grid = MediaGrid::make('selected')->hiddenLabel()
                     ->multiple(self::isMultiple($component))
                     ->targetRatios($ratios)
-                    ->items(fn (Get $get) => self::query($component, $ratios, $get('search'), $get('folder'))->limit(self::LIMIT)->get());
+                    ->targetWidth(self::targetWidth($component, $preset))
+                    ->pageSize(fn (Get $get) => (int) ($get('limit') ?: self::LIMIT))
+                    // Satu baris ekstra hanya untuk mengetahui apakah tombol "Muat lebih banyak" perlu tampil
+                    ->items(fn (Get $get) => self::query($component, $ratios, $get('search'), $get('folder'))
+                        ->limit((int) ($get('limit') ?: self::LIMIT) + 1)->get());
 
-                // Mengetik/memilih folder hanya me-render ulang grid, bukan seluruh halaman edit di belakang modal
+                // Mengetik/memilih folder/memuat lebih banyak hanya me-render ulang grid, bukan seluruh halaman di belakang modal
                 $renderGridOnly = fn () => $grid->partiallyRender();
 
                 $upload = LibraryFileUpload::make('upload')->label('Atau unggah gambar baru')
@@ -82,6 +87,7 @@ class MediaPicker
                             ->options(fn () => Media::query()->distinct()->orderBy('folder')->pluck('folder')
                                 ->mapWithKeys(fn (string $folder) => [$folder => Media::FOLDERS[$folder] ?? $folder])),
                     ]),
+                    Hidden::make('limit')->default(self::LIMIT)->live()->afterStateUpdated($renderGridOnly),
                     $grid,
                     $preset ? ImagePreset::apply($upload, $preset) : $upload,
                 ];
@@ -155,9 +161,17 @@ class MediaPicker
         if ($cropped !== []) {
             Notification::make()->title(count($cropped).' gambar dipotong otomatis ke rasio '.self::targetRatioLabels($component, $preset)[0])
                 ->body($component instanceof FileUpload
-                    ? 'Potongan diambil dari bagian tengah dan disimpan sebagai gambar baru. Klik ikon pensil pada gambar bila ingin menggeser area potongan.'
-                    : 'Potongan diambil dari bagian tengah dan disimpan sebagai gambar baru. Gambar asli tetap utuh di pustaka.')
+                    ? 'Potongan berpusat di titik fokus gambar dan disimpan sebagai gambar baru. Klik ikon pensil pada gambar bila ingin menggeser area potongan.'
+                    : 'Potongan berpusat di titik fokus gambar dan disimpan sebagai gambar baru. Gambar asli tetap utuh di pustaka.')
                 ->info()->send();
+        }
+
+        $width = self::targetWidth($component, $preset);
+        $tooSmall = collect($media)->filter(fn (Media $item) => $item->isTooSmallFor($width, $required))->pluck('name');
+        if ($tooSmall->isNotEmpty()) {
+            Notification::make()->title('Resolusi gambar rendah untuk section ini')
+                ->body($tooSmall->implode(', ')." lebih kecil dari lebar {$width} px yang dipakai section ini, jadi bisa tampil buram. Sebaiknya pakai gambar yang lebih besar.")
+                ->warning()->persistent()->send();
         }
 
         return $paths;
