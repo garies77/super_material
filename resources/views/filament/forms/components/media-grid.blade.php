@@ -43,7 +43,7 @@
                         class="sm-media-item"
                         title="{{ $media->name }}"
                     >
-                        <img src="{{ $media->thumbnailUrl() }}" alt="{{ $media->alt_text ?: $media->name }}" loading="lazy">
+                        <img src="{{ $media->thumbnailUrl() }}" alt="{{ $media->alt_text ?: $media->name }}" loading="lazy" decoding="async" width="160" height="160">
                         <span class="sm-media-badge" x-show="order(@js($media->path)) > 0" x-text="multiple ? order(@js($media->path)) : '✓'"></span>
                         <span class="sm-media-caption">
                             <span class="sm-media-name">{{ $media->name }}</span>

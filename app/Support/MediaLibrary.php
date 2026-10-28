@@ -94,7 +94,7 @@ class MediaLibrary
         $absolute = $disk->path($path);
         $dimensions = ImageDerivatives::dimensions($absolute);
 
-        return Media::create([
+        $media = Media::create([
             'path' => $path,
             'folder' => self::folderFor($path),
             'name' => Str::limit($originalName ?: basename($path), 250, ''),
@@ -105,6 +105,11 @@ class MediaLibrary
             'hash' => hash_file('sha256', $absolute),
             'uploaded_by' => auth()->id(),
         ]);
+
+        // Sekali saat unggah, bukan saat grid dirender
+        $media->generateThumbnail();
+
+        return $media;
     }
 
     public static function folderFor(string $path): string

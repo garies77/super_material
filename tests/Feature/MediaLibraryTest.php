@@ -16,6 +16,7 @@ use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\ViewErrorBag;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
@@ -106,6 +107,52 @@ it('lists the content that uses an image, including JSON-encoded paths', functio
 
     expect($usages->pluck('title')->all())->toEqualCanonicalizing([$product->name, 'site_og_image'])
         ->and($usages->pluck('type')->all())->toEqualCanonicalizing(['Produk', 'Pengaturan']);
+});
+
+it('creates a small thumbnail once when an image is registered', function () {
+    $media = libraryImage('products/besar.jpg', UploadedFile::fake()->image('besar.jpg', 1600, 1200));
+
+    // ImageDerivatives menulis turunan ke storage publik asli, bukan disk palsu
+    $thumbnail = storage_path('app/public/'.$media->thumbnail_path);
+
+    expect($media->thumbnail_path)->toStartWith('derivatives/')->toEndWith('_w320.webp')
+        ->and(getimagesize($thumbnail)[0])->toBe(320)
+        ->and($media->thumbnailUrl())->toBe(Storage::disk('public')->url($media->thumbnail_path));
+
+    @unlink($thumbnail);
+});
+
+it('uses the embedded bitmap as thumbnail for an SVG export and keeps vector-only SVGs as they are', function () {
+    $bitmap = base64_encode(UploadedFile::fake()->image('isi.png', 800, 450)->getContent());
+    Storage::disk('public')->put('articles/banner.svg', '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="800" height="450"><image width="800" height="450" xlink:href="data:image/png;base64,'.$bitmap.'"/></svg>');
+    Storage::disk('public')->put('logos/vektor.svg', '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><circle cx="48" cy="48" r="40"/></svg>');
+
+    expect(MediaLibrary::register('articles/banner.svg')->thumbnail_path)->toEndWith('_w320.webp')
+        ->and(MediaLibrary::register('logos/vektor.svg')->thumbnail_path)->toBe('logos/vektor.svg');
+});
+
+it('fills in missing thumbnails for media registered before thumbnails existed', function () {
+    $media = libraryImage('articles/lama.jpg', UploadedFile::fake()->image('lama.jpg', 800, 600));
+    $media->update(['thumbnail_path' => null]);
+
+    $this->artisan('media:sync')->assertSuccessful();
+
+    expect($media->refresh()->thumbnail_path)->toEndWith('_w320.webp');
+});
+
+it('filters the picker grid by search text', function () {
+    libraryImage('products/semen-gresik.png', UploadedFile::fake()->image('a.png', 300, 300));
+    libraryImage('products/keramik-roman.png', UploadedFile::fake()->image('b.png', 310, 300));
+    $category = Category::create(['name' => 'Semen', 'slug' => 'semen', 'is_active' => true]);
+
+    $page = Livewire::test(EditCategory::class, ['record' => $category->getRouteKey()])
+        ->mountAction(TestAction::make('pickFromMediaLibrary')->schemaComponent('image'))
+        ->set('mountedActions.0.data.search', 'keramik');
+
+    view()->share('errors', new ViewErrorBag);
+    $grid = (fn ($livewire) => $livewire->getSchema($livewire->getMountedActionSchemaName())->toHtml())($page->instance());
+
+    expect($grid)->toContain('keramik-roman.png')->not->toContain('semen-gresik.png');
 });
 
 it('lets every active panel role open the media library', function (string $role) {

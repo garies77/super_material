@@ -39,23 +39,30 @@ class MediaPicker
             ->modalSubmitActionLabel('Gunakan gambar')
             ->visible(fn (Component $component) => ! $component->isDisabled()
                 && (! $component instanceof BaseFileUpload || $component->getDiskName() === Media::DISK))
-            ->schema(fn (Component $component) => [
-                Grid::make(3)->schema([
-                    TextInput::make('search')->hiddenLabel()->placeholder('Cari nama berkas atau teks alternatif…')
-                        ->prefixIcon(Heroicon::MagnifyingGlass)->live(debounce: 400)->columnSpan(2),
-                    Select::make('folder')->hiddenLabel()->placeholder('Semua folder')->live()
-                        ->options(fn () => Media::query()->distinct()->orderBy('folder')->pluck('folder')
-                            ->mapWithKeys(fn (string $folder) => [$folder => Media::FOLDERS[$folder] ?? $folder])),
-                ]),
-                MediaGrid::make('selected')->hiddenLabel()
+            ->schema(function (Component $component) use ($minPixels): array {
+                $grid = MediaGrid::make('selected')->hiddenLabel()
                     ->multiple(self::isMultiple($component))
-                    ->items(fn (Get $get) => self::query($component, $get('search'), $get('folder'))->limit(self::LIMIT)->get()),
-                LibraryFileUpload::make('upload')->label('Atau unggah gambar baru')
-                    ->image()->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])->maxSize(4096)->storeFiles(false)
-                    ->rules($minPixels > 0 ? [new MinImagePixels($minPixels)] : [])
-                    ->helperText($minPixels > 0 ? 'Minimal '.number_format($minPixels, 0, ',', '.').' piksel. Gambar baru otomatis masuk Pustaka Media.' : 'Gambar baru otomatis masuk Pustaka Media.')
-                    ->visible(! $component instanceof BaseFileUpload),
-            ])
+                    ->items(fn (Get $get) => self::query($component, $get('search'), $get('folder'))->limit(self::LIMIT)->get());
+
+                // Mengetik/memilih folder hanya me-render ulang grid, bukan seluruh halaman edit di belakang modal
+                $renderGridOnly = fn () => $grid->partiallyRender();
+
+                return [
+                    Grid::make(3)->schema([
+                        TextInput::make('search')->hiddenLabel()->placeholder('Cari nama berkas atau teks alternatif…')
+                            ->prefixIcon(Heroicon::MagnifyingGlass)->live(debounce: 400)->afterStateUpdated($renderGridOnly)->columnSpan(2),
+                        Select::make('folder')->hiddenLabel()->placeholder('Semua folder')->live()->afterStateUpdated($renderGridOnly)
+                            ->options(fn () => Media::query()->distinct()->orderBy('folder')->pluck('folder')
+                                ->mapWithKeys(fn (string $folder) => [$folder => Media::FOLDERS[$folder] ?? $folder])),
+                    ]),
+                    $grid,
+                    LibraryFileUpload::make('upload')->label('Atau unggah gambar baru')
+                        ->image()->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])->maxSize(4096)->storeFiles(false)
+                        ->rules($minPixels > 0 ? [new MinImagePixels($minPixels)] : [])
+                        ->helperText($minPixels > 0 ? 'Minimal '.number_format($minPixels, 0, ',', '.').' piksel. Gambar baru otomatis masuk Pustaka Media.' : 'Gambar baru otomatis masuk Pustaka Media.')
+                        ->visible(! $component instanceof BaseFileUpload),
+                ];
+            })
             ->action(function (array $data, Component $component) use ($directory): void {
                 $paths = self::selectedPaths($data['selected'] ?? []);
 

@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Number;
+use Illuminate\Support\Str;
 
 /**
  * Satu berkas gambar di disk publik yang terdaftar di Pustaka Media.
@@ -20,6 +21,8 @@ class Media extends Model
     use HasFactory;
 
     public const DISK = 'public';
+
+    public const THUMBNAIL_WIDTH = 320;
 
     /** Label folder untuk direktori unggahan yang sudah ada. */
     public const FOLDERS = [
@@ -60,10 +63,48 @@ class Media extends Model
         return Storage::disk(self::DISK)->url($this->path);
     }
 
-    /** Versi kecil (WebP 320 px) untuk grid pustaka; dibuat sekali lalu disimpan di disk. */
+    /**
+     * Versi kecil untuk grid pustaka. Hanya membaca kolom tersimpan (tanpa akses disk);
+     * belum ada thumbnail = berkas asli.
+     */
     public function thumbnailUrl(): string
     {
-        return ImageDerivatives::resized($this->url(), 320) ?? $this->url();
+        return Storage::disk(self::DISK)->url($this->thumbnail_path ?: $this->path);
+    }
+
+    /**
+     * Buat thumbnail WebP 320 px sekali lalu simpan path-nya. SVG berisi bitmap tersemat (ekspor Figma, ratusan KB)
+     * memakai bitmap terbesarnya; SVG vektor murni dan gambar yang gagal diproses memakai berkas asli.
+     */
+    public function generateThumbnail(): void
+    {
+        $isSvg = $this->mime_type === 'image/svg+xml';
+        $source = $isSvg ? $this->embeddedBitmapPath() : Storage::disk(self::DISK)->path($this->path);
+        $url = $source ? ImageDerivatives::resized($source, self::THUMBNAIL_WIDTH) : null;
+        $marker = '/storage/derivatives/';
+
+        if ($isSvg && $source) {
+            @unlink($source);
+        }
+
+        $this->update(['thumbnail_path' => $url && str_contains($url, $marker) ? 'derivatives/'.Str::after($url, $marker) : $this->path]);
+    }
+
+    /** Tulis bitmap base64 terbesar di dalam SVG ke berkas sementara; null bila SVG tidak memuat bitmap. */
+    private function embeddedBitmapPath(): ?string
+    {
+        preg_match_all('#data:image/(png|jpe?g|webp);base64,([A-Za-z0-9+/=\s]+)#', (string) Storage::disk(self::DISK)->get($this->path), $matches, PREG_SET_ORDER);
+        $largest = collect($matches)->sortByDesc(fn (array $match) => strlen($match[2]))->first();
+
+        if (! $largest || ($bitmap = base64_decode(preg_replace('/\s+/', '', $largest[2]), true)) === false) {
+            return null;
+        }
+
+        // Jenis gambar dibaca dari isinya (getimagesize), jadi berkas sementara tidak perlu ekstensi
+        $path = tempnam(sys_get_temp_dir(), 'svgthumb');
+        file_put_contents($path, $bitmap);
+
+        return $path;
     }
 
     public function folderLabel(): string
