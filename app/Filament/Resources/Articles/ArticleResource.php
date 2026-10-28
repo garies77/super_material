@@ -8,6 +8,7 @@ use App\Filament\Resources\Articles\Pages\ListArticles;
 use App\Filament\Support\CustomCodeFields;
 use App\Filament\Support\DescriptiveFileName;
 use App\Filament\Support\SeoFields;
+use App\Filament\Support\SeoScorePanel;
 use App\Models\Article;
 use App\Rules\MinImagePixels;
 use App\Support\SeoScore;
@@ -28,6 +29,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -61,9 +63,31 @@ class ArticleResource extends Resource
         return $user?->role === 'author' ? $query->whereHas('author', fn ($q) => $q->where('user_id', $user->id)) : $query;
     }
 
+    /**
+     * Skor SEO dari isi form yang belum disimpan: salinan artikel diisi nilai form, kategori & tag dari state.
+     *
+     * @return array{score: int, checks: array<string, bool>, pending: bool}
+     */
+    public static function seoPreview(Get $get, ?Article $record): array
+    {
+        $article = $record ? clone $record : new Article;
+        $article->forceFill(collect(['title', 'summary', 'image_caption', 'author_id', 'meta_title', 'meta_description'])
+            ->mapWithKeys(fn (string $field) => [$field => $get($field)])->all());
+        $article->image = SeoScorePanel::storedPaths($get('image'))[0] ?? null;
+        $article->og_image = SeoScorePanel::storedPaths($get('og_image'))[0] ?? null;
+        $article->setRelation('categories', collect((array) $get('categories')));
+        $article->setRelation('tags', collect((array) $get('tags')));
+
+        return SeoScore::forArticle($article) + ['pending' => SeoScorePanel::hasPendingUpload($get('image'))];
+    }
+
     public static function form(Schema $schema): Schema
     {
         // Dua kolom utama: 7:5 di desktop menengah (xl), 8:4 di layar lebar (2xl); satu kolom di bawah 1280 px. Kiri: konten di kiri, publikasi & relasi di kolom pendamping; satu kolom di layar kecil
+        // Panel skor SEO di kolom kanan; field pemicu hanya me-render ulang panel ini
+        $seoPanel = SeoScorePanel::make(fn (Get $get, ?Article $record) => self::seoPreview($get, $record));
+        $refreshSeo = SeoScorePanel::refresh();
+
         return $schema->columns(['default' => 1, 'lg' => 1, 'xl' => 12])->components([
             Group::make()->columnSpan(['xl' => 7, '2xl' => 8])->schema([
                 Section::make('Artikel Utama')->columns(2)->schema([
@@ -72,7 +96,8 @@ class ArticleResource extends Resource
                     TextInput::make('slug')->required()->unique(ignoreRecord: true)
                         ->helperText('Mengubah slug otomatis membuat redirect 301 dari URL lama.'),
                     Textarea::make('summary')->label('Ringkasan')->rows(2)->columnSpanFull()
-                        ->helperText('Dipakai sebagai meta description dan ringkasan kartu artikel.'),
+                        ->helperText('Dipakai sebagai meta description dan ringkasan kartu artikel.')
+                        ->live(onBlur: true)->afterStateUpdated($refreshSeo),
                     RichEditor::make('content')->label('Isi Artikel')->required()->columnSpanFull()
                         ->helperText('Gunakan heading H2 & H3 untuk daftar isi otomatis.'),
                 ]),
@@ -81,8 +106,9 @@ class ArticleResource extends Resource
                     FileUpload::make('image')->label('Foto Utama (16:9)')->image()->imagePreset('article')->disk('public')->directory('articles')->visibility('public')->columnSpanFull()
                         ->getUploadedFileNameForStorageUsing(DescriptiveFileName::from('title', 'articles'))
                         ->rule(new MinImagePixels(50000))
-                        ->helperText('Minimal 50.000 piksel (disarankan 1200×675 untuk 16:9). Sistem otomatis membuat turunan 16:9, 4:3, dan 1:1 untuk Google Images & Discover (PRD 9.13.3 & SEO-01).'),
-                    TextInput::make('image_caption')->label('Keterangan Foto')->placeholder('Contoh: Suasana pengaplikasian semen instan untuk dinding bata ringan'),
+                        ->helperText('Minimal 50.000 piksel (disarankan 1200×675 untuk 16:9). Sistem otomatis membuat turunan 16:9, 4:3, dan 1:1 untuk Google Images & Discover (PRD 9.13.3 & SEO-01).')
+                        ->live()->afterStateUpdated($refreshSeo),
+                    TextInput::make('image_caption')->label('Keterangan Foto')->live(onBlur: true)->afterStateUpdated($refreshSeo)->placeholder('Contoh: Suasana pengaplikasian semen instan untuk dinding bata ringan'),
                     TextInput::make('image_credit')->label('Kredit Foto')->placeholder('Contoh: Dok. Supermaterial / Antara'),
                 ]),
 
@@ -93,10 +119,12 @@ class ArticleResource extends Resource
 
             // Kolom pendamping
             Group::make()->columnSpan(['xl' => 5, '2xl' => 4])->schema([
+                Section::make('Skor SEO')->schema([$seoPanel]),
+
                 Section::make('Publikasi & Penulis')->schema([
                     // Bawaan: profil penulis milik akun yang login. Penulis terkunci ke profilnya sendiri
                     // (ditegakkan juga di backend saat simpan); Admin/Editor bebas memilih atau membuat profil kontributor.
-                    Select::make('author_id')->label('Penulis')->relationship('author', 'name')->searchable()->preload()
+                    Select::make('author_id')->label('Penulis')->relationship('author', 'name')->searchable()->preload()->live()->afterStateUpdated($refreshSeo)
                         ->default(fn () => auth()->user()?->author()->value('id'))
                         ->disabled(fn () => auth()->user()?->role === 'author')
                         ->dehydrated()
@@ -120,8 +148,8 @@ class ArticleResource extends Resource
                 ]),
 
                 Section::make('Kategori, Tag & Relasi')->schema([
-                    Select::make('categories')->label('Kategori Artikel')->relationship('categories', 'name')->multiple()->searchable()->preload(),
-                    Select::make('tags')->label('Topik Terkait (Tag)')->relationship('tags', 'name')->multiple()->searchable()->preload()
+                    Select::make('categories')->label('Kategori Artikel')->relationship('categories', 'name')->multiple()->searchable()->preload()->live()->afterStateUpdated($refreshSeo),
+                    Select::make('tags')->label('Topik Terkait (Tag)')->relationship('tags', 'name')->multiple()->searchable()->preload()->live()->afterStateUpdated($refreshSeo)
                         ->createOptionForm([
                             TextInput::make('name')->label('Nama Tag')->required(),
                             TextInput::make('slug')->label('Slug')->unique('tags', 'slug'),

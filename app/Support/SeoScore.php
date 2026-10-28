@@ -39,11 +39,17 @@ class SeoScore
             'Nama file gambar deskriptif' => filled($a->image) && self::descriptiveName($a->image),
             'Gambar utama ≥ 1200 px lebar' => self::minSide($a->image, 1200, 'width'),
             'Penulis terisi' => filled($a->author_id),
-            'Kategori atau tag terisi' => $a->categories()->exists() || $a->tags()->exists(),
+            // Relasi yang sudah dimuat (mis. dari isi form yang belum disimpan) dipakai apa adanya
+            'Kategori atau tag terisi' => self::hasRelated($a, 'categories') || self::hasRelated($a, 'tags'),
             'Gambar Open Graph tersedia dan bukan logo' => self::ogOk($a->primaryImageUrl()),
             'Judul ≤ 110 karakter' => mb_strlen($a->title) <= 110,
             'Judul dan deskripsi meta terisi atau dapat dibuat otomatis' => filled($a->meta_title ?: $a->title) && filled($a->meta_description ?: $a->summary),
         ]);
+    }
+
+    private static function hasRelated(Article $article, string $relation): bool
+    {
+        return $article->relationLoaded($relation) ? $article->getRelation($relation)->isNotEmpty() : $article->{$relation}()->exists();
     }
 
     private static function result(array $checks): array
