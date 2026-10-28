@@ -25,8 +25,8 @@ class SeoFields
                 ->helperText('Ideal 140–158 karakter. Kosong = dibuat otomatis dari ringkasan.')->live(onBlur: true),
             TextInput::make('canonical_url')->label('URL kanonik')->url()->helperText('Opsional; kosong = URL halaman ini.'),
             Toggle::make('noindex')
-                ->label('Noindex (sembunyikan dari Google)')
-                ->helperText('Perayap dapat membaca meta noindex. Halaman yang diblokir di robots.txt Disallow dilarang ditandai noindex (PRD 9.11.3).')
+                ->label('Sembunyikan dari Google (noindex)')
+                ->helperText('Perayap dapat membaca meta noindex. Halaman yang diblokir di robots.txt Disallow dilarang ditandai noindex.')
                 ->rules([
                     fn (Get $get, $record) => function (string $attribute, $value, \Closure $fail) use ($get, $record) {
                         if ($value) {
@@ -41,7 +41,7 @@ class SeoFields
                     },
                 ]),
             Toggle::make('nofollow')
-                ->label('Nofollow (jangan ikuti tautan di halaman ini)')
+                ->label('Jangan ikuti tautan di halaman ini (nofollow)')
                 ->helperText('Noindex + nofollow setara dengan direktif "none".'),
         ];
 
@@ -60,7 +60,7 @@ class SeoFields
             ]);
         }
 
-        return Section::make('SEO')->icon('heroicon-o-magnifying-glass')->collapsed()->schema($fields)->columns(1);
+        return Section::make('SEO lanjutan')->icon('heroicon-o-magnifying-glass')->collapsed()->schema($fields)->columns(1);
     }
 
     private static function preview(Get $get): HtmlString

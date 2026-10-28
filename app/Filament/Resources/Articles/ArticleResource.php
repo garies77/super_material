@@ -108,8 +108,8 @@ class ArticleResource extends Resource
 
         return $schema->columns(['default' => 1, 'lg' => 1, 'xl' => 12])->components([
             Group::make()->columnSpan(['xl' => 7, '2xl' => 8])->schema([
-                Section::make('Artikel Utama')->columns(2)->schema([
-                    TextInput::make('title')->label('Judul (H1)')->required()->maxLength(255)->live(onBlur: true)
+                Section::make('Isi artikel')->columns(2)->schema([
+                    TextInput::make('title')->label('Judul')->required()->maxLength(255)->live(onBlur: true)
                         ->afterStateUpdated(fn (Set $set, ?string $state, string $operation) => $operation === 'create' ? $set('slug', Str::slug($state)) : null),
                     TextInput::make('slug')->required()->unique(ignoreRecord: true)
                         ->helperText('Mengubah slug otomatis membuat redirect 301 dari URL lama.'),
@@ -120,14 +120,14 @@ class ArticleResource extends Resource
                         ->helperText('Gunakan heading H2 & H3 untuk daftar isi otomatis.'),
                 ]),
 
-                Section::make('Gambar Utama & Foto')->columns(2)->schema([
-                    FileUpload::make('image')->label('Foto Utama (16:9)')->image()->imagePreset('article')->disk('public')->directory('articles')->visibility('public')->columnSpanFull()
+                Section::make('Foto utama')->columns(2)->schema([
+                    FileUpload::make('image')->label('Foto utama (16:9)')->image()->imagePreset('article')->disk('public')->directory('articles')->visibility('public')->columnSpanFull()
                         ->getUploadedFileNameForStorageUsing(DescriptiveFileName::from('title', 'articles'))
                         ->rule(new MinImagePixels(50000))
-                        ->helperText('Minimal 50.000 piksel (disarankan 1200×675 untuk 16:9). Sistem otomatis membuat turunan 16:9, 4:3, dan 1:1 untuk Google Images & Discover (PRD 9.13.3 & SEO-01).')
+                        ->helperText('Minimal 50.000 piksel (disarankan 1200×675 untuk 16:9). Sistem otomatis membuat turunan 16:9, 4:3, dan 1:1 untuk Google Images & Discover.')
                         ->live()->afterStateUpdated($refreshSeo),
-                    TextInput::make('image_caption')->label('Keterangan Foto')->live(onBlur: true)->afterStateUpdated($refreshSeo)->placeholder('Contoh: Suasana pengaplikasian semen instan untuk dinding bata ringan'),
-                    TextInput::make('image_credit')->label('Kredit Foto')->placeholder('Contoh: Dok. Supermaterial / Antara'),
+                    TextInput::make('image_caption')->label('Keterangan foto')->live(onBlur: true)->afterStateUpdated($refreshSeo)->placeholder('Contoh: Suasana pengaplikasian semen instan untuk dinding bata ringan'),
+                    TextInput::make('image_credit')->label('Kredit foto')->placeholder('Contoh: Dok. Supermaterial / Antara'),
                 ]),
 
                 CustomCodeFields::make(),
@@ -139,7 +139,7 @@ class ArticleResource extends Resource
             Group::make()->columnSpan(['xl' => 5, '2xl' => 4])->schema([
                 Section::make('Misi kelengkapan')->icon(Heroicon::OutlinedTrophy)->schema([$seoPanel]),
 
-                Section::make('Publikasi & Penulis')->schema([
+                Section::make('Penulis & jadwal terbit')->schema([
                     // Bawaan: profil penulis milik akun yang login. Penulis terkunci ke profilnya sendiri
                     // (ditegakkan juga di backend saat simpan); Admin/Editor bebas memilih atau membuat profil kontributor.
                     Select::make('author_id')->label('Penulis')->relationship('author', 'name')->searchable()->preload()->live()->afterStateUpdated($refreshSeo)
@@ -154,7 +154,7 @@ class ArticleResource extends Resource
                         ->helperText(fn () => auth()->user()?->writesAsOwnAuthor()
                             ? 'Artikel diterbitkan atas nama profil penulis Anda.'
                             : 'Bawaan: profil Anda. Pilih kontributor lain atau tambah profil baru bila perlu.'),
-                    DateTimePicker::make('published_at')->label('Tanggal & Jam Terbit (WIB)')->seconds(false)->timezone('Asia/Jakarta')
+                    DateTimePicker::make('published_at')->label('Jadwal terbit (WIB)')->seconds(false)->timezone('Asia/Jakarta')
                         ->helperText(ReviewWorkflow::canPublish() ? 'Kosong = Draf. Isi waktu mendatang untuk terbit terjadwal.' : 'Diterbitkan oleh Editor/Admin setelah Anda klik "Ajukan untuk ditinjau".')
                         ->disabled(! ReviewWorkflow::canPublish())->dehydrated(ReviewWorkflow::canPublish())
                         ->suffixAction(Action::make('publishNow')->label('Terbitkan Sekarang')->icon('heroicon-o-bolt')
@@ -162,20 +162,20 @@ class ArticleResource extends Resource
                             ->action(fn (Set $set) => $set('published_at', now()))), // waktu aplikasi; field mengubahnya ke WIB sendiri
                     Toggle::make('is_featured')->label('Artikel unggulan')->default(false)
                         ->disabled(! ReviewWorkflow::canPublish())->dehydrated(ReviewWorkflow::canPublish()),
-                    Select::make('schema_type')->label('Jenis Data Terstruktur')->options(Article::SCHEMA_TYPES)
+                    Select::make('schema_type')->label('Jenis artikel untuk Google')->options(Article::SCHEMA_TYPES)
                         ->default('BlogPosting')->required()->selectablePlaceholder(false)
-                        ->helperText('@type JSON-LD artikel (PRD 9.13.1).'),
+                        ->helperText('@type JSON-LD artikel.'),
                 ]),
 
-                Section::make('Kategori, Tag & Relasi')->schema([
-                    Select::make('categories')->label('Kategori Artikel')->relationship('categories', 'name')->multiple()->searchable()->preload()->live()->afterStateUpdated($refreshSeo),
-                    Select::make('tags')->label('Topik Terkait (Tag)')->relationship('tags', 'name')->multiple()->searchable()->preload()->live()->afterStateUpdated($refreshSeo)
+                Section::make('Kategori & tautan terkait')->schema([
+                    Select::make('categories')->label('Kategori')->relationship('categories', 'name')->multiple()->searchable()->preload()->live()->afterStateUpdated($refreshSeo),
+                    Select::make('tags')->label('Tag')->relationship('tags', 'name')->multiple()->searchable()->preload()->live()->afterStateUpdated($refreshSeo)
                         ->createOptionForm([
                             TextInput::make('name')->label('Nama Tag')->required(),
                             TextInput::make('slug')->label('Slug')->unique('tags', 'slug'),
                         ]),
-                    Select::make('relatedArticles')->label('Artikel Terkait (Manual)')->relationship('relatedArticles', 'title')->multiple()->searchable()->preload(),
-                    Select::make('products')->label('Produk Terkait (Dibahas dalam Artikel)')->relationship('products', 'name')->multiple()->searchable()->preload(),
+                    Select::make('relatedArticles')->label('Artikel terkait')->relationship('relatedArticles', 'title')->multiple()->searchable()->preload(),
+                    Select::make('products')->label('Produk yang dibahas')->relationship('products', 'name')->multiple()->searchable()->preload(),
                 ]),
 
                 Section::make('FAQ')->collapsed()->schema([
@@ -191,6 +191,9 @@ class ArticleResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateIcon('heroicon-o-newspaper')
+            ->emptyStateHeading('Belum ada artikel')
+            ->emptyStateDescription('Tulis artikel pertama: panduan atau tips seputar bahan bangunan membantu pembeli dan Google.')
             // Draf (belum ada tanggal terbit) di paling atas, lalu terjadwal/terbit terbaru; tanpa ini draf baru tenggelam di halaman terakhir
             ->defaultSort(fn (Builder $query) => $query
                 ->orderByRaw('CASE WHEN published_at IS NULL THEN 0 ELSE 1 END')

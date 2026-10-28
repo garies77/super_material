@@ -74,7 +74,7 @@ class PageResource extends Resource
             ]),
 
             Group::make()->columnSpan(['xl' => 4, '2xl' => 3])->schema([
-                Section::make('Status & publikasi')->schema([
+                Section::make('Status terbit')->schema([
                     Text::make(fn (?Page $record) => match (true) {
                         ! $record => 'Belum disimpan',
                         ! $record->is_published => 'Draf',
@@ -86,9 +86,9 @@ class PageResource extends Resource
                         default => 'success',
                     }),
                     Text::make(fn (?Page $record) => match (true) {
-                        ! $record => 'Halaman belum tampil di situs. "Simpan Draft" menyimpan tanpa menayangkan; "Publikasikan" menayangkannya.',
-                        ! $record->is_published => 'Belum tampil di situs. Tekan "Publikasikan" bila sudah siap.',
-                        $record->hasUnpublishedChanges() => 'Pengunjung masih melihat versi terbit. Tekan "Publikasikan" untuk menayangkan perubahan.',
+                        ! $record => 'Halaman belum tampil di situs. "Simpan draf" menyimpan tanpa menerbitkan; "Terbitkan" menampilkannya di situs.',
+                        ! $record->is_published => 'Belum tampil di situs. Tekan "Terbitkan" bila sudah siap.',
+                        $record->hasUnpublishedChanges() => 'Pengunjung masih melihat versi terbit. Tekan "Terbitkan" untuk menampilkan perubahan.',
                         default => 'Pengunjung melihat versi yang sama dengan isi editor.',
                     }),
                     Actions::make([

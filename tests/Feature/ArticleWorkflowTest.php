@@ -16,10 +16,10 @@ beforeEach(function () {
     $this->admin = User::where('email', 'admin@supermaterial.test')->first();
 });
 
-it('shows a modern "Publikasi & Penulis" form without print-era fields', function () {
+it('shows a modern "Penulis & jadwal terbit" form without print-era fields', function () {
     $this->actingAs($this->admin);
 
-    $this->get('/admin/articles/create')->assertOk()->assertSee('Publikasi & Penulis')->assertDontSee('CNN Style');
+    $this->get('/admin/articles/create')->assertOk()->assertSee('Penulis &amp; jadwal terbit', false)->assertDontSee('CNN Style');
 
     Livewire::test(CreateArticle::class)
         ->assertFormFieldDoesNotExist('author_initials')

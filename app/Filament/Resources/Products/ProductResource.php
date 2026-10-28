@@ -161,14 +161,13 @@ class ProductResource extends Resource
                             TextInput::make('name')->required(),
                             TextInput::make('slug')->required()->unique('brands', 'slug'),
                         ]),
-                    TextInput::make('sku')->label('SKU Induk (productGroupID)')->placeholder('cth: STR-50')->maxLength(100)->live(onBlur: true)->afterStateUpdated($refreshSeo),
-                    TextInput::make('mpn')->label('MPN (Manufacturer Part Number)')->placeholder('cth: MPN-9988')->maxLength(100),
-                    TextInput::make('badge')->label('Badge Produk')->placeholder('Misal: Resmi, Best Seller, SNI'),
-                    TextInput::make('unit')->label('Satuan Penjualan')->placeholder('sak, batang, m², dus'),
+                    TextInput::make('sku')->label('Kode produk (SKU)')->helperText('Kode unik produk Anda; Google memakainya untuk mengelompokkan varian.')->placeholder('cth: STR-50')->maxLength(100)->live(onBlur: true)->afterStateUpdated($refreshSeo),
+                    TextInput::make('badge')->label('Label promo')->placeholder('Misal: Resmi, Best Seller, SNI'),
+                    TextInput::make('unit')->label('Satuan jual')->placeholder('sak, batang, m², dus'),
                     Textarea::make('summary')->label('Ringkasan')->rows(2)->columnSpanFull()->live(onBlur: true)->afterStateUpdated($refreshSeo),
                     RichEditor::make('description')->label('Deskripsi')
                         ->helperText('Tulis deskripsi unik; jangan salin dari marketplace.')->columnSpanFull(),
-                    KeyValue::make('specifications')->label('Spesifikasi Teknis')->keyLabel('Atribut')->valueLabel('Nilai')->columnSpanFull(),
+                    KeyValue::make('specifications')->label('Spesifikasi')->keyLabel('Atribut')->valueLabel('Nilai')->columnSpanFull(),
                 ]),
 
                 // Satu galeri foto (ProductPhotos menyimpannya ke product_media); video YouTube terpisah
@@ -194,23 +193,23 @@ class ProductResource extends Resource
                             ->mutateRelationshipDataBeforeSaveUsing(fn (array $data) => self::videoData($data)),
                     ]),
 
-                Section::make('Varian Produk')->description('Dapat berupa pilihan ukuran, ketebalan, warna, dsb. dengan harga & diskon masing-masing (Pola Single-Page ProductGroup PRD 9.14.2).')->schema([
+                Section::make('Varian produk')->description('Dapat berupa pilihan ukuran, ketebalan, warna, dsb. dengan harga & diskon masing-masing.')->schema([
                     Repeater::make('variants')->relationship()->label('')->columns(4)->defaultItems(0)->orderColumn('sort_order')->schema([
                         TextInput::make('option_group')->label('Grup')->default('Varian')->placeholder('cth: Ukuran / Warna')->required(),
-                        TextInput::make('name')->label('Nama Varian')->placeholder('cth: 40 kg, Putih 60x60')->required()->live(onBlur: true)
+                        TextInput::make('name')->label('Nama varian')->placeholder('cth: 40 kg, Putih 60x60')->required()->live(onBlur: true)
                             ->afterStateUpdated(fn (Set $set, ?string $state, string $operation) => $operation === 'create' ? $set('slug', Str::slug($state)) : null),
-                        TextInput::make('slug')->label('Slug Varian')->required(),
+                        TextInput::make('slug')->label('Alamat varian (slug)')->required(),
                         TextInput::make('sku')->label('SKU'),
-                        TextInput::make('price')->label('Harga Jual')->numeric()->prefix('Rp')->required(),
-                        TextInput::make('compare_at_price')->label('Harga Coret (Sebelum Diskon)')->numeric()->prefix('Rp'),
-                        DateTimePicker::make('discount_starts_at')->label('Mulai Diskon')
+                        TextInput::make('price')->label('Harga jual')->numeric()->prefix('Rp')->required(),
+                        TextInput::make('compare_at_price')->label('Harga sebelum diskon')->numeric()->prefix('Rp'),
+                        DateTimePicker::make('discount_starts_at')->label('Diskon mulai')
                             ->requiredWith('compare_at_price')
-                            ->helperText('Wajib diisi jika ada harga coret.'),
-                        DateTimePicker::make('discount_ends_at')->label('Berakhir Diskon')
+                            ->helperText('Wajib diisi bila ada harga sebelum diskon.'),
+                        DateTimePicker::make('discount_ends_at')->label('Diskon berakhir')
                             ->requiredWith('compare_at_price')
                             ->afterOrEqual('discount_starts_at')
-                            ->helperText('Wajib >= tanggal mulai.'),
-                        TextInput::make('image_path')->label('URL / Path Gambar Varian')->columnSpan(3)
+                            ->helperText('Tidak boleh sebelum tanggal mulai.'),
+                        TextInput::make('image_path')->label('Gambar varian')->columnSpan(3)
                             ->hintAction(MediaPicker::action('products', 50000, 'product')),
                         Toggle::make('is_active')->label('Aktif')->default(true),
                     ]),
@@ -234,15 +233,15 @@ class ProductResource extends Resource
                         ->disabled(! ReviewWorkflow::canPublish())->dehydrated(ReviewWorkflow::canPublish()),
                 ]),
 
-                Section::make('Harga & Catatan Pembelian')->columns(2)->schema([
-                    Select::make('price_display')->label('Tampilan Harga')->live()->afterStateUpdated($refreshSeo)
+                Section::make('Harga & info pembelian')->columns(2)->schema([
+                    Select::make('price_display')->label('Tampilan harga')->live()->afterStateUpdated($refreshSeo)
                         ->options([
                             'show' => 'Tampilkan Harga (Acuan/Varian)',
                             'hidden' => 'Sembunyikan ("Hubungi kami untuk harga")',
                         ])->default('show')->required(),
-                    TextInput::make('price_min')->label('Harga Minimum Acuan')->numeric()->prefix('Rp')->live(onBlur: true)->afterStateUpdated($refreshSeo),
-                    TextInput::make('price_max')->label('Harga Maksimum Acuan')->numeric()->prefix('Rp'),
-                    Select::make('availability')->label('Status Ketersediaan (Schema.org)')->live()->afterStateUpdated($refreshSeo)
+                    TextInput::make('price_min')->label('Harga terendah')->numeric()->prefix('Rp')->live(onBlur: true)->afterStateUpdated($refreshSeo),
+                    TextInput::make('price_max')->label('Harga tertinggi')->numeric()->prefix('Rp'),
+                    Select::make('availability')->label('Status stok')->live()->afterStateUpdated($refreshSeo)
                         ->options([
                             'InStock' => 'Tersedia (InStock)',
                             'LimitedAvailability' => 'Stok Terbatas (LimitedAvailability)',
@@ -250,22 +249,23 @@ class ProductResource extends Resource
                             'OutOfStock' => 'Habis (OutOfStock)',
                         ])
                         ->placeholder('Pilih ketersediaan (opsional)')
-                        ->helperText('Hanya ditulis ke schema JSON-LD bila diisi (PRD 9.10.2).'),
-                    DatePicker::make('price_valid_until')->label('Masa Berlaku Harga / Diskon')->live()->afterStateUpdated($refreshSeo)
-                        ->helperText('Tanggal kedaluwarsa harga acuan (PRD 9.10.2).'),
-                    TextInput::make('whatsapp_number')->label('Nomor WA Khusus (Timpa Global)'),
-                    TextInput::make('shipping_note')->label('Catatan Pengiriman')->placeholder('Pengiriman dari Medan · Ongkir terjangkau'),
-                    TextInput::make('guarantee_note')->label('Catatan Jaminan')->placeholder('100% Original · Garansi Pabrik'),
-                    Toggle::make('show_quantity')->label('Tampilkan Stepper Kuantitas')->default(true),
+                        ->helperText('Ditampilkan ke Google bila diisi.'),
+                    DatePicker::make('price_valid_until')->label('Harga berlaku sampai')->live()->afterStateUpdated($refreshSeo)
+                        ->helperText('Setelah tanggal ini, harga ditandai perlu ditinjau.'),
+                    TextInput::make('whatsapp_number')->label('Nomor WhatsApp khusus')->helperText('Kosong = nomor WhatsApp utama di Pengaturan.'),
+                    TextInput::make('shipping_note')->label('Catatan pengiriman')->placeholder('Pengiriman dari Medan · Ongkir terjangkau'),
+                    TextInput::make('guarantee_note')->label('Catatan jaminan')->placeholder('100% Original · Garansi Pabrik'),
+                    Toggle::make('show_quantity')->label('Tampilkan pilihan jumlah')->default(true),
                 ]),
 
-                Section::make('Penilaian & Ulasan (Rating)')->columns(2)->collapsed()->schema([
-                    TextInput::make('rating_value')->label('Nilai Rating (1.0 - 5.0)')->numeric()->step(0.1)->minValue(1)->maxValue(5),
-                    TextInput::make('rating_count')->label('Jumlah Penilaian')->numeric()->integer()->minValue(0),
-                    DatePicker::make('rating_updated_at')->label('Tanggal Update Rating'),
+                Section::make('Lanjutan: data untuk Google')->description('Opsional. Jarang perlu diubah.')->columns(2)->collapsed()->schema([
+                    TextInput::make('mpn')->label('Kode pabrik (MPN)')->placeholder('cth: MPN-9988')->maxLength(100)->helperText('Opsional: nomor part dari produsen.'),
+                    TextInput::make('rating_value')->label('Nilai rating (1–5)')->numeric()->step(0.1)->minValue(1)->maxValue(5),
+                    TextInput::make('rating_count')->label('Jumlah ulasan')->numeric()->integer()->minValue(0),
+                    DatePicker::make('rating_updated_at')->label('Rating diperbarui'),
                 ]),
 
-                Section::make('Tombol beli (kanal)')->description('Kanal tanpa tautan tidak ditampilkan. WhatsApp otomatis memakai nomor di Pengaturan.')->schema([
+                Section::make('Tombol beli')->description('Kanal tanpa tautan tidak ditampilkan. WhatsApp otomatis memakai nomor di Pengaturan.')->schema([
                     Repeater::make('links')->relationship()->label('')->defaultItems(0)->schema([
                         Select::make('sales_channel_id')->label('Kanal')
                             ->options(fn () => SalesChannel::orderBy('sort_order')->pluck('name', 'id'))
@@ -290,6 +290,9 @@ class ProductResource extends Resource
     {
         return $table
             ->defaultSort('updated_at', 'desc')
+            ->emptyStateIcon('heroicon-o-cube')
+            ->emptyStateHeading('Belum ada produk')
+            ->emptyStateDescription('Tambah produk pertama, atau impor banyak sekaligus dari Excel lewat tombol Impor CSV.')
             ->modifyQueryUsing(fn (Builder $query) => $query->with('media'))
             ->columns([
                 // Foto utama dari galeri (product_media), termasuk produk dari API yang kolom image-nya kosong

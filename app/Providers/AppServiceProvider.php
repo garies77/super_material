@@ -29,6 +29,7 @@ use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
 use Dedoc\Scramble\Support\Generator\SecurityScheme;
 use Filament\Forms\Components\FileUpload;
+use Filament\Tables\Table;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Http\Request;
@@ -87,6 +88,13 @@ class AppServiceProvider extends ServiceProvider
                 $upload->hintAction(MediaPicker::action());
             }
         });
+
+        // Default semua tabel admin: format tanggal Indonesia & 25 baris per halaman (tabel boleh menimpanya sendiri)
+        Table::configureUsing(fn (Table $table) => $table
+            ->defaultDateDisplayFormat('d M Y')
+            ->defaultDateTimeDisplayFormat('d M Y, H:i')
+            ->paginated([10, 25, 50, 100])
+            ->defaultPaginationPageOption(25));
 
         // ->imagePreset('article'): ukuran baku section dari config/media.php
         FileUpload::macro('imagePreset', function (string|Closure $preset): FileUpload {

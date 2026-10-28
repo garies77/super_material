@@ -85,6 +85,9 @@ class MediaResource extends Resource
                 ])->space(2),
             ])
             ->contentGrid(['md' => 2, 'lg' => 3, 'xl' => 4, '2xl' => 5])
+            ->emptyStateIcon('heroicon-o-photo')
+            ->emptyStateHeading('Pustaka media masih kosong')
+            ->emptyStateDescription('Unggah gambar lewat tombol Unggah gambar, atau daftarkan gambar lama dengan perintah php artisan media:sync.')
             ->defaultSort('id', 'desc')
             ->paginated([24, 48, 96])
             ->filters([

@@ -83,7 +83,7 @@ class ReviewWorkflow
                 ->visible(fn (Model $record) => self::canReview() && $record->isAwaitingReview())
                 ->requiresConfirmation()
                 ->modalHeading('Setujui dan terbitkan?')
-                ->modalDescription('Perubahan di form ini disimpan, lalu konten langsung tayang di situs.')
+                ->modalDescription('Perubahan di form ini disimpan, lalu konten langsung terbit di situs.')
                 ->modalSubmitActionLabel('Terbitkan')
                 ->action(function (Model $record) use ($page): void {
                     $page->save(shouldRedirect: false, shouldSendSavedNotification: false);

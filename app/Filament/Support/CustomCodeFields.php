@@ -17,7 +17,7 @@ class CustomCodeFields
      */
     public static function make(): Section
     {
-        return Section::make('Custom HTML')
+        return Section::make('Kode custom (lanjutan)')
             ->description('Kode dijalankan langsung di halaman publik, cocok untuk JSON-LD, tag pelacakan, atau widget. CSS otomatis dibatasi ke blok ini. Atribut onclick dan sejenisnya diblokir oleh CSP; pakai tab JavaScript.')
             ->collapsed()
             ->columnSpanFull()

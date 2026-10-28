@@ -222,7 +222,7 @@ class ManageHomepage extends Page implements HasSchemas
                 ->getSearchResultsUsing(fn (string $search) => Product::published()->where('name', 'like', "%{$search}%")->orderBy('name')->limit(50)->pluck('name', 'id')->all())
                 ->getOptionLabelsUsing(fn (array $values) => Product::whereIn('id', $values)->pluck('name', 'id')->all())
                 ->visible($mode('manual'))->required($mode('manual'))
-                ->helperText('Hanya produk yang dipublikasikan yang tampil di beranda.'),
+                ->helperText('Hanya produk yang sudah terbit yang tampil di beranda.'),
             Select::make('settings.category_id')->label('Kategori produk')->searchable()
                 ->options(fn () => Category::active()->orderBy('name')->pluck('name', 'id'))
                 ->visible($mode('category'))->required($mode('category'))

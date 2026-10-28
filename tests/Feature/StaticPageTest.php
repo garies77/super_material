@@ -35,7 +35,7 @@ it('opens create and edit as full editor pages, not modals', function () {
     $page = Page::first();
 
     $this->get('/admin/pages')->assertOk()->assertSee('Tambah Halaman');
-    $this->get('/admin/pages/create')->assertOk()->assertSee('Simpan Draft')->assertSee('Publikasikan')->assertSee('Pratinjau');
+    $this->get('/admin/pages/create')->assertOk()->assertSee('Simpan draf')->assertSee('Terbitkan')->assertSee('Pratinjau');
     $this->get("/admin/pages/{$page->id}/edit")->assertOk()->assertSee('Konten halaman');
 });
 

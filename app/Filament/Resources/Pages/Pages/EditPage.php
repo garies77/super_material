@@ -59,7 +59,7 @@ class EditPage extends EditRecord
             PageActions::more([
                 Action::make('unpublish')->label('Jadikan draf')->icon('heroicon-o-eye-slash')->color('warning')
                     ->visible(fn () => $this->record->is_published)
-                    ->requiresConfirmation()->modalDescription('Halaman tidak lagi tampil di situs sampai dipublikasikan kembali.')
+                    ->requiresConfirmation()->modalDescription('Halaman tidak lagi tampil di situs sampai diterbitkan kembali.')
                     ->action(function () {
                         $this->record->update(['is_published' => false]);
                         Notification::make()->title('Halaman dijadikan draf')->success()->send();
