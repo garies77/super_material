@@ -20,7 +20,6 @@ class ListProducts extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make(),
 
             // Action: Ekspor CSV Produk
             Action::make('export_csv')
@@ -116,6 +115,7 @@ class ListProducts extends ListRecords
 
                     $notification->send();
                 }),
+            CreateAction::make(),
         ];
     }
 }

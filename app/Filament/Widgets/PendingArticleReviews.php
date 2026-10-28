@@ -11,7 +11,7 @@ use Filament\Widgets\TableWidget;
 /** Artikel kiriman Kontributor yang menunggu Editor/Admin; tampil paling atas dan hanya bila ada antrean. */
 class PendingArticleReviews extends TableWidget
 {
-    protected static ?int $sort = -1;
+    protected static ?int $sort = -5;
 
     protected int|string|array $columnSpan = 'half';
 

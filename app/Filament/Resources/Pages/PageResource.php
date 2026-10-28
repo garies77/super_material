@@ -118,7 +118,7 @@ class PageResource extends Resource
                 TextColumn::make('updated_at')->label('Diperbarui')->since()->sortable(),
             ])
             ->recordActions([
-                Action::make('preview')->label('Preview')->icon('heroicon-o-eye')->color('gray')
+                Action::make('preview')->label('Pratinjau')->icon('heroicon-o-eye')->color('gray')
                     ->url(fn (Page $r) => route('page.preview', $r))->openUrlInNewTab(),
                 EditAction::make(),
                 DeleteAction::make(),

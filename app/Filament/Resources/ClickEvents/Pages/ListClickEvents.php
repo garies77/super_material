@@ -13,7 +13,7 @@ class ListClickEvents extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('export')->label('Ekspor CSV')->icon('heroicon-o-arrow-down-tray')
+            Action::make('export')->label('Ekspor CSV')->icon('heroicon-o-arrow-down-tray')->color('gray')
                 ->action(function () {
                     $query = $this->getFilteredTableQuery()->with(['product.category', 'channel']);
 

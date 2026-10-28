@@ -3,9 +3,9 @@
 namespace App\Filament\Resources\Products\Pages;
 
 use App\Filament\Resources\Products\ProductResource;
+use App\Filament\Support\PageActions;
 use App\Filament\Support\ReviewWorkflow;
 use App\Support\Catalog\ProductPhotos;
-use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Support\Enums\Width;
@@ -46,10 +46,11 @@ class EditProduct extends EditRecord
     {
         return [
             ...ReviewWorkflow::pageActions($this),
-            Action::make('view')->label('Lihat di situs')->icon('heroicon-o-arrow-top-right-on-square')
-                ->url(fn () => $this->record->url())->openUrlInNewTab(),
-            ProductResource::duplicateAction(),
-            DeleteAction::make()->visible(ReviewWorkflow::canPublish()),
+            PageActions::viewOnSite(fn () => $this->record->url()),
+            PageActions::more([
+                ProductResource::duplicateAction(),
+                DeleteAction::make()->visible(ReviewWorkflow::canPublish()),
+            ]),
         ];
     }
 

@@ -389,10 +389,24 @@
     }
 
     .sm-mission-icon {
+        display: flex;
         flex: none;
-        font-size: 1.75rem;
-        line-height: 1;
+        align-items: center;
+        justify-content: center;
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 0.625rem;
     }
+
+    .sm-mission-icon svg {
+        width: 1.375rem;
+        height: 1.375rem;
+    }
+
+    .sm-mission-icon.is-danger { background: rgb(220 38 38 / 0.1); color: rgb(220 38 38); }
+    .sm-mission-icon.is-info { background: rgb(37 99 235 / 0.1); color: rgb(37 99 235); }
+    .sm-mission-icon.is-warning { background: rgb(217 119 6 / 0.12); color: rgb(217 119 6); }
+    .sm-mission-icon.is-success { background: rgb(22 163 74 / 0.1); color: rgb(22 163 74); }
 
     .sm-mission-body {
         display: flex;
@@ -407,11 +421,15 @@
         min-width: 2rem;
         padding: 0.125rem 0.5rem;
         border-radius: 9999px;
-        background: var(--primary-500, #f97316);
-        color: #fff;
+        background: rgb(0 0 0 / 0.06);
         font-size: 0.875rem;
         font-weight: 700;
+        font-variant-numeric: tabular-nums;
         text-align: center;
+    }
+
+    .dark .sm-mission-count {
+        background: rgb(255 255 255 / 0.1);
     }
 
     /* Kartu XP & lencana dashboard (filament/widgets/xp-profile) */

@@ -240,7 +240,7 @@ class AdResource extends Resource
 
     public static function previewAction(): Action
     {
-        return Action::make('preview')->label('Pratinjau')->icon('heroicon-o-eye')
+        return Action::make('preview')->label('Pratinjau')->icon('heroicon-o-eye')->color('gray')
             ->url(fn (Ad $record) => route('ad.preview', $record))->openUrlInNewTab();
     }
 

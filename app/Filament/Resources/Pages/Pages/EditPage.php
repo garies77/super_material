@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Pages\Pages;
 
 use App\Filament\Resources\Pages\PageResource;
+use App\Filament\Support\PageActions;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
@@ -55,14 +56,16 @@ class EditPage extends EditRecord
             Action::make('view')->label('Lihat di situs')->icon('heroicon-o-arrow-top-right-on-square')->color('gray')
                 ->visible(fn () => $this->record->is_published)
                 ->url(fn () => $this->record->url())->openUrlInNewTab(),
-            Action::make('unpublish')->label('Jadikan draf')->icon('heroicon-o-eye-slash')->color('warning')
-                ->visible(fn () => $this->record->is_published)
-                ->requiresConfirmation()->modalDescription('Halaman tidak lagi tampil di situs sampai dipublikasikan kembali.')
-                ->action(function () {
-                    $this->record->update(['is_published' => false]);
-                    Notification::make()->title('Halaman dijadikan draf')->success()->send();
-                }),
-            DeleteAction::make(),
+            PageActions::more([
+                Action::make('unpublish')->label('Jadikan draf')->icon('heroicon-o-eye-slash')->color('warning')
+                    ->visible(fn () => $this->record->is_published)
+                    ->requiresConfirmation()->modalDescription('Halaman tidak lagi tampil di situs sampai dipublikasikan kembali.')
+                    ->action(function () {
+                        $this->record->update(['is_published' => false]);
+                        Notification::make()->title('Halaman dijadikan draf')->success()->send();
+                    }),
+                DeleteAction::make(),
+            ]),
         ];
     }
 }

@@ -4,6 +4,7 @@ namespace App\Filament\Resources\CustomForms\Pages;
 
 use App\Filament\Resources\CustomForms\CustomFormResource;
 use App\Filament\Resources\FormSubmissions\FormSubmissionResource;
+use App\Filament\Support\PageActions;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
@@ -25,7 +26,7 @@ class EditCustomForm extends EditRecord
                 ->url(fn () => FormSubmissionResource::getUrl('index', ['filters' => ['custom_form_id' => ['value' => $this->record->id]]])),
             Action::make('open')->label('Buka halaman')->icon('heroicon-o-arrow-top-right-on-square')->color('gray')
                 ->url(fn () => $this->record->url(), true)->visible(fn () => $this->record->is_active && $this->record->hasFullPage()),
-            DeleteAction::make()->modalDescription('Formulir beserta semua jawabannya akan dihapus.'),
+            PageActions::more([DeleteAction::make()->modalDescription('Formulir beserta semua jawabannya akan dihapus.')]),
         ];
     }
 }

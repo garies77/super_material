@@ -160,7 +160,7 @@ class ArticleResource extends Resource
                         ->suffixAction(Action::make('publishNow')->label('Terbitkan Sekarang')->icon('heroicon-o-bolt')
                             ->tooltip('Isi dengan waktu sekarang (WIB)')
                             ->action(fn (Set $set) => $set('published_at', now()))), // waktu aplikasi; field mengubahnya ke WIB sendiri
-                    Toggle::make('is_featured')->label('Artikel Unggulan (Headline)')->default(false)
+                    Toggle::make('is_featured')->label('Artikel unggulan')->default(false)
                         ->disabled(! ReviewWorkflow::canPublish())->dehydrated(ReviewWorkflow::canPublish()),
                     Select::make('schema_type')->label('Jenis Data Terstruktur')->options(Article::SCHEMA_TYPES)
                         ->default('BlogPosting')->required()->selectablePlaceholder(false)
@@ -199,7 +199,7 @@ class ArticleResource extends Resource
             ->columns([
                 TextColumn::make('title')->label('Judul')->searchable()->limit(60),
                 TextColumn::make('author.name')->label('Penulis'),
-                IconColumn::make('is_featured')->label('Headline')->boolean(),
+                IconColumn::make('is_featured')->label('Unggulan')->boolean(),
                 TextColumn::make('views_count')->label('Dibaca')->numeric()->sortable(),
                 TextColumn::make('seo_score')->label('Skor SEO')->badge()
                     ->state(fn (Article $r) => SeoScore::forArticle($r)['score'].'%')

@@ -69,7 +69,7 @@ it('limits authors to missions on their own articles', function () {
 
 it('shows the mission board on the dashboard with an all-done state', function () {
     $this->actingAs($this->contributor)->get('/admin')->assertOk()
-        ->assertSee('Papan misi')->assertSee('Semua misi beres!')->assertSee('Tambah produk');
+        ->assertSee('Papan misi')->assertSee('Semua misi beres')->assertSee('Tambah produk');
 });
 
 it('celebrates a complete submission once on the next page and only nudges an incomplete one', function () {

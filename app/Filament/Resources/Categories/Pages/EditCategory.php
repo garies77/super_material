@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Categories\Pages;
 
 use App\Filament\Resources\Categories\CategoryResource;
+use App\Filament\Support\PageActions;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Support\Enums\Width;
@@ -18,6 +19,6 @@ class EditCategory extends EditRecord
 
     protected function getHeaderActions(): array
     {
-        return [DeleteAction::make()];
+        return [PageActions::more([DeleteAction::make()])];
     }
 }

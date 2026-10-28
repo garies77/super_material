@@ -27,7 +27,7 @@ trait HasPageEditorActions
                 ->requiresConfirmation()->modalHeading('Publikasikan halaman?')
                 ->modalDescription('Isi draf akan tampil di halaman publik.')
                 ->action(fn () => $this->submitAs('publish')),
-            Action::make('preview')->label('Preview')->icon('heroicon-o-eye')->color('gray')
+            Action::make('preview')->label('Pratinjau')->icon('heroicon-o-eye')->color('gray')
                 ->action(fn () => $this->submitAs('preview')),
             $this->getCancelFormAction(),
         ];

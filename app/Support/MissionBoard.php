@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Builder;
 class MissionBoard
 {
     /**
-     * @return array<int, array{icon: string, title: string, hint: string, count: int, url: string}>
+     * @return array<int, array{icon: string, tone: string, title: string, hint: string, count: int, url: string}>
      */
     public static function for(User $user): array
     {
@@ -26,16 +26,16 @@ class MissionBoard
         $articles = self::articleScope($user);
 
         $definitions = [
-            [$products, '🛠️', 'Produk perlu diperbaiki', 'Editor memberi catatan perbaikan.', fn (Builder $q) => $q->where('review_status', Product::REVIEW_CHANGES_REQUESTED)],
-            [$articles, '🛠️', 'Artikel perlu diperbaiki', 'Editor memberi catatan perbaikan.', fn (Builder $q) => $q->where('review_status', Article::REVIEW_CHANGES_REQUESTED)],
-            [$user->isContributor() ? $products : null, '📨', 'Draf produk siap diajukan', 'Lengkapi misinya, lalu klik "Ajukan untuk ditinjau".', fn (Builder $q) => $q->whereNull('review_status')],
-            [$user->isContributor() ? $articles : null, '📨', 'Draf artikel siap diajukan', 'Lengkapi misinya, lalu klik "Ajukan untuk ditinjau".', fn (Builder $q) => $q->whereNull('review_status')],
-            [$products, '📸', 'Produk belum punya foto', 'Pasang foto utama minimal 800 px.', fn (Builder $q) => $q->whereNull('image')->whereDoesntHave('media', fn (Builder $m) => $m->where('type', 'image'))],
-            [$products, '🏷️', 'Produk tanpa merek atau SKU', 'Merek & SKU membantu Google mengenali produk.', fn (Builder $q) => $q->where(fn (Builder $w) => $w->whereNull('brand_id')->orWhereNull('sku')->orWhere('sku', ''))],
-            [$products, '📦', 'Produk tanpa status stok', 'Pilih status ketersediaan (tersedia, terbatas, …).', fn (Builder $q) => $q->whereNull('availability')],
-            [$products, '⏰', 'Harga sudah kedaluwarsa', 'Perbarui harga dan masa berlakunya.', fn (Builder $q) => $q->where('price_review_needed', true)],
-            [$articles, '💬', 'Artikel tanpa keterangan foto', 'Tulis keterangan untuk foto utama.', fn (Builder $q) => $q->whereNotNull('image')->where(fn (Builder $w) => $w->whereNull('image_caption')->orWhere('image_caption', ''))],
-            [$articles, '🗂️', 'Artikel tanpa kategori & tag', 'Pilih kategori atau tag agar mudah ditemukan.', fn (Builder $q) => $q->whereDoesntHave('categories')->whereDoesntHave('tags')],
+            [$products, 'heroicon-o-wrench-screwdriver', 'Produk perlu diperbaiki', 'Editor memberi catatan perbaikan.', fn (Builder $q) => $q->where('review_status', Product::REVIEW_CHANGES_REQUESTED)],
+            [$articles, 'heroicon-o-wrench-screwdriver', 'Artikel perlu diperbaiki', 'Editor memberi catatan perbaikan.', fn (Builder $q) => $q->where('review_status', Article::REVIEW_CHANGES_REQUESTED)],
+            [$user->isContributor() ? $products : null, 'heroicon-o-paper-airplane', 'Draf produk siap diajukan', 'Lengkapi misinya, lalu klik "Ajukan untuk ditinjau".', fn (Builder $q) => $q->whereNull('review_status')],
+            [$user->isContributor() ? $articles : null, 'heroicon-o-paper-airplane', 'Draf artikel siap diajukan', 'Lengkapi misinya, lalu klik "Ajukan untuk ditinjau".', fn (Builder $q) => $q->whereNull('review_status')],
+            [$products, 'heroicon-o-camera', 'Produk belum punya foto', 'Pasang foto utama minimal 800 px.', fn (Builder $q) => $q->whereNull('image')->whereDoesntHave('media', fn (Builder $m) => $m->where('type', 'image'))],
+            [$products, 'heroicon-o-tag', 'Produk tanpa merek atau SKU', 'Merek & SKU membantu Google mengenali produk.', fn (Builder $q) => $q->where(fn (Builder $w) => $w->whereNull('brand_id')->orWhereNull('sku')->orWhere('sku', ''))],
+            [$products, 'heroicon-o-cube', 'Produk tanpa status stok', 'Pilih status ketersediaan (tersedia, terbatas, …).', fn (Builder $q) => $q->whereNull('availability')],
+            [$products, 'heroicon-o-clock', 'Harga sudah kedaluwarsa', 'Perbarui harga dan masa berlakunya.', fn (Builder $q) => $q->where('price_review_needed', true)],
+            [$articles, 'heroicon-o-chat-bubble-bottom-center-text', 'Artikel tanpa keterangan foto', 'Tulis keterangan untuk foto utama.', fn (Builder $q) => $q->whereNotNull('image')->where(fn (Builder $w) => $w->whereNull('image_caption')->orWhere('image_caption', ''))],
+            [$articles, 'heroicon-o-folder', 'Artikel tanpa kategori & tag', 'Pilih kategori atau tag agar mudah ditemukan.', fn (Builder $q) => $q->whereDoesntHave('categories')->whereDoesntHave('tags')],
         ];
 
         $missions = [];
@@ -53,7 +53,19 @@ class MissionBoard
             $next = $query->latest('updated_at')->first();
             $resource = $next instanceof Product ? ProductResource::class : ArticleResource::class;
 
-            $missions[] = ['icon' => $icon, 'title' => $title, 'hint' => $hint, 'count' => $count, 'url' => $resource::getUrl('edit', ['record' => $next])];
+            $missions[] = [
+                'icon' => $icon,
+                // Warna: perbaikan = merah, siap diajukan = biru, data belum lengkap = oranye
+                'tone' => match ($icon) {
+                    'heroicon-o-wrench-screwdriver' => 'danger',
+                    'heroicon-o-paper-airplane' => 'info',
+                    default => 'warning',
+                },
+                'title' => $title,
+                'hint' => $hint,
+                'count' => $count,
+                'url' => $resource::getUrl('edit', ['record' => $next]),
+            ];
         }
 
         return $missions;

@@ -55,12 +55,12 @@ it('orders the sidebar by operational priority and supports the collapsed icon r
     preg_match_all("/sidebar\.isOpen \? null : '([^']+)'/", $html, $m);
 
     expect($m[1])->toBe([
-        'Dashboard',
+        'Dasbor',
         'Produk', 'Kategori', 'Merek', 'Kanal Beli',
         'Artikel', 'Penulis', 'Halaman', 'Kampanye', 'Formulir', 'Jawaban formulir', 'Media',
         'Laporan Klik', 'Laporan kampanye', 'Riwayat XP',
         'Kustomisasi Beranda', 'Navbar Builder', 'Footer Builder',
-        'Pengaturan situs', 'Pengguna', 'Token API', 'Redirects',
+        'Pengaturan situs', 'Pengguna', 'Token API', 'Pengalihan URL',
     ])->and($html)->not->toContain('Penggunas');
 });
 

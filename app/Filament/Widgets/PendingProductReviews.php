@@ -11,7 +11,7 @@ use Filament\Widgets\TableWidget;
 /** Produk kiriman Kontributor yang menunggu Editor/Admin; tampil paling atas dan hanya bila ada antrean. */
 class PendingProductReviews extends TableWidget
 {
-    protected static ?int $sort = -2;
+    protected static ?int $sort = -6;
 
     protected int|string|array $columnSpan = 'half';
 

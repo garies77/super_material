@@ -81,7 +81,7 @@ class SiteSettings extends Page implements HasSchemas
                         ->placeholder('Contoh: material')
                         ->helperText('Kata di dalam nama brand yang diberi warna oranye (misal: "material" pada Supermaterial). Kosongkan jika brand satu warna.'),
                     FileUpload::make('site_logo')
-                        ->label('Upload File Logo')
+                        ->label('Unggah logo')
                         ->image()
                         ->disk('public')
                         ->directory('logos')

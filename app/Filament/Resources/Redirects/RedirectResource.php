@@ -21,7 +21,9 @@ class RedirectResource extends Resource
 {
     protected static ?string $model = Redirect::class;
 
-    protected static ?string $modelLabel = 'Redirect';
+    protected static ?string $modelLabel = 'Pengalihan URL';
+
+    protected static ?string $pluralModelLabel = 'Pengalihan URL';
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowUturnRight;
 
