@@ -8,6 +8,7 @@ use App\Filament\Resources\Products\Pages\ListProducts;
 use App\Filament\Support\CustomCodeFields;
 use App\Filament\Support\DescriptiveFileName;
 use App\Filament\Support\MediaPicker;
+use App\Filament\Support\ReviewWorkflow;
 use App\Filament\Support\SeoFields;
 use App\Filament\Support\SeoScorePanel;
 use App\Models\AuditLog;
@@ -50,6 +51,7 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
@@ -120,7 +122,23 @@ class ProductResource extends Resource
 
     public static function canAccess(): bool
     {
-        return in_array(auth()->user()?->role, ['admin', 'editor'], true);
+        return in_array(auth()->user()?->role, ['admin', 'editor', 'contributor'], true);
+    }
+
+    /** Kontributor hanya mengubah draf miliknya (HasReviewWorkflow menegakkan hal yang sama di model). */
+    public static function canEdit(Model $record): bool
+    {
+        return parent::canEdit($record) && $record->isEditableBy(auth()->user());
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return ! ReviewWorkflow::isContributor() && parent::canDelete($record);
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return ! ReviewWorkflow::isContributor() && parent::canDeleteAny();
     }
 
     public static function form(Schema $schema): Schema
@@ -208,8 +226,12 @@ class ProductResource extends Resource
                 Section::make('Skor SEO')->schema([$seoPanel]),
 
                 Section::make('Publikasi')->columns(2)->schema([
-                    Toggle::make('is_published')->label('Terbit'),
-                    Toggle::make('is_featured')->label('Tampilkan di beranda'),
+                    // Kontributor tidak menerbitkan sendiri: Editor/Admin menyetujui lewat "Setujui & terbitkan"
+                    Toggle::make('is_published')->label('Terbit')
+                        ->disabled(! ReviewWorkflow::canPublish())->dehydrated(ReviewWorkflow::canPublish())
+                        ->helperText(ReviewWorkflow::canPublish() ? null : 'Diterbitkan oleh Editor/Admin setelah Anda klik "Ajukan untuk ditinjau".'),
+                    Toggle::make('is_featured')->label('Tampilkan di beranda')
+                        ->disabled(! ReviewWorkflow::canPublish())->dehydrated(ReviewWorkflow::canPublish()),
                 ]),
 
                 Section::make('Harga & Catatan Pembelian')->columns(2)->schema([
@@ -285,21 +307,23 @@ class ProductResource extends Resource
                     ->trueIcon('heroicon-o-exclamation-triangle')->trueColor('danger')
                     ->falseIcon('heroicon-o-check-circle')->falseColor('gray')->toggleable(),
                 IconColumn::make('is_published')->label('Terbit')->boolean(),
+                ReviewWorkflow::statusColumn(),
                 TextColumn::make('updated_at')->label('Diperbarui')->since()->sortable(),
             ])
             ->filters([
                 SelectFilter::make('category_id')->label('Kategori')->relationship('category', 'name'),
                 SelectFilter::make('brand_id')->label('Merek')->relationship('brand', 'name'),
+                ReviewWorkflow::statusFilter(),
                 TernaryFilter::make('is_published')->label('Terbit'),
                 TernaryFilter::make('price_review_needed')->label('Perlu tinjau harga'),
             ])
             ->recordActions([EditAction::make(), self::duplicateAction()])
             ->toolbarActions([BulkActionGroup::make([
-                BulkAction::make('publish')->label('Terbitkan')
+                BulkAction::make('publish')->label('Terbitkan')->visible(ReviewWorkflow::canPublish())
                     ->action(fn (Collection $records) => $records->each->update(['is_published' => true]))->deselectRecordsAfterCompletion(),
-                BulkAction::make('unpublish')->label('Sembunyikan')
+                BulkAction::make('unpublish')->label('Sembunyikan')->visible(ReviewWorkflow::canPublish())
                     ->action(fn (Collection $records) => $records->each->update(['is_published' => false]))->deselectRecordsAfterCompletion(),
-                DeleteBulkAction::make()
+                DeleteBulkAction::make()->visible(ReviewWorkflow::canPublish())
                     ->before(fn (Collection $records) => AuditLog::record(request(), 'product.bulk_deleted', null, ['ids' => $records->modelKeys(), 'names' => $records->pluck('name')->all()])),
             ])]);
     }

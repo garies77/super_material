@@ -51,22 +51,22 @@ class AuthorResource extends Resource
     {
         $user = auth()->user();
 
-        return parent::getEloquentQuery()->when($user?->role === 'author', fn ($q) => $q->where('user_id', $user->id));
+        return parent::getEloquentQuery()->when($user?->writesAsOwnAuthor(), fn ($q) => $q->where('user_id', $user->id));
     }
 
     public static function canCreate(): bool
     {
-        return auth()->user()?->role !== 'author';
+        return ! auth()->user()?->writesAsOwnAuthor();
     }
 
     public static function canDelete(Model $record): bool
     {
-        return auth()->user()?->role !== 'author';
+        return ! auth()->user()?->writesAsOwnAuthor();
     }
 
     public static function canDeleteAny(): bool
     {
-        return auth()->user()?->role !== 'author';
+        return ! auth()->user()?->writesAsOwnAuthor();
     }
 
     public static function form(Schema $schema): Schema
@@ -152,7 +152,7 @@ class AuthorResource extends Resource
                     Toggle::make('is_active')
                         ->label('Penulis aktif')
                         ->default(true)
-                        ->disabled(fn () => auth()->user()?->role === 'author')
+                        ->disabled(fn () => (bool) auth()->user()?->writesAsOwnAuthor())
                         ->helperText('Nonaktif: halaman profil penulis disembunyikan.'),
                     FileUpload::make('avatar')
                         ->label('Foto profil')

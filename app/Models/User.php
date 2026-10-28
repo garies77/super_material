@@ -23,7 +23,8 @@ class User extends Authenticatable implements FilamentUser
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
 
-    public const ROLES = ['admin' => 'Admin', 'editor' => 'Editor', 'author' => 'Penulis'];
+    /** Kontributor (mis. anak PKL): menyiapkan draf produk & artikel, Editor/Admin yang meninjau dan menerbitkan. */
+    public const ROLES = ['admin' => 'Admin', 'editor' => 'Editor', 'author' => 'Penulis', 'contributor' => 'Kontributor'];
 
     protected $attributes = ['is_active' => true];
 
@@ -55,10 +56,28 @@ class User extends Authenticatable implements FilamentUser
         return $this->role === 'admin';
     }
 
-    /** Custom HTML/CSS/JS tampil tanpa sandbox di halaman publik: Admin, atau Editor/Penulis yang diberi izin. */
+    public function isContributor(): bool
+    {
+        return $this->role === 'contributor';
+    }
+
+    /** Meninjau & menerbitkan konten kiriman Kontributor. */
+    public function canReview(): bool
+    {
+        return in_array($this->role, ['admin', 'editor'], true);
+    }
+
+    /** Penulis & Kontributor: artikel memakai profil penulis sendiri dan hanya melihat artikel miliknya. */
+    public function writesAsOwnAuthor(): bool
+    {
+        return in_array($this->role, ['author', 'contributor'], true);
+    }
+
+    /** Custom HTML/CSS/JS tampil tanpa sandbox di halaman publik: Admin, atau Editor/Penulis yang diberi izin (tidak untuk Kontributor). */
     public function canManageCustomHtml(): bool
     {
-        return $this->is_active && ($this->isAdmin() || ($this->can_manage_custom_html && isset(self::ROLES[$this->role])));
+        return $this->is_active && ($this->isAdmin()
+            || ($this->can_manage_custom_html && isset(self::ROLES[$this->role]) && ! $this->isContributor()));
     }
 
     public function author(): HasOne

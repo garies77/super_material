@@ -7,6 +7,7 @@ use App\Filament\Resources\Articles\Pages\EditArticle;
 use App\Filament\Resources\Articles\Pages\ListArticles;
 use App\Filament\Support\CustomCodeFields;
 use App\Filament\Support\DescriptiveFileName;
+use App\Filament\Support\ReviewWorkflow;
 use App\Filament\Support\SeoFields;
 use App\Filament\Support\SeoScorePanel;
 use App\Models\Article;
@@ -37,6 +38,7 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
 class ArticleResource extends Resource
@@ -55,12 +57,28 @@ class ArticleResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'title';
 
+    /** Kontributor hanya mengubah draf miliknya (HasReviewWorkflow menegakkan hal yang sama di model). */
+    public static function canEdit(Model $record): bool
+    {
+        return parent::canEdit($record) && $record->isEditableBy(auth()->user());
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return ! ReviewWorkflow::isContributor() && parent::canDelete($record);
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return ! ReviewWorkflow::isContributor() && parent::canDeleteAny();
+    }
+
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
         $user = auth()->user();
 
-        return $user?->role === 'author' ? $query->whereHas('author', fn ($q) => $q->where('user_id', $user->id)) : $query;
+        return $user?->writesAsOwnAuthor() ? $query->whereHas('author', fn ($q) => $q->where('user_id', $user->id)) : $query;
     }
 
     /**
@@ -126,22 +144,24 @@ class ArticleResource extends Resource
                     // (ditegakkan juga di backend saat simpan); Admin/Editor bebas memilih atau membuat profil kontributor.
                     Select::make('author_id')->label('Penulis')->relationship('author', 'name')->searchable()->preload()->live()->afterStateUpdated($refreshSeo)
                         ->default(fn () => auth()->user()?->author()->value('id'))
-                        ->disabled(fn () => auth()->user()?->role === 'author')
+                        ->disabled(fn () => (bool) auth()->user()?->writesAsOwnAuthor())
                         ->dehydrated()
-                        ->createOptionForm(fn () => auth()->user()?->role === 'author' ? null : [
+                        ->createOptionForm(fn () => auth()->user()?->writesAsOwnAuthor() ? null : [
                             TextInput::make('name')->label('Nama lengkap')->required()->maxLength(150),
                             TextInput::make('slug')->required()->maxLength(150)->unique('authors', 'slug'),
                             TextInput::make('job_title')->label('Jabatan / keahlian')->maxLength(100),
                         ])
-                        ->helperText(fn () => auth()->user()?->role === 'author'
+                        ->helperText(fn () => auth()->user()?->writesAsOwnAuthor()
                             ? 'Artikel diterbitkan atas nama profil penulis Anda.'
                             : 'Bawaan: profil Anda. Pilih kontributor lain atau tambah profil baru bila perlu.'),
                     DateTimePicker::make('published_at')->label('Tanggal & Jam Terbit (WIB)')->seconds(false)->timezone('Asia/Jakarta')
-                        ->helperText('Kosong = Draf. Isi waktu mendatang untuk terbit terjadwal.')
+                        ->helperText(ReviewWorkflow::canPublish() ? 'Kosong = Draf. Isi waktu mendatang untuk terbit terjadwal.' : 'Diterbitkan oleh Editor/Admin setelah Anda klik "Ajukan untuk ditinjau".')
+                        ->disabled(! ReviewWorkflow::canPublish())->dehydrated(ReviewWorkflow::canPublish())
                         ->suffixAction(Action::make('publishNow')->label('Terbitkan Sekarang')->icon('heroicon-o-bolt')
                             ->tooltip('Isi dengan waktu sekarang (WIB)')
                             ->action(fn (Set $set) => $set('published_at', now()))), // waktu aplikasi; field mengubahnya ke WIB sendiri
-                    Toggle::make('is_featured')->label('Artikel Unggulan (Headline)')->default(false),
+                    Toggle::make('is_featured')->label('Artikel Unggulan (Headline)')->default(false)
+                        ->disabled(! ReviewWorkflow::canPublish())->dehydrated(ReviewWorkflow::canPublish()),
                     Select::make('schema_type')->label('Jenis Data Terstruktur')->options(Article::SCHEMA_TYPES)
                         ->default('BlogPosting')->required()->selectablePlaceholder(false)
                         ->helperText('@type JSON-LD artikel (PRD 9.13.1).'),
@@ -191,17 +211,19 @@ class ArticleResource extends Resource
                         'Terbit' => 'success', 'Terjadwal' => 'warning', default => 'gray'
                     }),
                 TextColumn::make('published_at')->label('Terbit (WIB)')->dateTime('d M Y H:i', 'Asia/Jakarta')->sortable(),
+                ReviewWorkflow::statusColumn(),
             ])
+            ->filters([ReviewWorkflow::statusFilter()])
             ->recordActions([
                 Action::make('publishNow')->label('Terbitkan')->icon('heroicon-o-paper-airplane')->color('success')
-                    ->visible(fn (Article $r) => ! $r->published_at || $r->published_at->isFuture())
+                    ->visible(fn (Article $r) => ReviewWorkflow::canPublish() && (! $r->published_at || $r->published_at->isFuture()))
                     ->action(function (Article $r, Action $action) {
                         $r->update(['published_at' => now()]);
                         $action->success();
                     })
                     ->successNotificationTitle('Artikel diterbitkan'),
                 Action::make('unpublish')->label('Jadikan Draf')->icon('heroicon-o-eye-slash')->color('warning')
-                    ->visible(fn (Article $r) => $r->published_at && ! $r->published_at->isFuture())
+                    ->visible(fn (Article $r) => ReviewWorkflow::canPublish() && $r->published_at && ! $r->published_at->isFuture())
                     ->requiresConfirmation()->modalHeading('Jadikan draf?')
                     ->modalDescription('Artikel tidak lagi tampil di situs sampai diterbitkan kembali.')
                     ->action(function (Article $r, Action $action) {
@@ -213,8 +235,9 @@ class ArticleResource extends Resource
             ])
             ->toolbarActions([BulkActionGroup::make([
                 BulkAction::make('publishNow')->label('Terbitkan sekarang')->icon('heroicon-o-paper-airplane')->requiresConfirmation()
+                    ->visible(ReviewWorkflow::canPublish())
                     ->action(fn ($records) => $records->each->update(['published_at' => now()]))->deselectRecordsAfterCompletion(),
-                DeleteBulkAction::make(),
+                DeleteBulkAction::make()->visible(ReviewWorkflow::canPublish()),
             ])]);
     }
 

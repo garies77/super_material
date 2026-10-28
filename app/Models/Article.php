@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\GuardsCustomCode;
+use App\Models\Concerns\HasReviewWorkflow;
 use App\Models\Concerns\HasSeo;
 use App\Models\Concerns\TracksPublicUrl;
 use Carbon\Carbon;
@@ -16,7 +17,7 @@ use Illuminate\Support\Str;
 
 class Article extends Model
 {
-    use GuardsCustomCode, HasSeo, TracksPublicUrl;
+    use GuardsCustomCode, HasReviewWorkflow, HasSeo, TracksPublicUrl;
 
     public const PUBLIC_ROUTE = 'article.show';
 
@@ -55,6 +56,29 @@ class Article extends Model
             'is_featured' => 'boolean',
             'views_count' => 'integer',
         ];
+    }
+
+    /** Terbit atau terjadwal: keduanya keputusan Admin/Editor. */
+    public function isLive(): bool
+    {
+        return $this->published_at !== null;
+    }
+
+    public function wasLive(): bool
+    {
+        return $this->getOriginal('published_at') !== null;
+    }
+
+    public function markAsDraft(): void
+    {
+        $this->published_at = null;
+        $this->is_featured = false;
+    }
+
+    /** Jadwal terbit yang sudah diisi Editor dipertahankan; selain itu terbit sekarang. */
+    public function markAsLive(): void
+    {
+        $this->published_at ??= now();
     }
 
     public function author(): BelongsTo

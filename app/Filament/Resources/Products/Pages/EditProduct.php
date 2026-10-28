@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Products\Pages;
 
 use App\Filament\Resources\Products\ProductResource;
+use App\Filament\Support\ReviewWorkflow;
 use App\Support\Catalog\ProductPhotos;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -44,10 +45,16 @@ class EditProduct extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            ...ReviewWorkflow::pageActions($this),
             Action::make('view')->label('Lihat di situs')->icon('heroicon-o-arrow-top-right-on-square')
                 ->url(fn () => $this->record->url())->openUrlInNewTab(),
             ProductResource::duplicateAction(),
-            DeleteAction::make(),
+            DeleteAction::make()->visible(ReviewWorkflow::canPublish()),
         ];
+    }
+
+    public function getSubheading(): ?string
+    {
+        return ReviewWorkflow::subheading($this->record);
     }
 }

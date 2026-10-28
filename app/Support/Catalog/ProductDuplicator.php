@@ -19,7 +19,13 @@ class ProductDuplicator
         $product = $product->newQuery()->findOrFail($product->getKey());
 
         return DB::transaction(function () use ($product): Product {
-            $copy = $product->replicate(['slug', 'sku', 'mpn', 'canonical_url', 'rating_value', 'rating_count', 'rating_updated_at', 'price_review_needed']);
+            // Pembuat & status tinjauan milik salinan sendiri: diisi ulang saat dibuat (HasReviewWorkflow).
+            // Kode custom hanya ikut disalin oleh pengguna berizin; GuardsCustomCode menolak penyimpanannya oleh yang lain.
+            $copy = $product->replicate([
+                'slug', 'sku', 'mpn', 'canonical_url', 'rating_value', 'rating_count', 'rating_updated_at', 'price_review_needed',
+                'created_by', 'review_status', 'review_note', 'submitted_by', 'submitted_at',
+                ...(auth()->user()?->canManageCustomHtml() === false ? Product::CUSTOM_CODE_FIELDS : []),
+            ]);
             $copy->name = Str::limit($product->name, 240, '').' (salinan)';
             $copy->slug = self::uniqueSlug($product->slug);
             $copy->is_published = false;

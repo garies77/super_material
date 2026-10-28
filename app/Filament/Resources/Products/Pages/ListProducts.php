@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Products\Pages;
 
 use App\Filament\Resources\Products\ProductResource;
+use App\Filament\Support\ReviewWorkflow;
 use App\Support\Catalog\ProductImporter;
 use App\Support\Catalog\ProductPhotos;
 use Filament\Actions\Action;
@@ -75,8 +76,9 @@ class ListProducts extends ListRecords
                     }, 'katalog-produk-'.now()->format('Ymd-His').'.csv');
                 }),
 
-            // Action: Impor CSV Produk beserta Tautan Kanal
+            // Action: Impor CSV Produk beserta Tautan Kanal. Bukan untuk Kontributor: impor bisa langsung menerbitkan produk
             Action::make('import_csv')
+                ->visible(fn () => ReviewWorkflow::canPublish())
                 ->label('Impor CSV')
                 ->icon('heroicon-o-arrow-up-tray')
                 ->color('gray')

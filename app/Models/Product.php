@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\GuardsCustomCode;
+use App\Models\Concerns\HasReviewWorkflow;
 use App\Models\Concerns\HasSeo;
 use App\Models\Concerns\TracksPublicUrl;
 use Illuminate\Database\Eloquent\Builder;
@@ -15,7 +16,7 @@ use Illuminate\Support\Collection;
 
 class Product extends Model
 {
-    use GuardsCustomCode, HasSeo, TracksPublicUrl;
+    use GuardsCustomCode, HasReviewWorkflow, HasSeo, TracksPublicUrl;
 
     public const PUBLIC_ROUTE = 'product.show';
 
@@ -66,6 +67,27 @@ class Product extends Model
         }
 
         return now()->addDays(30)->endOfDay()->setTimezone('Asia/Jakarta')->toIso8601String();
+    }
+
+    public function isLive(): bool
+    {
+        return (bool) $this->is_published;
+    }
+
+    public function wasLive(): bool
+    {
+        return (bool) $this->getOriginal('is_published');
+    }
+
+    public function markAsDraft(): void
+    {
+        $this->is_published = false;
+        $this->is_featured = false;
+    }
+
+    public function markAsLive(): void
+    {
+        $this->is_published = true;
     }
 
     public function category(): BelongsTo

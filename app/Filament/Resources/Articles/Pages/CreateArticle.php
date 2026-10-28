@@ -18,7 +18,7 @@ class CreateArticle extends CreateRecord
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         // author_id menunjuk tabel authors, bukan users; Penulis hanya boleh menulis atas namanya sendiri
-        if (auth()->user()->role === 'author' || empty($data['author_id'])) {
+        if (auth()->user()->writesAsOwnAuthor() || empty($data['author_id'])) {
             $data['author_id'] = auth()->user()->authorProfile()->id;
         }
 
