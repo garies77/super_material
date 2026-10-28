@@ -218,110 +218,148 @@
         pointer-events: none;
     }
 
-    /* Panel skor SEO langsung di form produk & artikel */
+    /* Panel misi kelengkapan di form produk & artikel (filament/seo-score-panel) */
+    .sm-seo {
+        --sm-seo-good: rgb(22 163 74);
+        --sm-seo-fair: rgb(217 119 6);
+        --sm-seo-poor: rgb(220 38 38);
+        --sm-seo-muted: rgb(107 114 128);
+        --sm-seo-line: rgb(0 0 0 / 0.08);
+    }
+
+    .dark .sm-seo {
+        --sm-seo-muted: rgb(156 163 175);
+        --sm-seo-line: rgb(255 255 255 / 0.1);
+    }
+
     .sm-seo-head {
         display: flex;
         align-items: center;
-        gap: 0.75rem;
-        margin-bottom: 0.75rem;
-        font-size: 0.875rem;
+        gap: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--sm-seo-line);
     }
 
-    .sm-seo-score {
+    .sm-seo-ring {
         flex: none;
-        min-width: 3.5rem;
-        padding: 0.375rem 0.5rem;
-        border-radius: 0.5rem;
-        color: #fff;
-        font-size: 1.125rem;
+        width: 4rem;
+        height: 4rem;
+    }
+
+    .sm-seo-ring circle {
+        fill: none;
+        stroke-width: 6;
+    }
+
+    .sm-seo-ring-track {
+        stroke: var(--sm-seo-line);
+    }
+
+    .sm-seo-ring-value {
+        stroke-linecap: round;
+        transform: rotate(-90deg);
+        transform-origin: 50% 50%;
+        transition: stroke-dashoffset 0.6s ease;
+    }
+
+    .sm-seo-ring.is-good .sm-seo-ring-value { stroke: var(--sm-seo-good); }
+    .sm-seo-ring.is-fair .sm-seo-ring-value { stroke: var(--sm-seo-fair); }
+    .sm-seo-ring.is-poor .sm-seo-ring-value { stroke: var(--sm-seo-poor); }
+
+    .sm-seo-ring text {
+        fill: currentColor;
+        font-size: 0.875rem;
         font-weight: 700;
-        text-align: center;
     }
 
-    .sm-seo-score.is-good {
-        background: rgb(22 163 74);
-    }
-
-    .sm-seo-score.is-fair {
-        background: rgb(217 119 6);
-    }
-
-    .sm-seo-score.is-poor {
-        background: rgb(220 38 38);
+    .sm-seo-title {
+        font-size: 0.875rem;
+        font-weight: 600;
     }
 
     .sm-seo-sub {
-        font-size: 0.75rem;
-        color: rgb(107 114 128);
+        margin-top: 0.125rem;
+        font-size: 0.8125rem;
+        color: var(--sm-seo-muted, rgb(107 114 128));
     }
 
     .sm-seo-list {
         display: flex;
         flex-direction: column;
-        gap: 0.375rem;
-        font-size: 0.8125rem;
+        margin-top: 0.5rem;
     }
 
-    .sm-seo-list li {
+    .sm-seo-item {
         display: flex;
-        gap: 0.5rem;
-        color: rgb(220 38 38);
-    }
-
-    .sm-seo-list li.is-passed {
-        color: rgb(107 114 128);
-    }
-
-    .sm-seo-list li.is-passed .sm-seo-mark {
-        color: rgb(22 163 74);
-    }
-
-    .sm-seo-list li.is-passed > span:last-child {
-        text-decoration: line-through;
-    }
-
-    .sm-seo-goto {
-        display: flex;
-        gap: 0.5rem;
-        padding: 0;
-        color: inherit;
+        align-items: center;
+        gap: 0.625rem;
+        width: 100%;
+        padding: 0.5rem 0.5rem;
+        border-radius: 0.5rem;
+        font-size: 0.875rem;
         text-align: left;
+    }
+
+    button.sm-seo-item {
+        cursor: pointer;
+        transition: background-color 0.15s;
+    }
+
+    button.sm-seo-item:hover {
+        background: var(--sm-seo-line);
+    }
+
+    .sm-seo-item > span {
+        flex: 1;
+    }
+
+    .sm-seo-list.is-completed .sm-seo-item {
+        padding-block: 0.25rem;
+        color: var(--sm-seo-muted);
+    }
+
+    .sm-seo-icon {
+        flex: none;
+        width: 1.25rem;
+        height: 1.25rem;
+    }
+
+    .sm-seo-icon.is-open { color: var(--sm-seo-fair); }
+    .sm-seo-icon.is-done { color: var(--sm-seo-good); }
+
+    .sm-seo-chevron {
+        flex: none;
+        width: 1rem;
+        height: 1rem;
+        color: var(--sm-seo-muted);
+        transition: transform 0.2s;
+    }
+
+    .sm-seo-chevron.is-flipped {
+        transform: rotate(180deg);
+    }
+
+    .sm-seo-toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.625rem;
+        width: 100%;
+        margin-top: 0.5rem;
+        padding: 0.625rem 0.5rem 0;
+        border-top: 1px solid var(--sm-seo-line);
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--sm-seo-muted);
         cursor: pointer;
     }
 
-    .sm-seo-goto:hover span:last-child {
-        text-decoration: underline;
+    .sm-seo-toggle > span {
+        flex: 1;
+        text-align: left;
     }
 
-    .sm-seo-progress {
-        height: 0.5rem;
-        margin-bottom: 0.75rem;
-        overflow: hidden;
-        border-radius: 9999px;
-        background: rgb(0 0 0 / 0.08);
-    }
-
-    .dark .sm-seo-progress {
-        background: rgb(255 255 255 / 0.1);
-    }
-
-    .sm-seo-progress span {
-        display: block;
-        height: 100%;
-        border-radius: inherit;
-        transition: width 0.5s ease;
-    }
-
-    .sm-seo-progress .is-good {
-        background: rgb(22 163 74);
-    }
-
-    .sm-seo-progress .is-fair {
-        background: rgb(217 119 6);
-    }
-
-    .sm-seo-progress .is-poor {
-        background: rgb(220 38 38);
+    .sm-seo-note {
+        margin-top: 0.75rem;
     }
 
     /* Papan misi dashboard (filament/widgets/mission-board) */

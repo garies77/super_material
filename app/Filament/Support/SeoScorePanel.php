@@ -21,25 +21,25 @@ class SeoScorePanel
 
     /** Label pemeriksaan SeoScore => [teks misi, field tujuan]. */
     public const PRODUCT_MISSIONS = [
-        'Teks alternatif semua gambar terisi' => ['🖼️ Isi nama produk agar teks alternatif foto terisi otomatis', 'name'],
-        'Nama file gambar deskriptif' => ['📝 Pakai foto dengan nama file yang jelas (bukan IMG_0023)', 'photos'],
-        'Gambar utama ≥ 800 px' => ['📸 Pasang foto utama minimal 800 px', 'photos'],
-        'Merek, SKU, dan harga terisi' => ['🏷️ Lengkapi merek, SKU, dan harga', 'brand_id'],
-        'Masa berlaku harga masih berlaku' => ['📅 Isi masa berlaku harga yang belum lewat', 'price_valid_until'],
-        'Status ketersediaan terisi' => ['📦 Pilih status ketersediaan stok', 'availability'],
-        'Gambar Open Graph tersedia dan bukan logo' => ['🔗 Siapkan foto untuk dibagikan di WhatsApp & Google', 'photos'],
-        'Judul dan deskripsi meta terisi atau dapat dibuat otomatis' => ['✍️ Tulis ringkasan singkat produk', 'summary'],
+        'Teks alternatif semua gambar terisi' => ['Isi nama produk agar teks alternatif foto terisi', 'name'],
+        'Nama file gambar deskriptif' => ['Gunakan nama file foto yang deskriptif', 'photos'],
+        'Gambar utama ≥ 800 px' => ['Foto utama minimal 800 px', 'photos'],
+        'Merek, SKU, dan harga terisi' => ['Lengkapi merek, SKU, dan harga', 'brand_id'],
+        'Masa berlaku harga masih berlaku' => ['Atur masa berlaku harga', 'price_valid_until'],
+        'Status ketersediaan terisi' => ['Pilih status ketersediaan stok', 'availability'],
+        'Gambar Open Graph tersedia dan bukan logo' => ['Siapkan gambar untuk dibagikan', 'photos'],
+        'Judul dan deskripsi meta terisi atau dapat dibuat otomatis' => ['Tulis ringkasan produk', 'summary'],
     ];
 
     public const ARTICLE_MISSIONS = [
-        'Keterangan gambar utama terisi' => ['💬 Tulis keterangan foto utama', 'image_caption'],
-        'Nama file gambar deskriptif' => ['📝 Pakai foto dengan nama file yang jelas (bukan IMG_0023)', 'image'],
-        'Gambar utama ≥ 1200 px lebar' => ['📸 Pasang foto utama minimal 1200 px lebar', 'image'],
-        'Penulis terisi' => ['👤 Pilih penulis artikel', 'author_id'],
-        'Kategori atau tag terisi' => ['🗂️ Pilih kategori atau tag', 'categories'],
-        'Gambar Open Graph tersedia dan bukan logo' => ['🔗 Siapkan foto untuk dibagikan di WhatsApp & Google', 'image'],
-        'Judul ≤ 110 karakter' => ['📏 Persingkat judul (maks. 110 karakter)', 'title'],
-        'Judul dan deskripsi meta terisi atau dapat dibuat otomatis' => ['✍️ Tulis ringkasan singkat artikel', 'summary'],
+        'Keterangan gambar utama terisi' => ['Tulis keterangan foto utama', 'image_caption'],
+        'Nama file gambar deskriptif' => ['Gunakan nama file foto yang deskriptif', 'image'],
+        'Gambar utama ≥ 1200 px lebar' => ['Foto utama minimal 1200 px lebar', 'image'],
+        'Penulis terisi' => ['Pilih penulis', 'author_id'],
+        'Kategori atau tag terisi' => ['Pilih kategori atau tag', 'categories'],
+        'Gambar Open Graph tersedia dan bukan logo' => ['Siapkan gambar untuk dibagikan', 'image'],
+        'Judul ≤ 110 karakter' => ['Judul maksimal 110 karakter', 'title'],
+        'Judul dan deskripsi meta terisi atau dapat dibuat otomatis' => ['Tulis ringkasan artikel', 'summary'],
     ];
 
     /**

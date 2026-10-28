@@ -35,7 +35,7 @@ function productPhoto(string $path, ?string $alt = null): string
 /** Skor yang tampil di panel "Skor SEO" form. */
 function seoPanelScore(Testable $page): int
 {
-    preg_match('/sm-seo-score[^>]*>\s*(\d+)%/', $page->html(), $match);
+    preg_match('/Skor kelengkapan (\d+)%/', $page->html(), $match);
 
     return (int) $match[1];
 }

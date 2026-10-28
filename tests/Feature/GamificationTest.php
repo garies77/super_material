@@ -19,15 +19,15 @@ beforeEach(function () {
     $this->editor = User::factory()->create(['role' => 'editor', 'is_active' => true]);
 });
 
-it('shows completeness checks as missions with progress and links to the field to fix', function () {
-    $product = Product::create(['name' => 'Semen Gresik', 'slug' => 'semen-gresik', 'created_by' => $this->contributor->id]);
+it('lists open completeness checks first, linking each to the field to fix', function () {
+    $product = Product::create(['name' => 'Semen Gresik', 'slug' => 'semen-gresik', 'summary' => 'Semen 40 kg.', 'created_by' => $this->contributor->id]);
     $this->actingAs($this->contributor);
 
     Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()])
         ->assertSee('Misi kelengkapan')
-        ->assertSeeHtml('role="progressbar"')
-        ->assertSee('misi selesai')
-        ->assertSee('📦 Pilih status ketersediaan stok')
+        ->assertSeeHtml('aria-label="Skor kelengkapan')
+        ->assertSee('dari 8 terpenuhi')
+        ->assertSeeInOrder(['Pilih status ketersediaan stok', 'Selesai ('])
         ->assertSeeHtml('form.availability');
 });
 
