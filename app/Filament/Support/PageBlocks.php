@@ -54,7 +54,7 @@ class PageBlocks
                 ]),
 
                 Block::make('gallery')->label('Galeri gambar')->icon('heroicon-o-squares-2x2')->schema([
-                    FileUpload::make('images')->label('Gambar')->image()->imagePreset('page_gallery')->multiple()->reorderable()->appendFiles()
+                    FileUpload::make('images')->label('Gambar')->image()->imagePreset('page_gallery')->altTextField('alt')->multiple()->reorderable()->appendFiles()
                         ->disk('public')->directory('pages')->visibility('public')
                         ->acceptedFileTypes(['image/png', 'image/jpeg', 'image/webp', 'image/gif'])->maxSize(4096)->required(),
                     Grid::make(2)->schema([

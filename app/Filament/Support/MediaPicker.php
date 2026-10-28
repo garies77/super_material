@@ -14,11 +14,13 @@ use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use WeakMap;
 
 /**
  * Tombol "Pilih dari Media" untuk field gambar. Pada FileUpload, path terpilih dimasukkan ke state
@@ -32,7 +34,17 @@ class MediaPicker
 {
     public const LIMIT = 60;
 
-    public static function action(?string $directory = null, int $minPixels = 0, ?string $preset = null): Action
+    /** @var WeakMap<Component, string>|null field teks alternatif pendamping per field gambar (lihat macro altTextField) */
+    private static ?WeakMap $altTextFields = null;
+
+    /** Tautkan field gambar ke field teks alternatif di sebelahnya (path relatif terhadap container yang sama). */
+    public static function rememberAltTextField(Component $component, string $field): void
+    {
+        self::$altTextFields ??= new WeakMap;
+        self::$altTextFields[$component] = $field;
+    }
+
+    public static function action(?string $directory = null, int $minPixels = 0, ?string $preset = null, ?string $altTextField = null): Action
     {
         return Action::make('pickFromMediaLibrary')
             ->label('Pilih dari Media')
@@ -74,7 +86,7 @@ class MediaPicker
                     $preset ? ImagePreset::apply($upload, $preset) : $upload,
                 ];
             })
-            ->action(function (array $data, Component $component) use ($directory, $preset): void {
+            ->action(function (array $data, Component $component, Get $get, Set $set) use ($directory, $preset, $altTextField): void {
                 $media = self::selectedMedia($data['selected'] ?? []);
 
                 if (($upload = $data['upload'] ?? null) instanceof TemporaryUploadedFile) {
@@ -91,6 +103,13 @@ class MediaPicker
                 }
 
                 self::apply($component, self::fitToSection($component, $preset, $media));
+
+                // Teks alternatif dari pustaka hanya mengisi field yang masih kosong, tidak menimpa tulisan admin
+                $altField = $altTextField ?? self::$altTextFields[$component] ?? null;
+                $altText = collect($media)->map->alt_text->first(fn (?string $alt) => filled($alt));
+                if ($altField && $altText && blank($get($altField))) {
+                    $set($altField, $altText);
+                }
             });
     }
 

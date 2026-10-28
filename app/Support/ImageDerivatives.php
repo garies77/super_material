@@ -188,8 +188,11 @@ class ImageDerivatives
         return null;
     }
 
-    /** Potong tengah (cover) ke ukuran target lalu simpan sebagai WebP 85 (JPEG bila WebP tidak tersedia). */
-    public static function createDerivative(string $sourcePath, string $targetPath, int $targetW, int $targetH): bool
+    /**
+     * Potong (cover) ke ukuran target lalu simpan sebagai WebP 85 (JPEG bila WebP tidak tersedia).
+     * Area potong berpusat di titik fokus (persen); default tengah.
+     */
+    public static function createDerivative(string $sourcePath, string $targetPath, int $targetW, int $targetH, float $focalX = 50, float $focalY = 50): bool
     {
         $info = @getimagesize($sourcePath);
         if (! $info) {
@@ -212,7 +215,7 @@ class ImageDerivatives
             return false;
         }
 
-        // Hitung crop posisi tengah (cover center crop)
+        // Hitung area crop (cover) yang berpusat di titik fokus, dijepit agar tetap di dalam gambar
         $srcRatio = $srcW / $srcH;
         $targetRatio = $targetW / $targetH;
 
@@ -220,15 +223,14 @@ class ImageDerivatives
             // Gambar sumber lebih lebar: crop sisi kiri/kanan
             $cropW = (int) round($srcH * $targetRatio);
             $cropH = $srcH;
-            $cropX = (int) round(($srcW - $cropW) / 2);
-            $cropY = 0;
         } else {
             // Gambar sumber lebih tinggi: crop atas/bawah
             $cropW = $srcW;
             $cropH = (int) round($srcW / $targetRatio);
-            $cropX = 0;
-            $cropY = (int) round(($srcH - $cropH) / 2);
         }
+
+        $cropX = (int) max(0, min($srcW - $cropW, round($srcW * $focalX / 100 - $cropW / 2)));
+        $cropY = (int) max(0, min($srcH - $cropH, round($srcH * $focalY / 100 - $cropH / 2)));
 
         $dstImg = imagecreatetruecolor($targetW, $targetH);
 

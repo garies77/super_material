@@ -93,6 +93,14 @@ class AppServiceProvider extends ServiceProvider
             /** @var FileUpload $this */
             return ImagePreset::apply($this, $preset);
         });
+
+        // ->altTextField('image_alt'): teks alternatif gambar dari Pustaka Media mengisi field ini bila masih kosong
+        FileUpload::macro('altTextField', function (string $field): FileUpload {
+            /** @var FileUpload $this */
+            MediaPicker::rememberAltTextField($this, $field);
+
+            return $this;
+        });
     }
 
     /**

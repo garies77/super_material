@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Filament\Support\DescriptiveFileName;
+use App\Models\AuditLog;
 use App\Models\Media;
 use Filament\Forms\Components\BaseFileUpload;
 use Illuminate\Http\UploadedFile;
@@ -125,14 +126,17 @@ class MediaLibrary
         $cropWidth = min($media->width, (int) floor($media->height * $ratio));
         $width = min($cropWidth, $maxWidth ?? $cropWidth);
         $height = (int) round($width / $ratio);
-        $path = self::folderFor($media->path).'/'.pathinfo($media->path, PATHINFO_FILENAME)."-{$width}x{$height}.webp";
+        // Titik fokus selain tengah masuk ke nama berkas: potongan lama yang sudah dipakai konten tidak tertimpa
+        $focal = [$media->focal_x ?? 50, $media->focal_y ?? 50];
+        $focalSuffix = $focal === [50, 50] ? '' : "-f{$focal[0]}-{$focal[1]}";
+        $path = self::folderFor($media->path).'/'.pathinfo($media->path, PATHINFO_FILENAME)."-{$width}x{$height}{$focalSuffix}.webp";
 
         if ($existing = Media::firstWhere('path', $path)) {
             return $existing;
         }
 
         $disk = Storage::disk(Media::DISK);
-        if (! ImageDerivatives::createDerivative($disk->path($media->path), $disk->path($path), $width, $height) || ! $disk->exists($path)) {
+        if (! ImageDerivatives::createDerivative($disk->path($media->path), $disk->path($path), $width, $height, $focal[0], $focal[1]) || ! $disk->exists($path)) {
             return $media;
         }
 
@@ -140,6 +144,23 @@ class MediaLibrary
         $crop?->update(['alt_text' => $media->alt_text]);
 
         return $crop ?? $media;
+    }
+
+    /**
+     * Hapus berkas pustaka beserta thumbnail-nya. Pemanggil wajib memastikan berkas tidak dipakai
+     * (MediaUsage); fungsi ini sendiri tidak memeriksa pemakaian.
+     */
+    public static function delete(Media $media): void
+    {
+        $disk = Storage::disk(Media::DISK);
+        $disk->delete($media->path);
+
+        if ($media->thumbnail_path && $media->thumbnail_path !== $media->path && str_starts_with($media->thumbnail_path, 'derivatives/')) {
+            $disk->delete($media->thumbnail_path);
+        }
+
+        AuditLog::record(request(), 'media.deleted', $media, ['path' => $media->path]);
+        $media->delete();
     }
 
     public static function folderFor(string $path): string

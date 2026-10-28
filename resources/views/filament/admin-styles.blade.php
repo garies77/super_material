@@ -130,6 +130,180 @@
         background: rgb(22 163 74 / 0.9);
     }
 
+    /* Pustaka Media: mode pilih untuk hapus (tanpa checkbox). Kartu terpilih berbingkai & berlabel merah */
+    .sm-hidden {
+        display: none !important;
+    }
+
+    .sm-select-bar {
+        position: fixed;
+        bottom: 1.25rem;
+        left: 50%;
+        z-index: 30;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.5rem 0.75rem 0.5rem 1rem;
+        border-radius: 0.75rem;
+        background: rgb(17 24 39);
+        color: #fff;
+        font-size: 0.875rem;
+        box-shadow: 0 10px 25px rgb(0 0 0 / 0.35);
+        transform: translateX(-50%);
+    }
+
+    .sm-select-bar {
+        flex-wrap: wrap;
+        justify-content: center;
+        max-width: calc(100vw - 2rem);
+    }
+
+    .sm-select-hint {
+        font-size: 0.75rem;
+        color: rgb(156 163 175);
+    }
+
+    /* Pustaka Media: tombol aksi ⋮ melayang di pojok kanan atas kartu agar kartu ringkas */
+    .fi-ta-record.sm-media-card {
+        position: relative;
+    }
+
+    .fi-ta-record.sm-media-card .fi-ta-actions {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        z-index: 1;
+        margin: 0;
+        padding: 0;
+    }
+
+    .fi-ta-record.sm-media-card .fi-ta-actions .fi-icon-btn {
+        border-radius: 9999px;
+        background: rgb(255 255 255 / 0.85);
+        box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+    }
+
+    .dark .fi-ta-record.sm-media-card .fi-ta-actions .fi-icon-btn {
+        background: rgb(17 24 39 / 0.8);
+    }
+
+    .fi-ta-record.sm-media-card-selectable {
+        position: relative;
+        cursor: pointer;
+        user-select: none;
+        transition: box-shadow 0.15s, background-color 0.15s;
+    }
+
+    .fi-ta-record.sm-media-card-selectable:hover {
+        box-shadow: 0 0 0 2px rgb(239 68 68 / 0.45);
+    }
+
+    .fi-ta-record.sm-media-card-selected {
+        box-shadow: 0 0 0 3px rgb(239 68 68);
+        background-color: rgb(239 68 68 / 0.12);
+    }
+
+    .fi-ta-record.sm-media-card-selected::after {
+        content: 'Dipilih';
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        padding: 0 0.5rem;
+        border-radius: 9999px;
+        background: rgb(239 68 68);
+        color: #fff;
+        font-size: 0.75rem;
+        font-weight: 600;
+        line-height: 1.5rem;
+        pointer-events: none;
+    }
+
+    /* Panel skor SEO langsung di form produk & artikel */
+    .sm-seo-head {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+        font-size: 0.875rem;
+    }
+
+    .sm-seo-score {
+        flex: none;
+        min-width: 3.5rem;
+        padding: 0.375rem 0.5rem;
+        border-radius: 0.5rem;
+        color: #fff;
+        font-size: 1.125rem;
+        font-weight: 700;
+        text-align: center;
+    }
+
+    .sm-seo-score.is-good {
+        background: rgb(22 163 74);
+    }
+
+    .sm-seo-score.is-fair {
+        background: rgb(217 119 6);
+    }
+
+    .sm-seo-score.is-poor {
+        background: rgb(220 38 38);
+    }
+
+    .sm-seo-sub {
+        font-size: 0.75rem;
+        color: rgb(107 114 128);
+    }
+
+    .sm-seo-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.375rem;
+        font-size: 0.8125rem;
+    }
+
+    .sm-seo-list li {
+        display: flex;
+        gap: 0.5rem;
+        color: rgb(220 38 38);
+    }
+
+    .sm-seo-list li.is-passed {
+        color: rgb(107 114 128);
+    }
+
+    .sm-seo-list li.is-passed span {
+        color: rgb(22 163 74);
+    }
+
+    /* Pustaka Media: pemilih titik fokus */
+    .sm-focal {
+        position: relative;
+        width: fit-content;
+        max-width: 100%;
+        margin: 0 auto;
+        cursor: crosshair;
+        user-select: none;
+    }
+
+    .sm-focal img {
+        display: block;
+        max-height: 24rem;
+        max-width: 100%;
+    }
+
+    .sm-focal-marker {
+        position: absolute;
+        width: 1.75rem;
+        height: 1.75rem;
+        border: 3px solid #fff;
+        border-radius: 9999px;
+        background: rgb(239 68 68 / 0.45);
+        box-shadow: 0 0 0 2px rgb(0 0 0 / 0.5);
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+    }
+
     .sm-media-caption {
         display: flex;
         flex-direction: column;

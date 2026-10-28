@@ -120,14 +120,14 @@ class AdResource extends Resource
                         ->required(fn (Get $get) => in_array($get('format'), ['image', 'text'], true))
                         ->visible($format('image', 'text', 'product'))->columnSpanFull(),
                     FileUpload::make('image')->label('Gambar desktop')->image()
-                        ->imagePreset(fn (Get $get) => $popup($get) ? 'campaign_popup' : 'campaign_slot')->disk('public')->directory('kampanye')->visibility('public')
+                        ->imagePreset(fn (Get $get) => $popup($get) ? 'campaign_popup' : 'campaign_slot')->altTextField('image_alt')->disk('public')->directory('kampanye')->visibility('public')
                         ->getUploadedFileNameForStorageUsing(DescriptiveFileName::from('name', 'kampanye'))
                         ->helperText(fn (Get $get) => $popup($get)
                             ? 'Pop-up: disarankan 1200×750 (rasio 16:10).'
                             : 'Tinggi slot tetap 250 px (sidebar 300 px); disarankan 728×250 atau 300×250.')
                         ->required(fn (Get $get) => $get('format') === 'image' || $popup($get))
                         ->visible(fn (Get $get) => $get('format') === 'image' || $popup($get)),
-                    FileUpload::make('image_mobile')->label('Gambar mobile (opsional)')->image()->disk('public')->directory('kampanye')->visibility('public')
+                    FileUpload::make('image_mobile')->label('Gambar mobile (opsional)')->image()->altTextField('image_alt')->disk('public')->directory('kampanye')->visibility('public')
                         ->getUploadedFileNameForStorageUsing(DescriptiveFileName::from('name', 'kampanye', 'mobile'))
                         ->helperText('Dipakai pada layar < 640 px.')
                         ->visible(fn (Get $get) => $get('format') === 'image' || $popup($get)),

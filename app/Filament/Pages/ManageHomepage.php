@@ -265,9 +265,9 @@ class ManageHomepage extends Page implements HasSchemas
             Select::make('settings.source')->label('Sumber banner')->live()->selectablePlaceholder(false)->default('custom')
                 ->options(['custom' => 'Unggah gambar sendiri', 'campaign' => 'Pakai kampanye dari menu Kampanye']),
             Grid::make(2)->visible($custom)->schema([
-                FileUpload::make('settings.image')->label('Gambar desktop')->image()->imagePreset('banner_desktop')->disk('public')->directory('banners')->visibility('public')
+                FileUpload::make('settings.image')->label('Gambar desktop')->image()->imagePreset('banner_desktop')->altTextField('settings.alt')->disk('public')->directory('banners')->visibility('public')
                     ->required($custom)->helperText('Disarankan 1200×300 px (4:1).'),
-                FileUpload::make('settings.image_mobile')->label('Gambar ponsel (opsional)')->image()->imagePreset('banner_mobile')->disk('public')->directory('banners')->visibility('public')
+                FileUpload::make('settings.image_mobile')->label('Gambar ponsel (opsional)')->image()->imagePreset('banner_mobile')->altTextField('settings.alt')->disk('public')->directory('banners')->visibility('public')
                     ->helperText('Disarankan 800×600 px (4:3). Kosong = memakai gambar desktop.'),
                 TextInput::make('settings.url')->label('URL tujuan saat diklik')->maxLength(500)->placeholder('/produk atau https://…'),
                 TextInput::make('settings.alt')->label('Teks alternatif gambar')->maxLength(150)

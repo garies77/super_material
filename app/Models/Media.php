@@ -51,6 +51,8 @@ class Media extends Model
             'size' => 'integer',
             'width' => 'integer',
             'height' => 'integer',
+            'focal_x' => 'integer',
+            'focal_y' => 'integer',
         ];
     }
 

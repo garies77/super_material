@@ -1,9 +1,12 @@
 <?php
 
+use App\Filament\Resources\Ads\Pages\EditAd;
 use App\Filament\Resources\Brands\Pages\ManageBrands;
 use App\Filament\Resources\Categories\Pages\EditCategory;
 use App\Filament\Resources\Media\MediaResource;
 use App\Filament\Resources\Media\Pages\ManageMedia;
+use App\Models\Ad;
+use App\Models\AuditLog;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Media;
@@ -207,6 +210,129 @@ it('filters the media library by aspect ratio', function () {
         ->filterTable('ratio', '16:9')
         ->assertCanSeeTableRecords([$wide])
         ->assertCanNotSeeTableRecords([$square]);
+});
+
+it('fills the empty alt text field from the picked library image without overwriting typed text', function () {
+    $media = libraryImage('kampanye/promo-semen.png', UploadedFile::fake()->image('promo.png', 728, 250));
+    $media->update(['alt_text' => 'Promo Semen Gresik 40 kg']);
+    $ad = fn (?string $alt) => Ad::create(['name' => 'Promo', 'slot' => 'top', 'format' => 'image', 'target_url' => 'https://mitra.example.com', 'image_alt' => $alt, 'is_active' => true]);
+
+    foreach ([[$ad(null), 'Promo Semen Gresik 40 kg'], [$ad('Tulisan admin'), 'Tulisan admin']] as [$record, $expectedAlt]) {
+        Livewire::test(EditAd::class, ['record' => $record->getRouteKey()])
+            ->callAction(TestAction::make('pickFromMediaLibrary')->schemaComponent('image'), ['selected' => [$media->path]])
+            ->assertFormSet(['image_alt' => $expectedAlt]);
+    }
+});
+
+it('centers automatic crops on the focal point set in the media library', function () {
+    // Kiri merah, kanan biru: potongan persegi dari gambar 2:1 hanya memuat salah satu sisi
+    $canvas = imagecreatetruecolor(1600, 800);
+    imagefilledrectangle($canvas, 0, 0, 799, 799, imagecolorallocate($canvas, 255, 0, 0));
+    imagefilledrectangle($canvas, 800, 0, 1599, 799, imagecolorallocate($canvas, 0, 0, 255));
+    ob_start();
+    imagepng($canvas);
+    Storage::disk('public')->put('products/dua-warna.png', ob_get_clean());
+    $media = MediaLibrary::register('products/dua-warna.png');
+
+    Livewire::test(ManageMedia::class)
+        ->callTableAction('focus', $media, ['focal' => ['x' => 100, 'y' => 50]])
+        ->assertHasNoTableActionErrors();
+
+    $crop = MediaLibrary::cropToRatio($media->refresh(), 1, 400);
+    $pixel = imagecolorsforindex($image = imagecreatefromwebp(Storage::disk('public')->path($crop->path)), imagecolorat($image, 200, 200));
+
+    expect([$media->focal_x, $media->focal_y])->toBe([100, 50])
+        ->and($crop->path)->toBe('products/dua-warna-400x400-f100-50.webp')
+        ->and($pixel['blue'])->toBeGreaterThan(200)->and($pixel['red'])->toBeLessThan(50);
+});
+
+it('refuses to delete an image that content still uses and deletes unused ones', function () {
+    $used = libraryImage('products/dipakai.png', UploadedFile::fake()->image('a.png'));
+    $unused = libraryImage('products/nganggur.png', UploadedFile::fake()->image('b.png', 120, 100));
+    Product::create(['name' => 'Semen', 'slug' => 'semen', 'image' => $used->path]);
+
+    Livewire::test(ManageMedia::class)
+        ->callTableAction('delete', $used)
+        ->callTableAction('delete', $unused);
+
+    Storage::disk('public')->assertExists($used->path);
+    Storage::disk('public')->assertMissing($unused->path);
+    expect(Media::pluck('path')->all())->toBe([$used->path])
+        ->and(AuditLog::where('action', 'media.deleted')->count())->toBe(1);
+});
+
+it('deletes images marked in select mode, skipping the ones content still uses', function () {
+    $used = libraryImage('articles/dipakai.png', UploadedFile::fake()->image('a.png'));
+    $unused = libraryImage('articles/nganggur.png', UploadedFile::fake()->image('b.png', 120, 100));
+    $other = libraryImage('articles/lain.png', UploadedFile::fake()->image('c.png', 130, 100));
+    Setting::put('site_og_image', $used->path);
+
+    // Penandaan kartu terjadi di browser; server menerima daftar ID bersama permintaan hapus
+    Livewire::test(ManageMedia::class)
+        ->callAction('select')
+        ->assertSeeHtml('sm-select-bar')
+        ->assertSeeHtml('data-media-id="'.$unused->id.'"')
+        ->assertDontSeeHtml('fi-ta-record-checkbox')
+        ->set('selectedMediaIds', [$used->id, $unused->id])
+        ->callAction('deleteSelected')
+        ->assertSet('isSelectingMedia', false)
+        ->assertSet('selectedMediaIds', []);
+
+    expect(Media::orderBy('id')->pluck('path')->all())->toBe([$used->path, $other->path]);
+});
+
+it('adds every unused image in the library to the selection in one step', function () {
+    $used = libraryImage('articles/dipakai.png', UploadedFile::fake()->image('a.png'));
+    $unused = libraryImage('articles/nganggur.png', UploadedFile::fake()->image('b.png', 120, 100));
+    $alreadyPicked = libraryImage('articles/lain.png', UploadedFile::fake()->image('c.png', 130, 100));
+    Setting::put('site_og_image', $used->path);
+
+    Livewire::test(ManageMedia::class)
+        ->callAction('select')
+        ->set('selectedMediaIds', [$alreadyPicked->id])
+        ->call('selectAllUnusedMedia')
+        ->assertSet('selectedMediaIds', [$alreadyPicked->id, $unused->id]);
+});
+
+it('ignores select-all requests outside select mode or from authors', function () {
+    libraryImage('articles/nganggur.png', UploadedFile::fake()->image('b.png'));
+
+    Livewire::test(ManageMedia::class)->call('selectAllUnusedMedia')->assertSet('selectedMediaIds', []);
+
+    $this->actingAs(User::factory()->create(['role' => 'author', 'is_active' => true]));
+    Livewire::test(ManageMedia::class)->set('isSelectingMedia', true)->call('selectAllUnusedMedia')->assertSet('selectedMediaIds', []);
+});
+
+it('warns instead of deleting when nothing is selected', function () {
+    libraryImage('articles/foto.png', UploadedFile::fake()->image('a.png'));
+
+    Livewire::test(ManageMedia::class)
+        ->callAction('select')
+        ->callAction('deleteSelected')
+        ->assertNotified('Belum ada gambar yang dipilih')
+        ->assertSet('isSelectingMedia', true);
+
+    expect(Media::count())->toBe(1);
+});
+
+it('filters the media library to images no content uses', function () {
+    $used = libraryImage('products/dipakai.png', UploadedFile::fake()->image('a.png'));
+    $unused = libraryImage('products/nganggur.png', UploadedFile::fake()->image('b.png', 120, 100));
+    Product::create(['name' => 'Semen', 'slug' => 'semen', 'gallery' => [$used->path]]);
+
+    Livewire::test(ManageMedia::class)
+        ->filterTable('usage', 'unused')
+        ->assertCanSeeTableRecords([$unused])
+        ->assertCanNotSeeTableRecords([$used]);
+});
+
+it('hides deleting from authors', function () {
+    $this->actingAs(User::factory()->create(['role' => 'author', 'is_active' => true]));
+    $media = libraryImage('products/foto.png', UploadedFile::fake()->image('a.png'));
+
+    Livewire::test(ManageMedia::class)
+        ->assertTableActionHidden('delete', $media)
+        ->assertActionHidden('select');
 });
 
 it('lets every active panel role open the media library', function (string $role) {
