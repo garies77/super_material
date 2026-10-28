@@ -58,7 +58,7 @@ it('orders the sidebar by operational priority and supports the collapsed icon r
         'Dashboard',
         'Produk', 'Kategori', 'Merek', 'Kanal Beli',
         'Artikel', 'Penulis', 'Halaman', 'Kampanye', 'Formulir', 'Jawaban formulir', 'Media',
-        'Laporan Klik', 'Laporan kampanye',
+        'Laporan Klik', 'Laporan kampanye', 'Riwayat XP',
         'Kustomisasi Beranda', 'Navbar Builder', 'Footer Builder',
         'Pengaturan situs', 'Pengguna', 'Token API', 'Redirects',
     ])->and($html)->not->toContain('Penggunas');

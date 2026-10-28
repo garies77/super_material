@@ -5,6 +5,7 @@ namespace App\Filament\Support;
 use App\Models\Article;
 use App\Models\AuditLog;
 use App\Models\Product;
+use App\Support\Gamification;
 use App\Support\SeoScore;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
@@ -88,9 +89,15 @@ class ReviewWorkflow
                     $page->save(shouldRedirect: false, shouldSendSavedNotification: false);
                     $record->markAsLive();
                     $record->save();
-                    AuditLog::record(request(), 'review.approved', $record, ['submitted_by' => $record->submitted_by]);
+                    $score = self::seoScore($record);
+                    AuditLog::record(request(), 'review.approved', $record, ['submitted_by' => $record->submitted_by, 'seo_score' => $score]);
 
-                    Notification::make()->title('Disetujui dan diterbitkan')->success()->send();
+                    // Gamifikasi: XP untuk pengaju (sekali per konten; lihat App\Support\Gamification)
+                    $award = ($submitter = $record->submitter) ? Gamification::awardApproval($record, $submitter, $score) : null;
+
+                    Notification::make()->title('Disetujui dan diterbitkan')
+                        ->body($award ? "{$submitter->name} mendapat +{$award->points} XP." : null)
+                        ->success()->send();
                     $page->redirect($page::getUrl(['record' => $record]));
                 }),
 

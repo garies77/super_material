@@ -414,6 +414,157 @@
         text-align: center;
     }
 
+    /* Kartu XP & lencana dashboard (filament/widgets/xp-profile) */
+    .sm-xp {
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.5fr) minmax(0, 1.3fr);
+        gap: 1.5rem;
+    }
+
+    @media (max-width: 1024px) {
+        .sm-xp {
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
+
+    .sm-xp-level-head {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .sm-xp-level-icon {
+        flex: none;
+        width: 2.5rem;
+        height: 2.5rem;
+        padding: 0.5rem;
+        border-radius: 0.75rem;
+        background: color-mix(in srgb, var(--primary-500, #f97316) 15%, transparent);
+        color: var(--primary-500, #f97316);
+    }
+
+    .sm-xp-level-name {
+        font-size: 1.125rem;
+        font-weight: 700;
+    }
+
+    .sm-xp-total {
+        margin-left: auto;
+        font-size: 0.875rem;
+        color: rgb(107 114 128);
+    }
+
+    .sm-xp-total strong {
+        font-size: 1.25rem;
+        color: var(--primary-500, #f97316);
+    }
+
+    .sm-xp-label {
+        font-size: 0.75rem;
+        color: rgb(107 114 128);
+    }
+
+    .sm-xp-rules {
+        margin-top: 0.75rem;
+        line-height: 1.4;
+    }
+
+    .sm-xp-heading {
+        margin-bottom: 0.5rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    .sm-xp-bar {
+        height: 0.5rem;
+        margin-bottom: 0.375rem;
+        overflow: hidden;
+        border-radius: 9999px;
+        background: rgb(0 0 0 / 0.08);
+    }
+
+    .dark .sm-xp-bar {
+        background: rgb(255 255 255 / 0.1);
+    }
+
+    .sm-xp-bar span {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background: var(--primary-500, #f97316);
+        transition: width 0.5s ease;
+    }
+
+    .sm-xp-badges {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.5rem;
+    }
+
+    .sm-xp-badge {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.625rem 0.5rem;
+        border-radius: 0.75rem;
+        box-shadow: 0 0 0 1px rgb(0 0 0 / 0.08);
+        text-align: center;
+        opacity: 0.55;
+    }
+
+    .dark .sm-xp-badge {
+        box-shadow: 0 0 0 1px rgb(255 255 255 / 0.1);
+    }
+
+    .sm-xp-badge.is-earned {
+        opacity: 1;
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary-500, #f97316) 45%, transparent);
+    }
+
+    .sm-xp-badge-icon {
+        width: 1.75rem;
+        height: 1.75rem;
+        color: rgb(156 163 175);
+    }
+
+    .sm-xp-badge.is-earned .sm-xp-badge-icon {
+        color: var(--primary-500, #f97316);
+    }
+
+    .sm-xp-badge-name {
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .sm-xp-event {
+        display: flex;
+        align-items: center;
+        gap: 0.625rem;
+        padding: 0.375rem 0;
+        font-size: 0.8125rem;
+    }
+
+    .sm-xp-points {
+        flex: none;
+        min-width: 2.75rem;
+        padding: 0.125rem 0.375rem;
+        border-radius: 0.375rem;
+        background: rgb(22 163 74 / 0.12);
+        color: rgb(22 163 74);
+        font-weight: 700;
+        text-align: center;
+    }
+
+    .sm-xp-reason {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
     /* Confetti perayaan (filament/celebrate.blade.php) */
     .sm-confetti {
         position: fixed;

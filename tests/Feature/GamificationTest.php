@@ -1,11 +1,15 @@
 <?php
 
 use App\Filament\Resources\Products\Pages\EditProduct;
+use App\Filament\Resources\XpEvents\Pages\ListXpEvents;
+use App\Filament\Resources\XpEvents\XpEventResource;
 use App\Filament\Support\ReviewWorkflow;
 use App\Models\Article;
 use App\Models\Brand;
 use App\Models\Product;
 use App\Models\User;
+use App\Models\XpEvent;
+use App\Support\Gamification;
 use App\Support\MissionBoard;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -93,4 +97,92 @@ it('celebrates a complete submission once on the next page and only nudges an in
     // Halaman berikutnya memutar confetti sekali, lalu tanda perayaan habis
     $this->get("/admin/products/{$complete->id}/edit")->assertOk()->assertSee('setTimeout(() => window.smConfetti(), 300)', false);
     $this->get("/admin/products/{$complete->id}/edit")->assertOk()->assertDontSee('setTimeout(() => window.smConfetti(), 300)', false);
+});
+
+/** Kontributor mengajukan draf lalu Editor menyetujuinya lewat tombol di halaman edit. */
+function submitAndApprove(Product $product, User $contributor, User $editor): void
+{
+    test()->actingAs($contributor);
+    Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()])->callAction('submitForReview');
+    test()->actingAs($editor);
+    Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()])->callAction('approve');
+}
+
+it('awards XP with a quality breakdown when a submission is approved', function () {
+    $product = Product::create(['name' => 'Semen Gresik', 'slug' => 'semen-gresik', 'created_by' => $this->contributor->id]);
+    $score = ReviewWorkflow::seoScore($product);
+
+    submitAndApprove($product, $this->contributor, $this->editor);
+    $event = XpEvent::sole();
+
+    // Skor rendah: tanpa bonus kelengkapan, tetapi disetujui tanpa perbaikan
+    expect($score)->toBeLessThan(Gamification::COMPLETE_SCORE)
+        ->and($event->only(['user_id', 'points']))->toBe(['user_id' => $this->contributor->id, 'points' => Gamification::POINTS_APPROVED + Gamification::POINTS_FIRST_TIME_RIGHT])
+        ->and($event->meta['first_time_right'])->toBeTrue()
+        ->and(Gamification::totalXp($this->contributor))->toBe(50);
+});
+
+it('skips the first-time-right bonus after a change request and never awards the same content twice', function () {
+    $product = Product::create(['name' => 'Semen Gresik', 'slug' => 'semen-gresik', 'created_by' => $this->contributor->id]);
+
+    $this->actingAs($this->contributor);
+    Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()])->callAction('submitForReview');
+    $this->actingAs($this->editor);
+    Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()])->callAction('requestChanges', ['note' => 'Tambah foto.']);
+    submitAndApprove($product, $this->contributor, $this->editor);
+
+    // Diturunkan lalu diajukan & disetujui lagi: tidak ada XP baru
+    $product->refresh()->update(['is_published' => false, 'created_by' => $this->contributor->id]);
+    submitAndApprove($product->refresh(), $this->contributor, $this->editor);
+
+    expect(XpEvent::count())->toBe(1)
+        ->and(XpEvent::sole()->points)->toBe(Gamification::POINTS_APPROVED);
+});
+
+it('computes levels and progress towards the next one', function (int $xp, string $name, ?string $next, int $progress) {
+    expect(Gamification::level($xp))->toMatchArray(['name' => $name, 'next' => $next, 'progress' => $progress]);
+})->with([
+    'awal' => [0, 'Magang', 'Juru Katalog', 0],
+    'tengah level' => [400, 'Juru Katalog', 'Ahli Konten', 50],
+    'level tertinggi' => [2000, 'Master Supermaterial', null, 100],
+]);
+
+it('earns badges from approvals, ignoring revoked XP', function () {
+    foreach (range(0, 4) as $day) {
+        XpEvent::factory()->for($this->contributor)->create([
+            'award_key' => "approval:product:{$day}", 'created_at' => now()->subDays($day),
+            'meta' => ['score' => 100, 'first_time_right' => true],
+        ]);
+    }
+
+    $earned = fn () => Gamification::badges($this->contributor)->where('earned', true)->pluck('key')->all();
+
+    expect($earned())->toBe(['first_approval', 'consistent']);
+
+    XpEvent::where('award_key', 'approval:product:2')->update(['revoked_at' => now()]);
+
+    expect($earned())->toBe(['first_approval'])
+        ->and(Gamification::totalXp($this->contributor))->toBe(160);
+});
+
+it('shows the XP card on the contributor dashboard', function () {
+    XpEvent::factory()->for($this->contributor)->create(['points' => 250, 'reason' => 'Produk disetujui: Semen Gresik']);
+
+    $this->actingAs($this->contributor)->get('/admin')->assertOk()
+        ->assertSee('Juru Katalog')->assertSee('Produk disetujui: Semen Gresik')->assertSee('Langkah Pertama');
+});
+
+it('lets only admins review and revoke XP', function () {
+    $event = XpEvent::factory()->for($this->contributor)->create();
+
+    $this->actingAs($this->editor)->get(XpEventResource::getUrl())->assertForbidden();
+
+    $this->actingAs(User::factory()->create(['role' => 'admin', 'is_active' => true]));
+    Livewire::test(ListXpEvents::class)->callTableAction('revoke', $event);
+
+    expect($event->refresh()->isRevoked())->toBeTrue()
+        ->and(Gamification::totalXp($this->contributor))->toBe(0);
+
+    Livewire::test(ListXpEvents::class)->callTableAction('restore', $event);
+    expect(Gamification::totalXp($this->contributor))->toBe($event->points);
 });
