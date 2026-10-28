@@ -102,17 +102,17 @@ class ProductResource extends Resource
                             ->default('upload')->required()->live(),
                         TextInput::make('path')->label('URL / Path')
                             ->helperText('Upload: klik "Pilih dari Media" untuk memilih atau mengunggah gambar. YouTube: tempel URL video.')
-                            ->hintAction(MediaPicker::action('products', 50000)->visible(fn (Get $get) => $get('provider') === 'upload'))
+                            ->hintAction(MediaPicker::action('products', 50000, 'product')->visible(fn (Get $get) => $get('provider') === 'upload'))
                             ->required()->columnSpan(2),
                         TextInput::make('poster_path')->label('URL Poster (Video)')->placeholder('Opsional untuk thumbnail video'),
                         TextInput::make('alt_text')->label('Alt Text')->placeholder('Keterangan aksesibilitas'),
                     ]),
                     Section::make('Fallback Gambar Cepat')->columns(2)->collapsed()->schema([
-                        FileUpload::make('image')->label('Gambar utama cepat')->image()->disk('public')->directory('products')->visibility('public')
+                        FileUpload::make('image')->label('Gambar utama cepat')->image()->imagePreset('product')->disk('public')->directory('products')->visibility('public')
                             ->getUploadedFileNameForStorageUsing(DescriptiveFileName::from('name', 'products'))
                             ->rule(new MinImagePixels(50000))
                             ->helperText('Minimal 50.000 piksel. Sistem otomatis membuat turunan 16:9, 4:3, dan 1:1 untuk Search & Discover (PRD 9.13.3).'),
-                        FileUpload::make('gallery')->label('Galeri foto cepat')->image()->multiple()->reorderable()->disk('public')->directory('products')->visibility('public')
+                        FileUpload::make('gallery')->label('Galeri foto cepat')->image()->imagePreset('product')->multiple()->reorderable()->disk('public')->directory('products')->visibility('public')
                             ->getUploadedFileNameForStorageUsing(DescriptiveFileName::from('name', 'products'))
                             ->rule(new MinImagePixels(50000)),
                     ]),
@@ -135,7 +135,7 @@ class ProductResource extends Resource
                             ->afterOrEqual('discount_starts_at')
                             ->helperText('Wajib >= tanggal mulai.'),
                         TextInput::make('image_path')->label('URL / Path Gambar Varian')->columnSpan(3)
-                            ->hintAction(MediaPicker::action('products', 50000)),
+                            ->hintAction(MediaPicker::action('products', 50000, 'product')),
                         Toggle::make('is_active')->label('Aktif')->default(true),
                     ]),
                 ]),

@@ -3,12 +3,16 @@
 namespace App\Filament\Resources\Media;
 
 use App\Filament\Resources\Media\Pages\ManageMedia;
+use App\Filament\Support\ImagePreset;
 use App\Models\Media;
+use App\Support\MediaLibrary;
 use App\Support\MediaUsage;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
@@ -18,6 +22,7 @@ use Filament\Tables\Columns\Layout\Stack;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Pustaka Media: semua gambar di disk publik yang bisa dipakai ulang lewat tombol "Pilih dari Media".
@@ -67,7 +72,7 @@ class MediaResource extends Resource
                         ->searchable(['name', 'path', 'alt_text']),
                     TextColumn::make('folder')->badge()->color('gray')->formatStateUsing(fn (Media $record) => $record->folderLabel()),
                     TextColumn::make('details')->color('gray')->size('xs')
-                        ->state(fn (Media $record) => collect([$record->dimensionsLabel(), $record->sizeLabel()])->filter()->implode(' · ')),
+                        ->state(fn (Media $record) => collect([$record->ratioLabel(), $record->dimensionsLabel(), $record->sizeLabel()])->filter()->implode(' · ')),
                 ])->space(2),
             ])
             ->contentGrid(['md' => 3, 'xl' => 4, '2xl' => 6])
@@ -77,6 +82,11 @@ class MediaResource extends Resource
                 SelectFilter::make('folder')->label('Folder')
                     ->options(fn () => Media::query()->distinct()->orderBy('folder')->pluck('folder')
                         ->mapWithKeys(fn (string $folder) => [$folder => Media::FOLDERS[$folder] ?? $folder])),
+                SelectFilter::make('ratio')->label('Rasio')
+                    ->options(array_combine(array_keys(Media::RATIOS), array_keys(Media::RATIOS)))
+                    ->query(fn (Builder $query, array $data) => filled($data['value'] ?? null) && isset(Media::RATIOS[$data['value']])
+                        ? $query->withRatio(Media::RATIOS[$data['value']])
+                        : $query),
             ])
             ->recordAction('detail')
             ->recordActions([
@@ -89,6 +99,24 @@ class MediaResource extends Resource
                     ]))
                     ->modalSubmitAction(false)->modalCancelActionLabel('Tutup'),
                 EditAction::make()->label('Ubah info'),
+                Action::make('crop')->label('Potong')->icon(Heroicon::OutlinedScissors)
+                    ->visible(fn (Media $record) => $record->isCroppable())
+                    ->modalHeading('Buat potongan untuk section')
+                    ->modalDescription('Gambar dipotong dari bagian tengah sesuai ukuran section dan disimpan sebagai gambar baru. Gambar asli tidak berubah.')
+                    ->modalSubmitActionLabel('Buat potongan')
+                    ->schema([
+                        Select::make('preset')->label('Ukuran section')->required()
+                            ->options(fn () => collect(config('media.presets'))
+                                ->filter(fn (array $preset) => ImagePreset::singleRatio($preset) !== null)
+                                ->map(fn (array $preset) => $preset['label'].' ('.$preset['ratio'].(filled($preset['width']) ? ', '.$preset['width'].'×'.$preset['height'].' px' : '').')')),
+                    ])
+                    ->action(function (Media $record, array $data): void {
+                        $preset = ImagePreset::get($data['preset']);
+                        $crop = MediaLibrary::cropToRatio($record, ImagePreset::singleRatio($preset), $preset['width'] ?? null);
+
+                        Notification::make()->title($crop->is($record) ? 'Gambar ini sudah sesuai atau tidak bisa dipotong' : "Potongan dibuat: {$crop->name}")
+                            ->success()->send();
+                    }),
             ]);
     }
 

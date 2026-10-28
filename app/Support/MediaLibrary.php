@@ -112,6 +112,36 @@ class MediaLibrary
         return $media;
     }
 
+    /**
+     * Salinan gambar yang dipotong tengah ke rasio section dan diperkecil ke lebar maksimum (tanpa memperbesar).
+     * Berkas asli tidak diubah karena bisa dipakai konten lain. SVG dan format lain dikembalikan apa adanya.
+     */
+    public static function cropToRatio(Media $media, float $ratio, ?int $maxWidth = null): Media
+    {
+        if (! $media->isCroppable()) {
+            return $media;
+        }
+
+        $cropWidth = min($media->width, (int) floor($media->height * $ratio));
+        $width = min($cropWidth, $maxWidth ?? $cropWidth);
+        $height = (int) round($width / $ratio);
+        $path = self::folderFor($media->path).'/'.pathinfo($media->path, PATHINFO_FILENAME)."-{$width}x{$height}.webp";
+
+        if ($existing = Media::firstWhere('path', $path)) {
+            return $existing;
+        }
+
+        $disk = Storage::disk(Media::DISK);
+        if (! ImageDerivatives::createDerivative($disk->path($media->path), $disk->path($path), $width, $height) || ! $disk->exists($path)) {
+            return $media;
+        }
+
+        $crop = self::register($path, basename($path));
+        $crop?->update(['alt_text' => $media->alt_text]);
+
+        return $crop ?? $media;
+    }
+
     public static function folderFor(string $path): string
     {
         return str_contains($path, '/') ? Str::before($path, '/') : 'media';

@@ -45,9 +45,12 @@
                     >
                         <img src="{{ $media->thumbnailUrl() }}" alt="{{ $media->alt_text ?: $media->name }}" loading="lazy" decoding="async" width="160" height="160">
                         <span class="sm-media-badge" x-show="order(@js($media->path)) > 0" x-text="multiple ? order(@js($media->path)) : '✓'"></span>
+                        @if (($fits = $field->fitsSection($media)) !== null)
+                            <span @class(['sm-media-fit', 'is-fit' => $fits])>{{ $fits ? 'Pas' : ($field->willCrop($media) ? 'Dipotong' : 'Rasio lain') }}</span>
+                        @endif
                         <span class="sm-media-caption">
                             <span class="sm-media-name">{{ $media->name }}</span>
-                            <span class="sm-media-meta">{{ $media->folderLabel() }}@if ($media->dimensionsLabel()) · {{ $media->dimensionsLabel() }}@endif</span>
+                            <span class="sm-media-meta">{{ collect([$media->ratioLabel(), $media->dimensionsLabel() ?? $media->folderLabel()])->filter()->implode(' · ') }}</span>
                         </span>
                     </button>
                 @endforeach

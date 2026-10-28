@@ -155,6 +155,60 @@ it('filters the picker grid by search text', function () {
     expect($grid)->toContain('keramik-roman.png')->not->toContain('semen-gresik.png');
 });
 
+it('rejects a new upload whose aspect ratio does not match the section', function () {
+    $category = Category::create(['name' => 'Semen', 'slug' => 'semen', 'is_active' => true]);
+
+    Livewire::test(EditCategory::class, ['record' => $category->getRouteKey()])
+        ->fillForm(['image' => UploadedFile::fake()->image('lebar.png', 600, 300)])
+        ->call('save')
+        ->assertHasFormErrors(['image']);
+
+    Livewire::test(EditCategory::class, ['record' => $category->getRouteKey()])
+        ->fillForm(['image' => UploadedFile::fake()->image('persegi.png', 400, 400)])
+        ->call('save')
+        ->assertHasNoFormErrors();
+});
+
+it('fills a square section with a centered square copy when a wide library image is picked', function () {
+    $wide = libraryImage('articles/banner-lebar.jpg', UploadedFile::fake()->image('lebar.jpg', 1600, 900));
+    $wide->update(['alt_text' => 'Tumpukan semen']);
+    $category = Category::create(['name' => 'Semen', 'slug' => 'semen', 'is_active' => true]);
+
+    Livewire::test(EditCategory::class, ['record' => $category->getRouteKey()])
+        ->callAction(TestAction::make('pickFromMediaLibrary')->schemaComponent('image'), ['selected' => [$wide->path]])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    $copy = Media::firstWhere('path', $category->refresh()->image);
+
+    expect($category->image)->toBe('articles/banner-lebar-400x400.webp')
+        ->and([$copy->width, $copy->height])->toBe([400, 400])
+        ->and($copy->alt_text)->toBe('Tumpukan semen')
+        ->and(Storage::disk('public')->exists($wide->path))->toBeTrue();
+});
+
+it('creates a cropped copy for a chosen section size from the media library page', function () {
+    $media = libraryImage('products/foto.jpg', UploadedFile::fake()->image('foto.jpg', 2000, 2000));
+
+    Livewire::test(ManageMedia::class)
+        ->callTableAction('crop', $media, ['preset' => 'article'])
+        ->assertHasNoTableActionErrors();
+
+    $copy = Media::firstWhere('path', 'products/foto-1200x675.webp');
+
+    expect($copy)->not->toBeNull()->and([$copy->width, $copy->height])->toBe([1200, 675]);
+});
+
+it('filters the media library by aspect ratio', function () {
+    $square = libraryImage('products/persegi.png', UploadedFile::fake()->image('a.png', 500, 500));
+    $wide = libraryImage('articles/lebar.png', UploadedFile::fake()->image('b.png', 1600, 900));
+
+    Livewire::test(ManageMedia::class)
+        ->filterTable('ratio', '16:9')
+        ->assertCanSeeTableRecords([$wide])
+        ->assertCanNotSeeTableRecords([$square]);
+});
+
 it('lets every active panel role open the media library', function (string $role) {
     $this->actingAs(User::factory()->create(['role' => $role, 'is_active' => true]));
 

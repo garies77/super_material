@@ -101,6 +101,7 @@ class SiteSettings extends Page implements HasSchemas
                     FileUpload::make('site_og_image')
                         ->label('Gambar Default Berbagi / SERP Thumbnail (Open Graph)')
                         ->image()
+                        ->imagePreset('og')
                         ->disk('public')
                         ->directory('seo')
                         ->visibility('public')

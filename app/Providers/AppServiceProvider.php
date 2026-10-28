@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Filament\Support\ImagePreset;
 use App\Filament\Support\LibraryFileUpload;
 use App\Filament\Support\MediaPicker;
 use App\Http\Middleware\EnsureAdminSession;
@@ -23,6 +24,7 @@ use App\Support\Api\ApiError;
 use App\Support\Api\ClientHash;
 use App\Support\MediaLibrary;
 use App\Support\SvgSanitizer;
+use Closure;
 use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
 use Dedoc\Scramble\Support\Generator\SecurityScheme;
@@ -84,6 +86,12 @@ class AppServiceProvider extends ServiceProvider
             if (! $upload instanceof LibraryFileUpload) {
                 $upload->hintAction(MediaPicker::action());
             }
+        });
+
+        // ->imagePreset('article'): ukuran baku section dari config/media.php
+        FileUpload::macro('imagePreset', function (string|Closure $preset): FileUpload {
+            /** @var FileUpload $this */
+            return ImagePreset::apply($this, $preset);
         });
     }
 

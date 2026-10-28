@@ -6,7 +6,7 @@
         <dt>Folder</dt>
         <dd>{{ $media->folderLabel() }}</dd>
         <dt>Ukuran</dt>
-        <dd>{{ collect([$media->dimensionsLabel(), $media->sizeLabel(), $media->mime_type])->filter()->implode(' · ') }}</dd>
+        <dd>{{ collect([$media->ratioLabel(), $media->dimensionsLabel(), $media->sizeLabel(), $media->mime_type])->filter()->implode(' · ') }}</dd>
         <dt>Teks alternatif</dt>
         <dd>{{ $media->alt_text ?: '—' }}</dd>
         <dt>Diunggah</dt>

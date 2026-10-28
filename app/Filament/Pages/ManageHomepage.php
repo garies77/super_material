@@ -169,6 +169,11 @@ class ManageHomepage extends Page implements HasSchemas
                     'background' => 'Gambar latar penuh (gelap)',
                 ]),
                 FileUpload::make('banner.image')->label('Gambar poster / flyer promo')->image()
+                    ->imagePreset(fn (Get $get) => match ($get('banner.style')) {
+                        'background' => 'hero_background',
+                        'banner' => 'banner_desktop',
+                        default => 'hero_card',
+                    })
                     ->disk('public')->directory('banners')->visibility('public')->columnSpanFull()
                     ->required(fn (Get $get) => (bool) $get('banner.active'))
                     ->helperText('JPG, PNG, atau WebP. Kartu: 1200×750 px (16:10). Latar penuh: minimal 1920×900 px dengan objek utama di sisi kanan. Gambar ini juga dipakai sebagai gambar pratinjau saat beranda dibagikan.'),
@@ -260,9 +265,9 @@ class ManageHomepage extends Page implements HasSchemas
             Select::make('settings.source')->label('Sumber banner')->live()->selectablePlaceholder(false)->default('custom')
                 ->options(['custom' => 'Unggah gambar sendiri', 'campaign' => 'Pakai kampanye dari menu Kampanye']),
             Grid::make(2)->visible($custom)->schema([
-                FileUpload::make('settings.image')->label('Gambar desktop')->image()->disk('public')->directory('banners')->visibility('public')
+                FileUpload::make('settings.image')->label('Gambar desktop')->image()->imagePreset('banner_desktop')->disk('public')->directory('banners')->visibility('public')
                     ->required($custom)->helperText('Disarankan 1200×300 px (4:1).'),
-                FileUpload::make('settings.image_mobile')->label('Gambar ponsel (opsional)')->image()->disk('public')->directory('banners')->visibility('public')
+                FileUpload::make('settings.image_mobile')->label('Gambar ponsel (opsional)')->image()->imagePreset('banner_mobile')->disk('public')->directory('banners')->visibility('public')
                     ->helperText('Disarankan 800×600 px (4:3). Kosong = memakai gambar desktop.'),
                 TextInput::make('settings.url')->label('URL tujuan saat diklik')->maxLength(500)->placeholder('/produk atau https://…'),
                 TextInput::make('settings.alt')->label('Teks alternatif gambar')->maxLength(150)

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Support\ImageDerivatives;
 use Database\Factories\MediaFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -105,6 +106,36 @@ class Media extends Model
         file_put_contents($path, $bitmap);
 
         return $path;
+    }
+
+    /** Rasio umum untuk label & filter pustaka; toleransi 2% agar 1200×630 tetap terbaca 1.91:1. */
+    public const RATIOS = [
+        '1:1' => 1, '4:3' => 4 / 3, '3:4' => 3 / 4, '3:2' => 3 / 2, '16:9' => 16 / 9, '16:10' => 16 / 10,
+        '1.91:1' => 1200 / 630, '32:15' => 32 / 15, '4:1' => 4, '728:250' => 728 / 250, '6:5' => 300 / 250,
+    ];
+
+    public const RATIO_TOLERANCE = 0.02;
+
+    public function matchesRatio(float $ratio): bool
+    {
+        return $this->width && $this->height && abs($this->width / $this->height - $ratio) <= $ratio * self::RATIO_TOLERANCE;
+    }
+
+    /** Gambar raster dengan dimensi diketahui yang bisa dipotong GD (SVG tidak). */
+    public function isCroppable(): bool
+    {
+        return in_array($this->mime_type, ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], true) && $this->width && $this->height;
+    }
+
+    public function ratioLabel(): ?string
+    {
+        return collect(self::RATIOS)->search(fn (float $ratio) => $this->matchesRatio($ratio)) ?: null;
+    }
+
+    public function scopeWithRatio(Builder $q, float $ratio): Builder
+    {
+        return $q->whereNotNull('width')->where('height', '>', 0)
+            ->whereRaw('ABS(width - height * ?) <= height * ? * ?', [$ratio, $ratio, self::RATIO_TOLERANCE]);
     }
 
     public function folderLabel(): string

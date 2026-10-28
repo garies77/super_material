@@ -85,7 +85,7 @@ class CategoryResource extends Resource
                     TextInput::make('whatsapp_number')->label('Nomor WhatsApp kategori')->helperText('Kosong = pakai nomor WhatsApp default.'),
                 ]),
                 Section::make('Gambar')->schema([
-                    FileUpload::make('image')->hiddenLabel()->image()->disk('public')->directory('categories')->visibility('public')
+                    FileUpload::make('image')->hiddenLabel()->image()->imagePreset('square_small')->disk('public')->directory('categories')->visibility('public')
                         ->getUploadedFileNameForStorageUsing(DescriptiveFileName::from('name', 'categories'))
                         ->helperText('Ikon kartu kategori di beranda (dipotong persegi). Disarankan 200×200 px. Kosong = huruf awal nama.'),
                 ]),

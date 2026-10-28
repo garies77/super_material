@@ -188,7 +188,8 @@ class ImageDerivatives
         return null;
     }
 
-    private static function createDerivative(string $sourcePath, string $targetPath, int $targetW, int $targetH): bool
+    /** Potong tengah (cover) ke ukuran target lalu simpan sebagai WebP 85 (JPEG bila WebP tidak tersedia). */
+    public static function createDerivative(string $sourcePath, string $targetPath, int $targetW, int $targetH): bool
     {
         $info = @getimagesize($sourcePath);
         if (! $info) {

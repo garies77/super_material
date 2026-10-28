@@ -78,7 +78,7 @@ class ArticleResource extends Resource
                 ]),
 
                 Section::make('Gambar Utama & Foto')->columns(2)->schema([
-                    FileUpload::make('image')->label('Foto Utama (16:9)')->image()->disk('public')->directory('articles')->visibility('public')->columnSpanFull()
+                    FileUpload::make('image')->label('Foto Utama (16:9)')->image()->imagePreset('article')->disk('public')->directory('articles')->visibility('public')->columnSpanFull()
                         ->getUploadedFileNameForStorageUsing(DescriptiveFileName::from('title', 'articles'))
                         ->rule(new MinImagePixels(50000))
                         ->helperText('Minimal 50.000 piksel (disarankan 1200×675 untuk 16:9). Sistem otomatis membuat turunan 16:9, 4:3, dan 1:1 untuk Google Images & Discover (PRD 9.13.3 & SEO-01).'),

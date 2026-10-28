@@ -114,6 +114,22 @@
         text-align: center;
     }
 
+    .sm-media-fit {
+        position: absolute;
+        top: 0.375rem;
+        left: 0.375rem;
+        padding: 0 0.375rem;
+        border-radius: 0.25rem;
+        background: rgb(0 0 0 / 0.55);
+        color: #fff;
+        font-size: 0.6875rem;
+        line-height: 1.25rem;
+    }
+
+    .sm-media-fit.is-fit {
+        background: rgb(22 163 74 / 0.9);
+    }
+
     .sm-media-caption {
         display: flex;
         flex-direction: column;

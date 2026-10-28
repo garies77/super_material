@@ -119,7 +119,8 @@ class AdResource extends Resource
                         ->rule('regex:#^(https?://[^\s]+|/[^/\s][^\s]*)$#i')
                         ->required(fn (Get $get) => in_array($get('format'), ['image', 'text'], true))
                         ->visible($format('image', 'text', 'product'))->columnSpanFull(),
-                    FileUpload::make('image')->label('Gambar desktop')->image()->disk('public')->directory('kampanye')->visibility('public')
+                    FileUpload::make('image')->label('Gambar desktop')->image()
+                        ->imagePreset(fn (Get $get) => $popup($get) ? 'campaign_popup' : 'campaign_slot')->disk('public')->directory('kampanye')->visibility('public')
                         ->getUploadedFileNameForStorageUsing(DescriptiveFileName::from('name', 'kampanye'))
                         ->helperText(fn (Get $get) => $popup($get)
                             ? 'Pop-up: disarankan 1200×750 (rasio 16:10).'

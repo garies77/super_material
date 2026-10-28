@@ -50,6 +50,7 @@ class SeoFields
                 FileUpload::make('og_image')
                     ->label('Gambar Open Graph')
                     ->image()
+                    ->imagePreset('og')
                     ->disk('public')
                     ->directory('og')
                     ->visibility('public')

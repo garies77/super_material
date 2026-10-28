@@ -157,6 +157,7 @@ class AuthorResource extends Resource
                     FileUpload::make('avatar')
                         ->label('Foto profil')
                         ->image()
+                        ->imagePreset('square_small')
                         ->disk('public')
                         ->directory('authors')
                         ->visibility('public')

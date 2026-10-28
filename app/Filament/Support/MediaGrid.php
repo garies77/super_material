@@ -17,6 +17,9 @@ class MediaGrid extends Field
 
     protected bool|Closure $isMultiple = false;
 
+    /** @var array<int, float> */
+    protected array $targetRatios = [];
+
     /** @var Closure(): Collection<int, Media>|null */
     protected ?Closure $getItemsUsing = null;
 
@@ -37,6 +40,30 @@ class MediaGrid extends Field
     public function isMultiple(): bool
     {
         return (bool) $this->evaluate($this->isMultiple);
+    }
+
+    /** @param  array<int, float>  $ratios  rasio section; kosong = bebas */
+    public function targetRatios(array $ratios): static
+    {
+        $this->targetRatios = $ratios;
+
+        return $this;
+    }
+
+    /** null bila section tidak punya rasio baku; true/false = rasio gambar cocok. */
+    public function fitsSection(Media $media): ?bool
+    {
+        if ($this->targetRatios === []) {
+            return null;
+        }
+
+        return collect($this->targetRatios)->contains(fn (float $ratio) => $media->matchesRatio($ratio));
+    }
+
+    /** Sama dengan syarat MediaLibrary::cropToRatio(): satu rasio wajib dan gambar raster. */
+    public function willCrop(Media $media): bool
+    {
+        return count($this->targetRatios) === 1 && $media->isCroppable();
     }
 
     public function items(Closure $callback): static
