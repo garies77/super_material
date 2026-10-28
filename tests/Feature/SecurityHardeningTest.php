@@ -141,7 +141,11 @@ it('SEC-06: sends security headers and a CSP on public and admin pages', functio
             ->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
             ->assertHeader('Permissions-Policy');
         $csp = $response->headers->get('Content-Security-Policy');
-        expect($csp)->toContain("default-src 'self'")->toContain("object-src 'none'")->toContain("frame-ancestors 'self'");
+        expect($csp)->toContain("default-src 'self'")->toContain("object-src 'none'")->toContain("frame-ancestors 'self'")
+            // Worker Filepond (pratinjau unggahan) dari blob:, tanpa membuka script-src untuk blob:
+            ->toContain("worker-src 'self' blob:");
+        preg_match('/script-src ([^;]+)/', $csp, $scriptSources);
+        expect($scriptSources[1])->not->toContain('blob:');
 
         // script-src berbasis nonce, tanpa 'unsafe-inline'; setiap skrip inline membawa nonce yang sama
         preg_match('/script-src ([^;]+)/', $csp, $scriptSrc);

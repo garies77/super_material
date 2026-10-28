@@ -55,6 +55,9 @@ class ApplySecurityHeaders
             "media-src 'self' https:",
             // Pratinjau FileUpload Filament mengambil berkas lewat fetch dari URL disk publik (bisa beda origin, mis. CDN)
             "connect-src 'self' ".$this->storageOrigin().' '.implode(' ', $c['connect_src']).$dev,
+            // Filepond (pratinjau & potong gambar di FileUpload) menjalankan Web Worker dari URL blob: buatan skripnya sendiri;
+            // tanpa ini worker jatuh ke script-src dan diblokir, pratinjau unggahan tampil kosong
+            "worker-src 'self' blob:",
             "frame-src 'self' ".implode(' ', $c['frame_src']),
             "frame-ancestors 'self'",
             "object-src 'none'",
