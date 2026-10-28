@@ -103,7 +103,7 @@ class ArticleResource extends Resource
     {
         // Dua kolom utama: 7:5 di desktop menengah (xl), 8:4 di layar lebar (2xl); satu kolom di bawah 1280 px. Kiri: konten di kiri, publikasi & relasi di kolom pendamping; satu kolom di layar kecil
         // Panel skor SEO di kolom kanan; field pemicu hanya me-render ulang panel ini
-        $seoPanel = SeoScorePanel::make(fn (Get $get, ?Article $record) => self::seoPreview($get, $record));
+        $seoPanel = SeoScorePanel::make(fn (Get $get, ?Article $record) => self::seoPreview($get, $record), SeoScorePanel::ARTICLE_MISSIONS);
         $refreshSeo = SeoScorePanel::refresh();
 
         return $schema->columns(['default' => 1, 'lg' => 1, 'xl' => 12])->components([
@@ -137,7 +137,7 @@ class ArticleResource extends Resource
 
             // Kolom pendamping
             Group::make()->columnSpan(['xl' => 5, '2xl' => 4])->schema([
-                Section::make('Skor SEO')->schema([$seoPanel]),
+                Section::make('Misi kelengkapan')->icon(Heroicon::OutlinedTrophy)->schema([$seoPanel]),
 
                 Section::make('Publikasi & Penulis')->schema([
                     // Bawaan: profil penulis milik akun yang login. Penulis terkunci ke profilnya sendiri

@@ -145,7 +145,7 @@ class ProductResource extends Resource
     {
         // Dua kolom utama: 7:5 di desktop menengah (xl), 8:4 di layar lebar (2xl); satu kolom di bawah 1280 px. Kiri: info, media & varian di kiri, publikasi, harga & kanal di kolom pendamping
         // Panel skor SEO di kolom kanan; field pemicu hanya me-render ulang panel ini
-        $seoPanel = SeoScorePanel::make(fn (Get $get, ?Product $record) => self::seoPreview($get, $record));
+        $seoPanel = SeoScorePanel::make(fn (Get $get, ?Product $record) => self::seoPreview($get, $record), SeoScorePanel::PRODUCT_MISSIONS);
         $refreshSeo = SeoScorePanel::refresh();
 
         return $schema->columns(['default' => 1, 'lg' => 1, 'xl' => 12])->components([
@@ -223,7 +223,7 @@ class ProductResource extends Resource
 
             // Kolom pendamping
             Group::make()->columnSpan(['xl' => 5, '2xl' => 4])->schema([
-                Section::make('Skor SEO')->schema([$seoPanel]),
+                Section::make('Misi kelengkapan')->icon(Heroicon::OutlinedTrophy)->schema([$seoPanel]),
 
                 Section::make('Publikasi')->columns(2)->schema([
                     // Kontributor tidak menerbitkan sendiri: Editor/Admin menyetujui lewat "Setujui & terbitkan"

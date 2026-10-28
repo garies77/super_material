@@ -272,8 +272,135 @@
         color: rgb(107 114 128);
     }
 
-    .sm-seo-list li.is-passed span {
+    .sm-seo-list li.is-passed .sm-seo-mark {
         color: rgb(22 163 74);
+    }
+
+    .sm-seo-list li.is-passed > span:last-child {
+        text-decoration: line-through;
+    }
+
+    .sm-seo-goto {
+        display: flex;
+        gap: 0.5rem;
+        padding: 0;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+    }
+
+    .sm-seo-goto:hover span:last-child {
+        text-decoration: underline;
+    }
+
+    .sm-seo-progress {
+        height: 0.5rem;
+        margin-bottom: 0.75rem;
+        overflow: hidden;
+        border-radius: 9999px;
+        background: rgb(0 0 0 / 0.08);
+    }
+
+    .dark .sm-seo-progress {
+        background: rgb(255 255 255 / 0.1);
+    }
+
+    .sm-seo-progress span {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        transition: width 0.5s ease;
+    }
+
+    .sm-seo-progress .is-good {
+        background: rgb(22 163 74);
+    }
+
+    .sm-seo-progress .is-fair {
+        background: rgb(217 119 6);
+    }
+
+    .sm-seo-progress .is-poor {
+        background: rgb(220 38 38);
+    }
+
+    /* Papan misi dashboard (filament/widgets/mission-board) */
+    .sm-mission-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+        gap: 0.75rem;
+    }
+
+    .sm-mission,
+    .sm-mission-empty {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem;
+        border-radius: 0.75rem;
+        box-shadow: 0 0 0 1px rgb(0 0 0 / 0.08);
+    }
+
+    .dark .sm-mission,
+    .dark .sm-mission-empty {
+        box-shadow: 0 0 0 1px rgb(255 255 255 / 0.1);
+    }
+
+    .sm-mission-empty {
+        flex-wrap: wrap;
+    }
+
+    .sm-mission-icon {
+        flex: none;
+        font-size: 1.75rem;
+        line-height: 1;
+    }
+
+    .sm-mission-body {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-width: 0;
+        font-size: 0.875rem;
+    }
+
+    .sm-mission-count {
+        flex: none;
+        min-width: 2rem;
+        padding: 0.125rem 0.5rem;
+        border-radius: 9999px;
+        background: var(--primary-500, #f97316);
+        color: #fff;
+        font-size: 0.875rem;
+        font-weight: 700;
+        text-align: center;
+    }
+
+    /* Confetti perayaan (filament/celebrate.blade.php) */
+    .sm-confetti {
+        position: fixed;
+        inset: 0;
+        z-index: 60;
+        overflow: hidden;
+        pointer-events: none;
+    }
+
+    .sm-confetti span {
+        position: absolute;
+        top: -1rem;
+        width: 0.5rem;
+        height: 0.9rem;
+        border-radius: 2px;
+        animation-name: sm-confetti-fall;
+        animation-timing-function: cubic-bezier(0.25, 0.6, 0.4, 1);
+        animation-fill-mode: forwards;
+    }
+
+    @keyframes sm-confetti-fall {
+        to {
+            transform: translate(var(--sm-drift), 105vh) rotate(var(--sm-spin));
+            opacity: 0.6;
+        }
     }
 
     /* Pustaka Media: pemilih titik fokus */

@@ -8,23 +8,48 @@ use Filament\Schemas\Components\View;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 /**
- * Panel skor SEO di samping form: dihitung dari isi form yang sedang diketik (belum disimpan),
- * memakai SeoScore yang sama dengan kolom "Skor SEO" di tabel daftar.
+ * Panel "misi kelengkapan" di samping form: skor SEO dihitung dari isi form yang sedang diketik (belum disimpan),
+ * memakai SeoScore yang sama dengan kolom "Skor SEO" di tabel daftar. Tiap pemeriksaan tampil sebagai misi
+ * berbahasa sederhana yang bisa diklik untuk menggulir ke field-nya; 100% dirayakan dengan confetti.
  *
  * Field pemicu cukup diberi ->afterStateUpdated(SeoScorePanel::refresh()) agar hanya panel
  * yang di-render ulang, bukan seluruh form.
  */
 class SeoScorePanel
 {
-    /**
-     * @param  Closure  $score  dievaluasi seperti closure Filament (Get, record, …); mengembalikan hasil SeoScore
-     */
     public const KEY = 'seoScorePanel';
 
-    public static function make(Closure $score): View
+    /** Label pemeriksaan SeoScore => [teks misi, field tujuan]. */
+    public const PRODUCT_MISSIONS = [
+        'Teks alternatif semua gambar terisi' => ['🖼️ Isi nama produk agar teks alternatif foto terisi otomatis', 'name'],
+        'Nama file gambar deskriptif' => ['📝 Pakai foto dengan nama file yang jelas (bukan IMG_0023)', 'photos'],
+        'Gambar utama ≥ 800 px' => ['📸 Pasang foto utama minimal 800 px', 'photos'],
+        'Merek, SKU, dan harga terisi' => ['🏷️ Lengkapi merek, SKU, dan harga', 'brand_id'],
+        'Masa berlaku harga masih berlaku' => ['📅 Isi masa berlaku harga yang belum lewat', 'price_valid_until'],
+        'Status ketersediaan terisi' => ['📦 Pilih status ketersediaan stok', 'availability'],
+        'Gambar Open Graph tersedia dan bukan logo' => ['🔗 Siapkan foto untuk dibagikan di WhatsApp & Google', 'photos'],
+        'Judul dan deskripsi meta terisi atau dapat dibuat otomatis' => ['✍️ Tulis ringkasan singkat produk', 'summary'],
+    ];
+
+    public const ARTICLE_MISSIONS = [
+        'Keterangan gambar utama terisi' => ['💬 Tulis keterangan foto utama', 'image_caption'],
+        'Nama file gambar deskriptif' => ['📝 Pakai foto dengan nama file yang jelas (bukan IMG_0023)', 'image'],
+        'Gambar utama ≥ 1200 px lebar' => ['📸 Pasang foto utama minimal 1200 px lebar', 'image'],
+        'Penulis terisi' => ['👤 Pilih penulis artikel', 'author_id'],
+        'Kategori atau tag terisi' => ['🗂️ Pilih kategori atau tag', 'categories'],
+        'Gambar Open Graph tersedia dan bukan logo' => ['🔗 Siapkan foto untuk dibagikan di WhatsApp & Google', 'image'],
+        'Judul ≤ 110 karakter' => ['📏 Persingkat judul (maks. 110 karakter)', 'title'],
+        'Judul dan deskripsi meta terisi atau dapat dibuat otomatis' => ['✍️ Tulis ringkasan singkat artikel', 'summary'],
+    ];
+
+    /**
+     * @param  Closure  $score  dievaluasi seperti closure Filament (Get, record, …); mengembalikan hasil SeoScore
+     * @param  array<string, array{0: string, 1: string}>  $missions  PRODUCT_MISSIONS atau ARTICLE_MISSIONS
+     */
+    public static function make(Closure $score, array $missions = []): View
     {
         return View::make('filament.seo-score-panel')->key(self::KEY)
-            ->viewData(fn (View $component) => ['result' => $component->evaluate($score)]);
+            ->viewData(fn (View $component) => ['result' => $component->evaluate($score), 'missions' => $missions]);
     }
 
     /**

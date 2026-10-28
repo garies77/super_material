@@ -47,6 +47,8 @@ class AdminPanelProvider extends PanelProvider
                 PanelsIconAlias::SIDEBAR_EXPAND_BUTTON_RTL,
             ], new HtmlString('<svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9.5 4v16"/></svg>')))
             ->renderHook(PanelsRenderHook::STYLES_AFTER, fn () => view('filament.admin-styles'))
+            // Gamifikasi: confetti saat misi kelengkapan 100% atau konten diajukan dengan skor tinggi
+            ->renderHook(PanelsRenderHook::BODY_END, fn () => view('filament.celebrate'))
             // Grup tanpa ikon: Filament melarang ikon di grup sekaligus di itemnya, dan ikon item diperlukan untuk mode ciut
             ->navigationGroups([
                 NavigationGroup::make('Katalog'),

@@ -2,7 +2,10 @@
 
 namespace App\Filament\Support;
 
+use App\Models\Article;
 use App\Models\AuditLog;
+use App\Models\Product;
+use App\Support\SeoScore;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
@@ -18,6 +21,18 @@ use Illuminate\Database\Eloquent\Model;
  */
 class ReviewWorkflow
 {
+    /** Skor kelengkapan minimum agar pengajuan dirayakan dengan confetti. */
+    public const CELEBRATE_SCORE = 80;
+
+    public static function seoScore(Model $record): int
+    {
+        return match (true) {
+            $record instanceof Product => SeoScore::forProduct($record)['score'],
+            $record instanceof Article => SeoScore::forArticle($record)['score'],
+            default => 0,
+        };
+    }
+
     public static function isContributor(): bool
     {
         return (bool) auth()->user()?->isContributor();
@@ -47,9 +62,19 @@ class ReviewWorkflow
                 ->action(function (Model $record) use ($page): void {
                     $page->save(shouldRedirect: false, shouldSendSavedNotification: false);
                     $record->submitForReview(auth()->user());
-                    AuditLog::record(request(), 'review.submitted', $record);
+                    $score = self::seoScore($record);
+                    AuditLog::record(request(), 'review.submitted', $record, ['seo_score' => $score]);
 
-                    Notification::make()->title('Diajukan untuk ditinjau')->body('Editor/Admin akan memeriksanya. Statusnya bisa dilihat di daftar.')->success()->send();
+                    // Gamifikasi: kiriman lengkap dirayakan dengan confetti setelah halaman dimuat ulang (filament/celebrate)
+                    if ($score >= self::CELEBRATE_SCORE) {
+                        session()->flash('sm_celebrate', true);
+                        Notification::make()->title("Mantap! Diajukan dengan skor {$score}% 🎉")
+                            ->body('Editor/Admin akan memeriksanya. Kiriman yang lengkap biasanya lebih cepat disetujui.')->success()->send();
+                    } else {
+                        Notification::make()->title("Diajukan dengan skor {$score}%")
+                            ->body('Editor/Admin akan memeriksanya. Selesaikan misi kelengkapan yang tersisa agar lebih cepat disetujui.')->success()->send();
+                    }
+
                     $page->redirect($page::getUrl(['record' => $record]));
                 }),
 
