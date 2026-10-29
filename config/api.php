@@ -47,7 +47,7 @@ return [
         'catalog:read' => 'Membaca produk, varian, kategori, merek, tautan kanal, termasuk draf',
         'catalog:write' => 'Membuat dan mengubah produk, varian, media, tautan kanal',
         'import:write' => 'Menjalankan impor CSV atau Excel',
-        'reports:read' => 'Membaca laporan klik',
+        'reports:read' => 'Membaca laporan (klik, ringkasan, produk, trafik)',
         'articles:read' => 'Membaca artikel termasuk draf',
     ],
 

@@ -49,6 +49,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::middleware('api.ability:reports:read')->group(function () {
             Route::get('reports/clicks', [Admin\ClickReportController::class, 'index'])->name('reports.clicks');
             Route::get('reports/clicks/export', [Admin\ClickReportController::class, 'export'])->name('reports.clicks.export');
+            Route::get('reports/summary', [Admin\ReportController::class, 'summary'])->name('reports.summary');
+            Route::get('reports/products', [Admin\ReportController::class, 'products'])->name('reports.products');
+            Route::get('reports/traffic', [Admin\ReportController::class, 'traffic'])->name('reports.traffic');
         });
     });
 

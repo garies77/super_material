@@ -14,5 +14,8 @@ Schedule::command('seo:flag-expired-prices')->dailyAt('01:00')->timezone('Asia/J
 // Potret kesehatan katalog untuk tren mingguan di laporan Kesehatan Katalog
 Schedule::command('reports:snapshot-catalog')->dailyAt('01:30')->timezone('Asia/Jakarta');
 
+// Email laporan mingguan (Senin–Minggu lalu); penerima & aktif/nonaktif diatur di Pusat Laporan
+Schedule::command('reports:send-weekly')->weeklyOn(1, '07:00')->timezone('Asia/Jakarta');
+
 // Kunci Idempotency-Key API hanya berlaku 24 jam (PRD 8.12.4)
 Schedule::command('model:prune', ['--model' => [IdempotencyKey::class]])->dailyAt('02:00')->timezone('Asia/Jakarta');

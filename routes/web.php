@@ -11,6 +11,7 @@ use App\Http\Controllers\LoginLinkController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\PagePreviewController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ReportPrintController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SeoController;
 use Illuminate\Support\Facades\Route;
@@ -45,6 +46,7 @@ Route::redirect('/admin/campaign-report', '/admin/laporan-kampanye', 301);
 Route::redirect('/admin/ad-report', '/admin/laporan-kampanye', 301);
 Route::get('/admin/pratinjau-halaman/{page}', [PagePreviewController::class, 'show'])->whereNumber('page')->name('page.preview');
 Route::get('/admin/pratinjau-halaman/{page}/bingkai', [PagePreviewController::class, 'frame'])->whereNumber('page')->name('page.preview-frame');
+Route::get('/admin/laporan/cetak', ReportPrintController::class)->name('reports.print');
 Route::get('/admin/pratinjau-tampilan', [PagePreviewController::class, 'layout'])->name('layout.preview');
 
 Route::get('/robots.txt', [SeoController::class, 'robots']);
