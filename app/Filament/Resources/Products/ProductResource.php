@@ -12,6 +12,8 @@ use App\Filament\Support\ReviewWorkflow;
 use App\Filament\Support\SeoFields;
 use App\Filament\Support\SeoScorePanel;
 use App\Models\AuditLog;
+use App\Models\Brand;
+use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductMedia;
 use App\Models\ProductVariant;
@@ -46,6 +48,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
@@ -53,6 +56,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 class ProductResource extends Resource
@@ -319,6 +323,8 @@ class ProductResource extends Resource
                 ReviewWorkflow::statusFilter(),
                 TernaryFilter::make('is_published')->label('Terbit'),
                 TernaryFilter::make('price_review_needed')->label('Perlu tinjau harga'),
+                Filter::make('price_expiring')->label('Masa harga habis ≤ 7 hari')
+                    ->query(fn (Builder $query) => $query->whereBetween('price_valid_until', [now(), now()->addDays(7)])),
             ])
             ->recordActions([EditAction::make(), self::duplicateAction()])
             ->toolbarActions([BulkActionGroup::make([
@@ -326,9 +332,43 @@ class ProductResource extends Resource
                     ->action(fn (Collection $records) => $records->each->update(['is_published' => true]))->deselectRecordsAfterCompletion(),
                 BulkAction::make('unpublish')->label('Sembunyikan')->visible(ReviewWorkflow::canPublish())
                     ->action(fn (Collection $records) => $records->each->update(['is_published' => false]))->deselectRecordsAfterCompletion(),
+                BulkAction::make('extendPriceValidity')->label('Perpanjang masa harga')->icon(Heroicon::OutlinedClock)
+                    ->visible(ReviewWorkflow::canPublish())
+                    ->modalHeading('Perpanjang masa berlaku harga')
+                    ->modalDescription('Pastikan harga produk terpilih masih benar. Penanda "harga kedaluwarsa" ikut dibersihkan.')
+                    ->schema([
+                        DatePicker::make('price_valid_until')->label('Berlaku sampai')->required()->native(false)
+                            ->minDate(now()->addDay())->default(now()->addMonths(3)),
+                    ])
+                    ->action(fn (Collection $records, array $data) => self::bulkUpdate($records, ['price_valid_until' => Carbon::parse($data['price_valid_until'])->endOfDay()], 'masa harga diperpanjang'))
+                    ->deselectRecordsAfterCompletion(),
+                BulkAction::make('setCategory')->label('Ubah kategori')->icon(Heroicon::OutlinedSquares2x2)
+                    ->visible(ReviewWorkflow::canPublish())
+                    ->schema([Select::make('category_id')->label('Kategori baru')->options(fn () => Category::orderBy('name')->pluck('name', 'id'))->searchable()->required()])
+                    ->action(fn (Collection $records, array $data) => self::bulkUpdate($records, ['category_id' => $data['category_id']], 'kategori diubah'))
+                    ->deselectRecordsAfterCompletion(),
+                BulkAction::make('setBrand')->label('Ubah merek')->icon(Heroicon::OutlinedTag)
+                    ->visible(ReviewWorkflow::canPublish())
+                    ->schema([Select::make('brand_id')->label('Merek baru')->options(fn () => Brand::orderBy('name')->pluck('name', 'id'))->searchable()->required()])
+                    ->action(fn (Collection $records, array $data) => self::bulkUpdate($records, ['brand_id' => $data['brand_id']], 'merek diubah'))
+                    ->deselectRecordsAfterCompletion(),
                 DeleteBulkAction::make()->visible(ReviewWorkflow::canPublish())
                     ->before(fn (Collection $records) => AuditLog::record(request(), 'product.bulk_deleted', null, ['ids' => $records->modelKeys(), 'names' => $records->pluck('name')->all()])),
             ])]);
+    }
+
+    /**
+     * Ubah banyak produk sekaligus lewat model (event saving tetap berjalan), dicatat di audit log.
+     *
+     * @param  Collection<int, Product>  $records
+     * @param  array<string, mixed>  $attributes
+     */
+    private static function bulkUpdate(Collection $records, array $attributes, string $summary): void
+    {
+        $records->each->update($attributes);
+        AuditLog::record(request(), 'product.bulk_updated', null, ['ids' => $records->modelKeys(), 'fields' => array_keys($attributes)]);
+
+        Notification::make()->title($records->count().' produk: '.$summary)->success()->send();
     }
 
     public static function getPages(): array

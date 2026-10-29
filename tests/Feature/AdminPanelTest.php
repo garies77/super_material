@@ -57,7 +57,7 @@ it('orders the sidebar by operational priority and supports the collapsed icon r
 
     expect($m[1])->toBe([
         'Dasbor',
-        'Produk', 'Kategori', 'Merek', 'Kanal Beli',
+        'Produk', 'Kategori', 'Merek', 'Kanal Beli', 'Sinonim pencarian',
         'Artikel', 'Penulis', 'Halaman', 'Kampanye', 'Formulir', 'Jawaban formulir', 'Media',
         'Pusat Laporan', 'Kinerja Tim', 'Kesehatan Katalog', 'Laporan Klik', 'Laporan kampanye', 'Riwayat XP',
         'Kustomisasi Beranda', 'Navbar Builder', 'Footer Builder',
