@@ -11,5 +11,8 @@ Artisan::command('inspire', function () {
 
 Schedule::command('seo:flag-expired-prices')->dailyAt('01:00')->timezone('Asia/Jakarta');
 
+// Potret kesehatan katalog untuk tren mingguan di laporan Kesehatan Katalog
+Schedule::command('reports:snapshot-catalog')->dailyAt('01:30')->timezone('Asia/Jakarta');
+
 // Kunci Idempotency-Key API hanya berlaku 24 jam (PRD 8.12.4)
 Schedule::command('model:prune', ['--model' => [IdempotencyKey::class]])->dailyAt('02:00')->timezone('Asia/Jakarta');

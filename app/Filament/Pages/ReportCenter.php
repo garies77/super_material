@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Reports\Concerns\HasReportPeriodFilter;
 use App\Filament\Reports\Widgets\ArticlePerformanceTable;
 use App\Filament\Reports\Widgets\ChannelShareChart;
 use App\Filament\Reports\Widgets\ClickOriginsTable;
@@ -16,13 +17,7 @@ use App\Filament\Reports\Widgets\ZeroClickProductsTable;
 use App\Filament\Reports\Widgets\ZeroResultSearchesTable;
 use App\Support\Reports\ReportPeriod;
 use BackedEnum;
-use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\Select;
 use Filament\Pages\Dashboard;
-use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
-use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 
 /**
@@ -32,7 +27,7 @@ use Filament\Support\Icons\Heroicon;
  */
 class ReportCenter extends Dashboard
 {
-    use HasFiltersForm;
+    use HasReportPeriodFilter;
 
     protected static string $routePath = '/laporan';
 
@@ -46,28 +41,9 @@ class ReportCenter extends Dashboard
 
     protected static ?int $navigationSort = 0;
 
-    public static function canAccess(): bool
-    {
-        return (bool) auth()->user()?->canReview();
-    }
-
     public function getSubheading(): ?string
     {
         return 'Periode '.ReportPeriod::fromFilters($this->filters)->label().' · dibanding periode yang sama sebelumnya. Bot tidak dihitung.';
-    }
-
-    public function filtersForm(Schema $schema): Schema
-    {
-        return $schema->components([
-            Section::make()->columnSpanFull()->columns(['default' => 1, 'md' => 3])->schema([
-                Select::make('period')->label('Periode')->options(ReportPeriod::PRESETS)
-                    ->default('30d')->selectablePlaceholder(false),
-                DatePicker::make('from')->label('Dari tanggal')->native(false)->maxDate(now())
-                    ->visible(fn (Get $get) => $get('period') === 'custom'),
-                DatePicker::make('until')->label('Sampai tanggal')->native(false)->maxDate(now())
-                    ->visible(fn (Get $get) => $get('period') === 'custom'),
-            ]),
-        ]);
     }
 
     public function getWidgets(): array
@@ -86,10 +62,5 @@ class ReportCenter extends Dashboard
             UtmCampaignsTable::class,
             LeadsByFormTable::class,
         ];
-    }
-
-    public function getColumns(): int|array
-    {
-        return ['default' => 1, 'lg' => 3];
     }
 }

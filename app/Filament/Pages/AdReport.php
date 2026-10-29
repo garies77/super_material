@@ -24,7 +24,7 @@ class AdReport extends Page
 
     protected static string|\UnitEnum|null $navigationGroup = 'Laporan';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 4;
 
     public ?string $from = null;
 

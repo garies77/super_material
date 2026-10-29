@@ -30,11 +30,11 @@ class ReportKpis extends StatsOverviewWidget
         $adClicks = ReportMetrics::adEvents($period, 'click');
 
         return [
-            self::stat('Tayangan halaman', ReportMetrics::pageViews($period), ReportMetrics::pageViews($previous), 'heroicon-o-eye')
+            self::comparisonStat('Tayangan halaman', ReportMetrics::pageViews($period), ReportMetrics::pageViews($previous), 'heroicon-o-eye')
                 ->chart(array_values(ReportMetrics::dailyViews($period))),
-            self::stat('Klik ke toko', ReportMetrics::clicks($period), ReportMetrics::clicks($previous), 'heroicon-o-cursor-arrow-rays')
+            self::comparisonStat('Klik ke toko', ReportMetrics::clicks($period), ReportMetrics::clicks($previous), 'heroicon-o-cursor-arrow-rays')
                 ->chart(array_values(ReportMetrics::dailyClicks($period))),
-            self::stat('Lead formulir', ReportMetrics::leads($period), ReportMetrics::leads($previous), 'heroicon-o-inbox-arrow-down'),
+            self::comparisonStat('Lead formulir', ReportMetrics::leads($period), ReportMetrics::leads($previous), 'heroicon-o-inbox-arrow-down'),
             Stat::make('Klik kampanye', number_format($adClicks, 0, ',', '.'))
                 ->description(number_format($impressions, 0, ',', '.').' tayangan · CTR '.($impressions > 0 ? number_format($adClicks / $impressions * 100, 1, ',', '.') : '0').'%')
                 ->descriptionIcon('heroicon-o-megaphone')
@@ -42,7 +42,8 @@ class ReportKpis extends StatsOverviewWidget
         ];
     }
 
-    private static function stat(string $label, int $current, int $previous, string $icon): Stat
+    /** Stat dengan keterangan perubahan terhadap periode sebelumnya (hijau naik, merah turun). */
+    public static function comparisonStat(string $label, int $current, int $previous, string $icon): Stat
     {
         $change = ReportPeriod::change($current, $previous);
 
