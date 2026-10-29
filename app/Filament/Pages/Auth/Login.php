@@ -8,7 +8,11 @@ use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use Filament\Auth\Http\Responses\Contracts\LoginResponse;
 use Filament\Auth\Pages\Login as BaseLogin;
 use Filament\Facades\Filament;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Component;
+use Filament\Support\Icons\Heroicon;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
@@ -18,6 +22,38 @@ use Illuminate\Validation\ValidationException;
  */
 class Login extends BaseLogin
 {
+    /** Layout dua kolom bermerek (panel brand + form); lihat resources/views/filament/layouts/auth.blade.php. */
+    protected static string $layout = 'filament.layouts.auth';
+
+    protected function getEmailFormComponent(): Component
+    {
+        /** @var TextInput $field */
+        $field = parent::getEmailFormComponent();
+
+        return $field->prefixIcon(Heroicon::OutlinedEnvelope)->placeholder('nama@email.com');
+    }
+
+    protected function getPasswordFormComponent(): Component
+    {
+        /** @var TextInput $field */
+        $field = parent::getPasswordFormComponent();
+
+        return $field->prefixIcon(Heroicon::OutlinedLockClosed);
+    }
+
+    /** Sambutan bermerek; langkah verifikasi dua faktor tetap memakai teks bawaan Filament. */
+    public function getHeading(): string|Htmlable|null
+    {
+        return filled($this->userUndertakingMultiFactorAuthentication) ? parent::getHeading() : 'Selamat datang kembali';
+    }
+
+    public function getSubheading(): string|Htmlable|null
+    {
+        return filled($this->userUndertakingMultiFactorAuthentication)
+            ? parent::getSubheading()
+            : 'Masuk untuk mengelola katalog, artikel, dan kampanye '.filament()->getBrandName().'.';
+    }
+
     public function authenticate(): ?LoginResponse
     {
         $email = strtolower(trim((string) ($this->data['email'] ?? '')));

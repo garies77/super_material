@@ -30,6 +30,205 @@
     --sm-border: color-mix(in oklab, white 10%, transparent);
 }
 
+/* ---------- Halaman login & halaman sederhana lain (lupa password, verifikasi) ---------- */
+.fi-simple-layout {
+    background:
+        radial-gradient(60rem 30rem at 85% -10%, color-mix(in oklab, var(--primary-500) 14%, transparent), transparent 70%),
+        radial-gradient(40rem 24rem at -10% 110%, color-mix(in oklab, var(--primary-500) 8%, transparent), transparent 70%),
+        var(--gray-50);
+}
+
+.dark .fi-simple-layout {
+    background:
+        radial-gradient(60rem 30rem at 85% -10%, color-mix(in oklab, var(--primary-500) 12%, transparent), transparent 70%),
+        var(--gray-950);
+}
+
+.fi-simple-main {
+    border-radius: var(--sm-radius-lg);
+    box-shadow: 0 0 0 1px var(--sm-border), 0 12px 32px -12px rgb(0 0 0 / 0.18);
+}
+
+/* ---------- Halaman login dua kolom (resources/views/filament/layouts/auth.blade.php) ---------- */
+.sm-auth {
+    display: grid;
+    min-height: 100dvh;
+    background: var(--gray-50);
+}
+
+.dark .sm-auth {
+    background: var(--gray-950);
+}
+
+@media (min-width: 1024px) {
+    .sm-auth {
+        grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    }
+}
+
+/* Panel brand: navy brand (#121826) dengan cahaya oranye halus dan pola kisi samar */
+.sm-auth-brand {
+    position: relative;
+    display: none;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 3rem;
+    padding: 3rem 3.5rem;
+    overflow: hidden;
+    color: #fff;
+    background:
+        radial-gradient(36rem 28rem at 110% -10%, color-mix(in oklab, var(--primary-500) 45%, transparent), transparent 65%),
+        radial-gradient(30rem 22rem at -20% 120%, color-mix(in oklab, var(--primary-600) 25%, transparent), transparent 70%),
+        #121826;
+}
+
+.sm-auth-brand::before {
+    position: absolute;
+    inset: 0;
+    content: '';
+    background-image:
+        linear-gradient(rgb(255 255 255 / 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgb(255 255 255 / 0.04) 1px, transparent 1px);
+    background-size: 3rem 3rem;
+    mask-image: linear-gradient(to bottom, black, transparent 85%);
+    pointer-events: none;
+}
+
+.sm-auth-brand > * {
+    position: relative;
+}
+
+@media (min-width: 1024px) {
+    .sm-auth-brand {
+        display: flex;
+    }
+
+    /* Logo sudah ada di panel brand: tidak diulang di atas form pada desktop */
+    .sm-auth .fi-simple-header .fi-logo {
+        display: none;
+    }
+}
+
+.sm-auth-brand-top {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.sm-auth-mark {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--sm-radius-lg);
+}
+
+.sm-auth-brand-name {
+    font-family: 'Outfit', var(--font-family), sans-serif;
+    font-size: 1.375rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.sm-auth-eyebrow {
+    margin-bottom: 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--primary-400);
+}
+
+.sm-auth-title {
+    max-width: 28rem;
+    margin-bottom: 2.5rem;
+    font-family: 'Outfit', var(--font-family), sans-serif;
+    font-size: clamp(1.75rem, 2.4vw, 2.375rem);
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+}
+
+.sm-auth-highlights {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    max-width: 26rem;
+}
+
+.sm-auth-highlights li {
+    display: flex;
+    gap: 1rem;
+}
+
+.sm-auth-highlights li > span:last-child {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    font-size: 0.875rem;
+    color: rgb(255 255 255 / 0.65);
+}
+
+.sm-auth-highlights strong {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: #fff;
+}
+
+.sm-auth-highlight-icon {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--sm-radius);
+    background: rgb(255 255 255 / 0.08);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+    color: var(--primary-400);
+}
+
+.sm-auth-highlight-icon svg {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.sm-auth-brand-footer {
+    font-size: 0.8125rem;
+    color: rgb(255 255 255 / 0.45);
+}
+
+/* Kolom form */
+.sm-auth-main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    padding: 2.5rem 1.25rem;
+}
+
+.sm-auth-card {
+    width: 100%;
+    /* fi-simple-main bawaan memberi margin vertikal 4rem; di sini jarak diatur gap kolom form */
+    margin-block: 0;
+}
+
+.sm-auth-help {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    max-width: 28rem;
+    font-size: 0.8125rem;
+    color: var(--sm-muted);
+    text-align: center;
+}
+
+.sm-auth-help-icon {
+    flex: none;
+    width: 1rem;
+    height: 1rem;
+    color: var(--sm-success);
+}
+
 /* ---------- Tipografi: sama dengan situs publik (Plus Jakarta Sans + Outfit untuk judul) ---------- */
 .fi-header-heading,
 .fi-section-header-heading,

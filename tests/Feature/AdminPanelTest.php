@@ -97,3 +97,14 @@ it('asks for the admin password only when granting higher privileges', function 
 
     expect($author->fresh()->name)->toBe('Nama Baru');
 });
+
+it('shows a branded login page and the brand favicon on admin and public pages', function () {
+    $this->seed(DatabaseSeeder::class);
+
+    $this->get('/admin/login')->assertOk()
+        ->assertSee('Selamat datang kembali')
+        ->assertSee('Masuk untuk mengelola katalog, artikel, dan kampanye Supermaterial.')
+        ->assertSee(asset('favicon.svg'), false);
+
+    $this->get('/')->assertOk()->assertSee('<link rel="icon" href="'.asset('favicon.svg').'" type="image/svg+xml">', false);
+});

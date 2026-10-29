@@ -37,6 +37,8 @@ class AdminPanelProvider extends PanelProvider
             ->brandName('Supermaterial')
             ->brandLogo(fn () => Setting::logoUrl())
             ->brandLogoHeight('2rem')
+            // Monogram brand (public/favicon.svg); favicon.ico bawaan proyek kosong (0 byte)
+            ->favicon(asset('favicon.svg'))
             // Sidebar bisa diciutkan jadi deretan ikon (tooltip di tiap ikon); status tersimpan di browser
             ->sidebarCollapsibleOnDesktop()
             // Tombol buka/tutup sidebar: ikon panel (jendela dengan kolom kiri) di kedua status, bukan panah

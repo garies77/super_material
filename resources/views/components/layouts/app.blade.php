@@ -140,6 +140,8 @@
         <meta name="twitter:image:alt" content="{{ $metaImageAlt }}">
     @endif
 
+    <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     {{-- Font tidak memblokir render: dimuat sebagai media="print" lalu diaktifkan (display=swap); <noscript> untuk tanpa JS --}}
