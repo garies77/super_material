@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\PageViewStat;
 use App\Models\Product;
+use App\Support\Reports\TrafficRecorder;
+use Illuminate\Http\Request;
 
 class ProductController extends Controller
 {
-    public function show(string $slug)
+    public function show(Request $request, string $slug)
     {
         $product = Product::published()->where('slug', $slug)
             ->with([
@@ -17,6 +20,8 @@ class ProductController extends Controller
                 'faqs',
                 'links.channel',
             ])->firstOrFail();
+
+        TrafficRecorder::view($request, PageViewStat::PRODUCT, $product->id);
 
         $related = Product::published()
             ->where('id', '!=', $product->id)

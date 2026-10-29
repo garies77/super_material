@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Support\ImageDerivatives;
+use App\Support\Reports\TrafficRecorder;
 use App\Support\Search;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,6 +24,7 @@ class SearchController extends Controller
             if ($type !== 'produk') {
                 $articles = Search::articles($q)->take(12)->get();
             }
+            TrafficRecorder::search($request, $q, $products->count() + $articles->count());
         }
 
         return view('search', compact('q', 'type', 'products', 'articles'));

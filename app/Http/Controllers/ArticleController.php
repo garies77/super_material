@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Ad;
 use App\Models\Article;
 use App\Models\Category;
+use App\Models\PageViewStat;
 use App\Models\Tag;
+use App\Support\Reports\TrafficRecorder;
 use Illuminate\Http\Request;
 
 class ArticleController extends Controller
@@ -115,11 +117,9 @@ class ArticleController extends Controller
             ])
             ->firstOrFail();
 
-        // Increment view count dengan proteksi sesi per sesi pengunjung
-        $sessionKey = 'viewed_article_'.$article->id;
-        if (! $request->session()->has($sessionKey)) {
+        // Sekali per sesi pengunjung, bot tidak dihitung; juga tercatat harian untuk Pusat Laporan
+        if (TrafficRecorder::view($request, PageViewStat::ARTICLE, $article->id)) {
             $article->increment('views_count');
-            $request->session()->put($sessionKey, now()->timestamp);
         }
 
         return $this->render($article, Ad::forArticle($article));
