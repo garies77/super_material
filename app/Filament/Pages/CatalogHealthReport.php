@@ -22,9 +22,9 @@ class CatalogHealthReport extends Dashboard
 {
     protected static string $routePath = '/laporan/katalog';
 
-    protected static ?string $title = 'Kesehatan Katalog';
+    protected static ?string $title = 'Kesehatan katalog';
 
-    protected static ?string $navigationLabel = 'Kesehatan Katalog';
+    protected static ?string $navigationLabel = 'Kesehatan katalog';
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedHeart;
 

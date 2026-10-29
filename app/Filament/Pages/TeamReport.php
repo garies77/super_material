@@ -18,9 +18,9 @@ class TeamReport extends Dashboard
 
     protected static string $routePath = '/laporan/tim';
 
-    protected static ?string $title = 'Kinerja Tim';
+    protected static ?string $title = 'Kinerja tim';
 
-    protected static ?string $navigationLabel = 'Kinerja Tim';
+    protected static ?string $navigationLabel = 'Kinerja tim';
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUserGroup;
 

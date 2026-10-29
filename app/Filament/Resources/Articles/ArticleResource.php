@@ -57,6 +57,21 @@ class ArticleResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'title';
 
+    public static function getNavigationBadge(): ?string
+    {
+        return (string) (ReviewWorkflow::navigationBadge(Article::class)['count'] ?? '') ?: null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return ReviewWorkflow::navigationBadge(Article::class)['color'] ?? null;
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return ReviewWorkflow::navigationBadge(Article::class)['tooltip'] ?? null;
+    }
+
     /** Kontributor hanya mengubah draf miliknya (HasReviewWorkflow menegakkan hal yang sama di model). */
     public static function canEdit(Model $record): bool
     {

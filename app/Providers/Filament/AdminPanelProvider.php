@@ -56,10 +56,12 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(PanelsRenderHook::BODY_END, fn () => view('filament.celebrate'))
             // Grup tanpa ikon: Filament melarang ikon di grup sekaligus di itemnya, dan ikon item diperlukan untuk mode ciut
             ->navigationGroups([
+                // Pekerjaan harian di atas (terbuka), alat & konfigurasi di bawah (tertutup)
                 NavigationGroup::make('Katalog'),
                 NavigationGroup::make('Konten'),
+                NavigationGroup::make('Pemasaran'),
                 NavigationGroup::make('Laporan')->collapsed(),
-                NavigationGroup::make('Pengaturan Tampilan')->collapsed(),
+                NavigationGroup::make('Tampilan situs')->collapsed(),
                 NavigationGroup::make('Pengaturan')->collapsed(),
             ])
             // Oranye brand (= theme_primary situs) dan abu-abu kebiruan yang selaras dengan navy brand (#121826)

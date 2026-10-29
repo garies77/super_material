@@ -129,6 +129,21 @@ class ProductResource extends Resource
         return in_array(auth()->user()?->role, ['admin', 'editor', 'contributor'], true);
     }
 
+    public static function getNavigationBadge(): ?string
+    {
+        return (string) (ReviewWorkflow::navigationBadge(Product::class)['count'] ?? '') ?: null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return ReviewWorkflow::navigationBadge(Product::class)['color'] ?? null;
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return ReviewWorkflow::navigationBadge(Product::class)['tooltip'] ?? null;
+    }
+
     /** Kontributor hanya mengubah draf miliknya (HasReviewWorkflow menegakkan hal yang sama di model). */
     public static function canEdit(Model $record): bool
     {

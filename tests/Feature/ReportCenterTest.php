@@ -195,7 +195,7 @@ it('opens the report center for editors only and renders every report', function
     $this->actingAs(User::factory()->create(['role' => 'contributor', 'is_active' => true]))->get(ReportCenter::getUrl())->assertForbidden();
 
     $this->actingAs(User::factory()->create(['role' => 'editor', 'is_active' => true]))->get(ReportCenter::getUrl())->assertOk()
-        ->assertSee('Pusat Laporan')->assertSee('Klik ke toko')->assertSee('Produk paling banyak diklik')
+        ->assertSee('Pusat laporan')->assertSee('Klik ke toko')->assertSee('Produk paling banyak diklik')
         ->assertSee('Produk tanpa klik')->assertSee('Halaman asal klik')->assertSee('Performa artikel')
         ->assertSee('Tayangan halaman')->assertSee('Konversi produk')->assertSee('Pencarian terpopuler')->assertSee('Dicari tapi tidak ketemu')
         ->assertSee('Kampanye & tautan promosi (UTM)')->assertSee('Lead formulir')->assertSee('Semen Gresik');

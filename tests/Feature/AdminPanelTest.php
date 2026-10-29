@@ -1,6 +1,10 @@
 <?php
 
+use App\Filament\Resources\Articles\ArticleResource;
+use App\Filament\Resources\Products\ProductResource;
 use App\Filament\Resources\Users\Pages\ManageUsers;
+use App\Models\Article;
+use App\Models\Product;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -57,12 +61,32 @@ it('orders the sidebar by operational priority and supports the collapsed icon r
 
     expect($m[1])->toBe([
         'Dasbor',
-        'Produk', 'Kategori', 'Merek', 'Kanal Beli', 'Sinonim pencarian',
-        'Artikel', 'Penulis', 'Halaman', 'Kampanye', 'Formulir', 'Jawaban formulir', 'Media',
-        'Pusat Laporan', 'Kinerja Tim', 'Kesehatan Katalog', 'Laporan Klik', 'Laporan kampanye', 'Riwayat XP',
-        'Kustomisasi Beranda', 'Navbar Builder', 'Footer Builder',
+        'Produk', 'Kategori', 'Merek', 'Kanal beli', 'Sinonim pencarian',
+        'Artikel', 'Halaman', 'Media', 'Penulis',
+        'Kampanye', 'Formulir', 'Jawaban formulir',
+        'Pusat laporan', 'Kinerja tim', 'Kesehatan katalog', 'Laporan klik', 'Laporan kampanye', 'Riwayat XP',
+        'Beranda', 'Menu navigasi', 'Footer situs',
         'Pengaturan situs', 'Pengguna', 'Token API', 'Pengalihan URL',
     ])->and($html)->not->toContain('Penggunas');
+});
+
+it('badges products and articles awaiting review for editors and changes requested for contributors', function () {
+    $contributor = User::factory()->create(['role' => 'contributor', 'is_active' => true]);
+    $editor = User::factory()->create(['role' => 'editor', 'is_active' => true]);
+    foreach (['a', 'b'] as $slug) {
+        Product::create(['name' => "Kiriman {$slug}", 'slug' => $slug, 'review_status' => 'pending', 'created_by' => $contributor->id]);
+    }
+    Article::create(['title' => 'Perlu revisi', 'slug' => 'revisi', 'content' => '<p>x</p>', 'review_status' => 'changes_requested', 'created_by' => $contributor->id]);
+
+    $this->actingAs($editor);
+    expect(ProductResource::getNavigationBadge())->toBe('2')
+        ->and(ProductResource::getNavigationBadgeColor())->toBe('warning')
+        ->and(ArticleResource::getNavigationBadge())->toBeNull();
+
+    $this->actingAs($contributor);
+    expect(ArticleResource::getNavigationBadge())->toBe('1')
+        ->and(ArticleResource::getNavigationBadgeTooltip())->toBe('Diminta perbaikan')
+        ->and(ProductResource::getNavigationBadge())->toBeNull();
 });
 
 it('uses the panel-layout toggle icon and the slim sidebar scrollbar', function () {

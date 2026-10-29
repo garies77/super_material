@@ -24,7 +24,7 @@ use Filament\Schemas\Schema;
 
 /**
  * Pengaturan global tampilan artikel dan Social Media Builder khusus artikel.
- * Dibuka dari tombol roda gigi di daftar artikel; terpisah dari media sosial Footer Builder.
+ * Dibuka dari tombol roda gigi di daftar artikel; terpisah dari media sosial Footer situs.
  */
 class ArticleSettingsPage extends Page implements HasSchemas
 {

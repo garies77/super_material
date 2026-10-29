@@ -45,11 +45,13 @@ class ManageHomepage extends Page implements HasSchemas
 
     protected static ?string $title = 'Kustomisasi Beranda';
 
+    protected static ?string $navigationLabel = 'Beranda';
+
     protected static ?string $slug = 'kustomisasi-beranda';
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedHome;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Pengaturan Tampilan';
+    protected static string|\UnitEnum|null $navigationGroup = 'Tampilan situs';
 
     protected static ?int $navigationSort = 1;
 

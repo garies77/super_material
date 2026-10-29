@@ -34,6 +34,8 @@ class SalesChannelResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Kanal beli';
 
+    protected static ?string $navigationLabel = 'Kanal beli';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShoppingBag;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Katalog';

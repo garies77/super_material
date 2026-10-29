@@ -23,6 +23,8 @@ class ClickEventResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Laporan klik';
 
+    protected static ?string $navigationLabel = 'Laporan klik';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCursorArrowRays;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Laporan';

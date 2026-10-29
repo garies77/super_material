@@ -40,9 +40,9 @@ class ReportCenter extends Dashboard
 
     protected static string $routePath = '/laporan';
 
-    protected static ?string $title = 'Pusat Laporan';
+    protected static ?string $title = 'Pusat laporan';
 
-    protected static ?string $navigationLabel = 'Pusat Laporan';
+    protected static ?string $navigationLabel = 'Pusat laporan';
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChartPie;
 

@@ -50,6 +50,41 @@ class ReviewWorkflow
         return (bool) auth()->user()?->canReview();
     }
 
+    /**
+     * Badge menu Produk/Artikel: Editor/Admin melihat jumlah kiriman menunggu tinjauan,
+     * Kontributor melihat jumlah kirimannya yang diminta perbaikan.
+     *
+     * @param  class-string<Product|Article>  $model
+     * @return array{count: int, color: string, tooltip: string}|null
+     */
+    public static function navigationBadge(string $model): ?array
+    {
+        // Dipanggil 3x per render menu (angka, warna, tooltip). once() menyimpan hasil per variabel yang
+        // ditangkap closure, jadi $userId ikut ditangkap agar tiap pengguna punya hasil sendiri; dibersihkan tiap request.
+        $userId = auth()->id();
+
+        return once(function () use ($model, $userId) {
+            return $userId === null ? null : self::computeNavigationBadge($model);
+        });
+    }
+
+    /** @param  class-string<Product|Article>  $model */
+    private static function computeNavigationBadge(string $model): ?array
+    {
+        $user = auth()->user();
+
+        [$count, $color, $tooltip] = match (true) {
+            (bool) $user?->canReview() => [$model::awaitingReview()->count(), 'warning', 'Menunggu tinjauan Anda'],
+            (bool) $user?->isContributor() => [
+                $model::where('created_by', $user->id)->where('review_status', $model::REVIEW_CHANGES_REQUESTED)->count(),
+                'danger', 'Diminta perbaikan',
+            ],
+            default => [0, 'gray', ''],
+        };
+
+        return $count > 0 ? ['count' => $count, 'color' => $color, 'tooltip' => $tooltip] : null;
+    }
+
     /** @return array<int, Action> */
     public static function pageActions(EditRecord $page): array
     {

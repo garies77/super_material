@@ -17,7 +17,7 @@ use Filament\Support\Icons\Heroicon;
 /** Menu navigasi utama situs: tambah, ubah, hapus, urutkan (drag), aktif/nonaktif, dan submenu satu tingkat. */
 class NavbarBuilder extends LayoutBuilderPage
 {
-    protected static ?string $title = 'Navbar Builder';
+    protected static ?string $title = 'Menu navigasi';
 
     protected static ?string $slug = 'navbar-builder';
 

@@ -136,11 +136,11 @@ it('opens the team and catalog reports for editors only', function () {
     $editor = User::factory()->create(['role' => 'editor', 'is_active' => true]);
 
     $this->actingAs($editor)->get(TeamReport::getUrl())->assertOk()
-        ->assertSee('Kinerja Tim')->assertSee('Kiriman masuk')->assertSee('Kinerja kontributor')->assertSee('Peninjau')->assertSee('Antrean tinjauan saat ini');
+        ->assertSee('Kinerja tim')->assertSee('Kiriman masuk')->assertSee('Kinerja kontributor')->assertSee('Peninjau')->assertSee('Antrean tinjauan saat ini');
 
     expect(CatalogSnapshot::count())->toBe(0);
     $this->get(CatalogHealthReport::getUrl())->assertOk()
-        ->assertSee('Kesehatan Katalog')->assertSee('Produk lengkap')->assertSee('Sebaran skor SEO')->assertSee('Kekurangan data produk')
+        ->assertSee('Kesehatan katalog')->assertSee('Produk lengkap')->assertSee('Sebaran skor SEO')->assertSee('Kekurangan data produk')
         ->assertSee('Tren mingguan')->assertSee('Produk yang perlu dilengkapi')->assertSee('Kosong');
     expect(CatalogSnapshot::count())->toBe(1);
 

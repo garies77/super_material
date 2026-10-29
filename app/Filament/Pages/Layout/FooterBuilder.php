@@ -20,7 +20,7 @@ use Filament\Support\Icons\Heroicon;
 /** Footer situs: deskripsi, kolom tautan (urut dengan drag), kontak, media sosial, dan copyright. */
 class FooterBuilder extends LayoutBuilderPage
 {
-    protected static ?string $title = 'Footer Builder';
+    protected static ?string $title = 'Footer situs';
 
     protected static ?string $slug = 'footer-builder';
 

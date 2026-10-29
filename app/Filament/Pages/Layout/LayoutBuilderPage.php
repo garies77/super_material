@@ -19,7 +19,7 @@ abstract class LayoutBuilderPage extends Page implements HasSchemas
 
     protected string $view = 'filament.pages.layout-builder';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Pengaturan Tampilan';
+    protected static string|\UnitEnum|null $navigationGroup = 'Tampilan situs';
 
     public ?array $data = [];
 
