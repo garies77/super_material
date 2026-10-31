@@ -87,7 +87,7 @@ class SiteSettings extends Page implements HasSchemas
                         ->directory('logos')
                         ->visibility('public')
                         ->imagePreviewHeight('80')
-                        ->helperText('PNG, JPG, SVG, atau WebP. Logo dimuat di setiap halaman, jadi usahakan di bawah 50 KB: PNG/WebP tinggi ±96 px, atau SVG vektor murni. SVG hasil ekspor Figma yang berisi gambar bitmap biasanya ratusan KB.')
+                        ->helperText('PNG, JPG, SVG, atau WebP. Logo dimuat di setiap halaman, jadi usahakan di bawah 50 KB: PNG/WebP tinggi ±96 px, atau SVG vektor murni. SVG hasil ekspor Figma yang berisi gambar bitmap biasanya ratusan KB. Favicon (ikon di tab browser) otomatis mengikuti logo ini.')
                         ->columnSpanFull(),
                     TextInput::make('org_name')
                         ->label('Nama Legal Organisasi (Schema SEO)')

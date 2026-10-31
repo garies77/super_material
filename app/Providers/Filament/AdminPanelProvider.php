@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Pages\Auth\Login;
 use App\Models\Setting;
+use App\Support\Favicon;
 use Filament\FontProviders\GoogleFontProvider;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -37,8 +38,8 @@ class AdminPanelProvider extends PanelProvider
             ->brandName('Supermaterial')
             ->brandLogo(fn () => Setting::logoUrl())
             ->brandLogoHeight('2rem')
-            // Monogram brand (public/favicon.svg); favicon.ico bawaan proyek kosong (0 byte)
-            ->favicon(asset('favicon.svg'))
+            // Mengikuti logo di Pengaturan situs; tanpa logo memakai monogram public/favicon.svg
+            ->favicon(fn () => Favicon::url())
             // Sidebar bisa diciutkan jadi deretan ikon (tooltip di tiap ikon); status tersimpan di browser
             ->sidebarCollapsibleOnDesktop()
             // Tombol buka/tutup sidebar: ikon panel (jendela dengan kolom kiri) di kedua status, bukan panah

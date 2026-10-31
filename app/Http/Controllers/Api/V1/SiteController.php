@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Models\Setting;
+use App\Support\Favicon;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -32,7 +33,7 @@ class SiteController extends ApiController
                 'description' => Setting::get('site_description'),
                 'url' => url('/'),
                 'logo_url' => Setting::logoUrl(),
-                'favicon_url' => Setting::imageUrl('site_favicon') ?: (file_exists(public_path('favicon.ico')) ? asset('favicon.ico') : null),
+                'favicon_url' => Setting::imageUrl('site_favicon') ?: Favicon::url(),
                 'og_image_url' => Setting::defaultOgImage(),
                 'colors' => [
                     'primary' => Setting::themeColor('theme_primary'),

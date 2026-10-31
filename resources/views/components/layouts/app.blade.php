@@ -140,7 +140,9 @@
         <meta name="twitter:image:alt" content="{{ $metaImageAlt }}">
     @endif
 
-    <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+    {{-- Favicon mengikuti logo di Pengaturan situs (App\Support\Favicon) --}}
+    <link rel="icon" href="{{ \App\Support\Favicon::url() }}" type="{{ \App\Support\Favicon::type() }}">
+    <link rel="apple-touch-icon" href="{{ \App\Support\Favicon::url() }}">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
