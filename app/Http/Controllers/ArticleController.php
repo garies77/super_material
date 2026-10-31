@@ -8,6 +8,7 @@ use App\Models\Category;
 use App\Models\PageViewStat;
 use App\Models\Tag;
 use App\Support\Reports\TrafficRecorder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 
 class ArticleController extends Controller
@@ -26,7 +27,7 @@ class ArticleController extends Controller
 
         $articles = $query->paginate(10);
         $popular = Article::popular(5)->get();
-        $categories = Category::whereHas('articles')->orderBy('name')->get();
+        $categories = $this->categoriesWithArticles();
 
         return view('articles', [
             'featured' => $featured,
@@ -37,6 +38,18 @@ class ArticleController extends Controller
             'activeTag' => null,
             'title' => 'Artikel & Panduan Bahan Bangunan',
         ]);
+    }
+
+    /**
+     * Kategori yang punya artikel terbit, dengan jumlahnya untuk chip filter (kategori berisi draf saja tidak tampil).
+     *
+     * @return Collection<int, Category>
+     */
+    private function categoriesWithArticles(): Collection
+    {
+        return Category::whereHas('articles', fn ($q) => $q->published())
+            ->withCount(['articles' => fn ($q) => $q->published()])
+            ->orderBy('name')->get();
     }
 
     public function category(string $slug)
@@ -60,7 +73,7 @@ class ArticleController extends Controller
 
         $articles = $query->paginate(10);
         $popular = Article::popular(5)->get();
-        $categories = Category::whereHas('articles')->orderBy('name')->get();
+        $categories = $this->categoriesWithArticles();
 
         return view('articles', [
             'featured' => $featured,
@@ -89,7 +102,7 @@ class ArticleController extends Controller
 
         $articles = $query->paginate(10);
         $popular = Article::popular(5)->get();
-        $categories = Category::whereHas('articles')->orderBy('name')->get();
+        $categories = $this->categoriesWithArticles();
 
         return view('articles', [
             'featured' => $featured,

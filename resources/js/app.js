@@ -485,3 +485,43 @@ if (campaignRoot) {
         else window.addEventListener('load', () => arm(pick), { once: true });
     }
 }
+
+// Baris chip yang bisa digeser (filter kategori artikel): tanpa scrollbar, bayangan tepi & tombol panah hanya
+// tampil bila masih ada isi di sisi itu (atribut data-can-left / data-can-right dipakai kelas group-data-[...]),
+// roda mouse vertikal ikut menggeser, dan chip aktif digeser ke tengah saat halaman dibuka.
+document.querySelectorAll('[data-chip-scroller]').forEach((root) => {
+    const track = root.querySelector('[data-track]');
+    if (!track) return;
+
+    const maxScroll = () => track.scrollWidth - track.clientWidth;
+    const update = () => {
+        root.toggleAttribute('data-can-left', track.scrollLeft > 4);
+        root.toggleAttribute('data-can-right', track.scrollLeft < maxScroll() - 4);
+    };
+
+    root.querySelectorAll('[data-scroll]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const direction = button.dataset.scroll === 'left' ? -1 : 1;
+            track.scrollBy({ left: direction * track.clientWidth * 0.7, behavior: 'smooth' });
+        });
+    });
+
+    // Roda mouse biasa (vertikal) menggeser chip; di ujung baris, halaman kembali menggulir seperti biasa
+    track.addEventListener('wheel', (event) => {
+        if (Math.abs(event.deltaY) <= Math.abs(event.deltaX) || maxScroll() <= 0) return;
+        const atStart = track.scrollLeft <= 0 && event.deltaY < 0;
+        const atEnd = track.scrollLeft >= maxScroll() - 1 && event.deltaY > 0;
+        if (atStart || atEnd) return;
+        event.preventDefault();
+        track.scrollBy({ left: event.deltaY, behavior: 'auto' });
+    }, { passive: false });
+
+    const active = track.querySelector('[aria-current="page"]');
+    if (active) {
+        track.scrollTo({ left: active.offsetLeft - (track.clientWidth - active.offsetWidth) / 2, behavior: 'instant' });
+    }
+
+    track.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update, { passive: true });
+    update();
+});

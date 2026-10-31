@@ -31,7 +31,7 @@
         <x-breadcrumb :items="$crumbs" />
 
         {{-- Header Halaman Artikel --}}
-        <div class="mt-4 flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-ink-100 pb-6">
+        <div class="mt-4 border-b border-ink-100 pb-6">
             <div>
                 <span class="text-xs font-black uppercase tracking-wider text-brand-600">Pusat Edukasi &amp; Berita</span>
                 <h1 class="font-display text-3xl sm:text-4xl font-black text-ink-950 mt-1">
@@ -42,20 +42,48 @@
                 </p>
             </div>
 
-            {{-- Kategori Tabs/Pills --}}
+            {{--
+                Filter kategori: satu baris selebar halaman yang bisa digeser (sentuh, trackpad, roda mouse, atau tombol panah).
+                Tanpa scrollbar; bayangan tepi & panah hanya muncul bila masih ada kategori tersembunyi di sisi itu.
+                Perilaku di resources/js/app.js ([data-chip-scroller]); kategori aktif otomatis digeser ke tengah.
+            --}}
             @if($categories->isNotEmpty())
-                <div class="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
-                    <a href="{{ route('article.index') }}"
-                       class="shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition {{ !$activeCategory && !$activeTag ? 'bg-ink-950 text-white shadow-xs' : 'bg-ink-100 text-ink-700 hover:bg-ink-200' }}">
-                        Semua
-                    </a>
-                    @foreach($categories as $cat)
-                        <a href="{{ route('article.category', $cat->slug) }}"
-                           class="shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition {{ $activeCategory && $activeCategory->id === $cat->id ? 'bg-brand-600 text-white shadow-xs' : 'bg-ink-100 text-ink-700 hover:bg-ink-200' }}">
-                            {{ $cat->name }}
+                @php
+                    $chip = 'inline-flex shrink-0 snap-start items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50';
+                    $chipIdle = 'border-ink-200 bg-white text-ink-700 hover:border-brand-300 hover:text-brand-700';
+                    $chipActive = 'border-brand-600 bg-brand-600 text-white shadow-sm';
+                    $countIdle = 'bg-ink-100 text-ink-500';
+                    $countActive = 'bg-white/20 text-white';
+                    $allActive = ! $activeCategory && ! $activeTag;
+                @endphp
+                <nav aria-label="Kategori artikel" class="group relative mt-6" data-chip-scroller>
+                    <div class="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-ink-50 to-transparent opacity-0 transition-opacity duration-200 group-data-[can-left]:opacity-100"></div>
+                    <div class="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-ink-50 to-transparent opacity-0 transition-opacity duration-200 group-data-[can-right]:opacity-100"></div>
+
+                    <button type="button" data-scroll="left" aria-label="Kategori sebelumnya" tabindex="-1"
+                            class="pointer-events-none absolute left-0 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-ink-200 bg-white text-ink-700 opacity-0 shadow-md transition hover:border-brand-300 hover:text-brand-700 group-data-[can-left]:pointer-events-auto group-data-[can-left]:opacity-100 md:flex">
+                        <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+                    </button>
+                    <button type="button" data-scroll="right" aria-label="Kategori berikutnya" tabindex="-1"
+                            class="pointer-events-none absolute right-0 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-ink-200 bg-white text-ink-700 opacity-0 shadow-md transition hover:border-brand-300 hover:text-brand-700 group-data-[can-right]:pointer-events-auto group-data-[can-right]:opacity-100 md:flex">
+                        <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+                    </button>
+
+                    <div data-track class="relative flex snap-x scroll-px-1 gap-2 overflow-x-auto scroll-smooth px-1 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                        <a href="{{ route('article.index') }}" @if($allActive) aria-current="page" @endif
+                           class="{{ $chip }} {{ $allActive ? $chipActive : $chipIdle }}">
+                            Semua
                         </a>
-                    @endforeach
-                </div>
+                        @foreach($categories as $cat)
+                            @php $isActive = $activeCategory && $activeCategory->id === $cat->id; @endphp
+                            <a href="{{ route('article.category', $cat->slug) }}" @if($isActive) aria-current="page" @endif
+                               class="{{ $chip }} {{ $isActive ? $chipActive : $chipIdle }}">
+                                {{ $cat->name }}
+                                <span class="rounded-full px-1.5 py-0.5 text-[11px] font-bold leading-none {{ $isActive ? $countActive : $countIdle }}">{{ $cat->articles_count }}</span>
+                            </a>
+                        @endforeach
+                    </div>
+                </nav>
             @endif
         </div>
 

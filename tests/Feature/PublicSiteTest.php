@@ -2,6 +2,7 @@
 
 use App\Models\Article;
 use App\Models\Brand;
+use App\Models\Category;
 use App\Models\ClickEvent;
 use App\Models\Product;
 use App\Models\ProductLink;
@@ -160,4 +161,21 @@ it('hides hero campaign banner when inactive', function () {
     $this->get('/')
         ->assertOk()
         ->assertDontSee('storage/banners/bundling-renovasi-oktober.jpg');
+});
+
+it('lists only article categories with published articles, with their count, in the category chips', function () {
+    $published = Category::create(['name' => 'Kategori Terbit', 'slug' => 'kategori-terbit']);
+    $draftOnly = Category::create(['name' => 'Kategori Draf', 'slug' => 'kategori-draf']);
+    foreach ([[now()->subDay(), $published], [now()->subDay(), $published], [null, $published], [null, $draftOnly]] as $i => [$at, $category]) {
+        Article::create(['title' => "Uji {$i}", 'slug' => "uji-{$i}", 'content' => '<p>x</p>', 'published_at' => $at])->categories()->attach($category);
+    }
+
+    // Hanya baris chip kategori artikel (menu footer memuat semua kategori, termasuk kategori produk)
+    preg_match('#<nav aria-label="Kategori artikel".*?</nav>#s', $this->get('/artikel')->assertOk()->getContent(), $chips);
+
+    expect($chips[0] ?? '')->toContain('data-chip-scroller')
+        ->toMatch('#Kategori Terbit\s*<span[^>]*>2</span>#')
+        ->not->toContain('Kategori Draf');
+
+    $this->get('/artikel/kategori/kategori-terbit')->assertOk()->assertSee('aria-current="page"', false);
 });
