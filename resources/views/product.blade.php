@@ -217,6 +217,8 @@
             initialVariantId: @json($initialVariant?->id),
             hasVariants: @json($activeVariants->isNotEmpty()),
             waNumber: @json($product->whatsappNumber()),
+            {{-- Lewat /go/ agar klik WhatsApp tercatat di statistik seperti kanal marketplace --}}
+            waGoUrl: @json($whatsappChannel ? route('go', ['product' => $product->slug, 'channel' => $whatsappChannel->slug]) : null),
             marketplaceChannels: @json($marketplaceChannels->map(fn($c) => ['name' => $c->name, 'slug' => $c->slug, 'color' => $c->color])),
         };
     </script>
@@ -1038,6 +1040,15 @@
             }
 
             function getWhatsappUrl() {
+                // Kanal WhatsApp aktif: lewat /go/ (mencatat klik, server menyusun pesan dengan varian & jumlah yang sama)
+                if (P.waGoUrl) {
+                    const url = new URL(P.waGoUrl, window.location.origin);
+                    if (selectedVariant) url.searchParams.set('variant', selectedVariant.id);
+                    url.searchParams.set('qty', currentQty);
+
+                    return url.toString();
+                }
+
                 const number = P.waNumber ? P.waNumber.replace(/\D+/g, '') : '';
                 let msg = `Halo, saya tertarik dengan ${P.name}.`;
                 const extra = [];

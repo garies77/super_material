@@ -2,6 +2,8 @@
 
 use App\Models\ClickEvent;
 use App\Models\Product;
+use App\Support\Reports\ReportMetrics;
+use App\Support\Reports\ReportPeriod;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -58,6 +60,21 @@ it('records variant and redirects with quantity via /go route', function () {
     $event = ClickEvent::first();
     expect($event->product_id)->toBe($product->id)
         ->and($event->product_variant_id)->toBe($variant->id);
+});
+
+it('sends product page WhatsApp buttons through the tracked /go/ route so clicks reach the statistics', function () {
+    $product = Product::where('slug', 'semen-tiga-roda-50-kg')->first();
+
+    $this->get($product->url())->assertOk()
+        ->assertSee('waGoUrl: '.json_encode(route('go', ['product' => $product->slug, 'channel' => 'whatsapp'])), false);
+
+    $this->get("/go/{$product->slug}/whatsapp?qty=2", ['referer' => $product->url()])->assertRedirectContains('https://wa.me/');
+
+    $click = ClickEvent::sole();
+    expect($click->channel->slug)->toBe('whatsapp')
+        ->and($click->page_url)->toBe($product->url())
+        ->and(ReportMetrics::channelShares(ReportPeriod::fromFilters(['period' => '7d']))->pluck('clicks', 'name')->all())
+        ->toMatchArray(['WhatsApp' => 1]);
 });
 
 it('includes variant and quantity in WhatsApp redirection message', function () {
