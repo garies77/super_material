@@ -2,9 +2,10 @@
 
 namespace App\Support\Reports;
 
+use App\Support\CsvCell;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
-/** Ekspor CSV laporan; BOM UTF-8 agar Excel membaca huruf & simbol dengan benar. */
+/** Ekspor CSV laporan; BOM UTF-8 agar Excel membaca huruf & simbol dengan benar, sel aman dari formula injection. */
 class CsvExport
 {
     /**
@@ -19,7 +20,7 @@ class CsvExport
             fputcsv($out, array_values($columns));
 
             foreach ($rows as $row) {
-                fputcsv($out, array_map(fn (string $key) => $row[$key] ?? '', array_keys($columns)));
+                fputcsv($out, CsvCell::row(array_map(fn (string $key) => $row[$key] ?? '', array_keys($columns))));
             }
 
             fclose($out);

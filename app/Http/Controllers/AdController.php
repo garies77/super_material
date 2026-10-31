@@ -72,7 +72,7 @@ class AdController extends Controller
 
     private function authorizePreview(): void
     {
-        abort_unless(in_array(auth()->user()?->role, ['admin', 'editor'], true), 403);
+        abort_unless(in_array(auth()->user()?->role, ['admin', 'editor'], true) && auth()->user()->is_active, 403);
     }
 
     private function record(Request $request, Ad $ad, string $type): void

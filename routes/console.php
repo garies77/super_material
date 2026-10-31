@@ -9,6 +9,10 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
+// Penyelesai deploy GitHub Actions (hosting tanpa SSH): tetap jalan saat mode pemeliharaan,
+// karena justru perintah ini yang membuka situs lagi setelah migrasi
+Schedule::command('deploy:finish')->everyMinute()->withoutOverlapping(15)->evenInMaintenanceMode();
+
 Schedule::command('seo:flag-expired-prices')->dailyAt('01:00')->timezone('Asia/Jakarta');
 
 // Potret kesehatan katalog untuk tren mingguan di laporan Kesehatan Katalog

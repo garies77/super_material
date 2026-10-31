@@ -5,6 +5,7 @@ namespace App\Filament\Resources\FormSubmissions\Pages;
 use App\Filament\Resources\FormSubmissions\FormSubmissionResource;
 use App\Models\AuditLog;
 use App\Models\FormSubmission;
+use App\Support\CsvCell;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -39,7 +40,8 @@ class ListFormSubmissions extends ListRecords
             fputcsv($out, ['Tanggal (WIB)', 'Formulir', 'Nama', 'Email', 'Telepon', 'Status', 'Dikirim dari', ...$labels]);
             foreach ($query->lazy() as $submission) {
                 $answers = $submission->answers();
-                fputcsv($out, [
+                // Semua isian berasal dari pengunjung: cegah formula injection saat dibuka di Excel
+                fputcsv($out, CsvCell::row([
                     $submission->created_at->timezone('Asia/Jakarta')->format('Y-m-d H:i'),
                     $submission->form?->name,
                     $submission->name,
@@ -47,9 +49,8 @@ class ListFormSubmissions extends ListRecords
                     $submission->phone,
                     FormSubmission::STATUSES[$submission->status] ?? $submission->status,
                     $submission->source_url,
-                    // Cegah formula injection saat dibuka di Excel
-                    ...array_map(fn ($label) => preg_replace('/^([=+\-@\t\r])/', "'$1", (string) ($answers[$label] ?? '')), $labels),
-                ]);
+                    ...array_map(fn ($label) => (string) ($answers[$label] ?? ''), $labels),
+                ]));
             }
             fclose($out);
         }, 'jawaban-formulir-'.now('Asia/Jakarta')->format('Ymd-His').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);

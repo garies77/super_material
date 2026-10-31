@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Models\Ad;
 use App\Models\AdEvent;
+use App\Support\CsvCell;
 use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
@@ -70,10 +71,10 @@ class AdReport extends Page
             fputcsv($out, ['dari', 'sampai', 'kampanye', 'posisi', 'halaman_asal', 'impresi', 'klik', 'ditutup', 'ctr_persen']);
             foreach ($rows as $r) {
                 $row = $this->row($r, []);
-                fputcsv($out, [
+                fputcsv($out, CsvCell::row([
                     $this->from, $this->until, $names[$r->ad_id] ?? '#'.$r->ad_id, $r->slot,
                     $r->article?->url() ?? '', $row['impressions'], $row['clicks'], $row['closes'], $row['ctr_raw'],
-                ]);
+                ]));
             }
             fclose($out);
         }, 'kampanye-'.now()->format('Ymd-His').'.csv');

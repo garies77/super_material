@@ -1,0 +1,57 @@
+# Jalur darurat bila deploy terhenti dan situs tertahan di mode pemeliharaan (lihat DEPLOY.md).
+# Menampilkan status deploy + potongan log server lewat FTP, dan (bila dikonfirmasi) membuka situs lagi.
+# Tidak meng-upload kode dan tidak menjalankan migrasi.
+
+name: 'Darurat: buka mode pemeliharaan'
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Ketik BUKA untuk membuka situs. Kosongkan untuk hanya melihat status & log.'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  unlock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    # Tidak berjalan bersamaan dengan deploy
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+    env:
+      FTP_SERVER: ${{ secrets.FTP_SERVER }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+      FTP_SERVER_DIR: ${{ vars.FTP_SERVER_DIR }}
+      FTP_PROTOCOL: ${{ vars.FTP_PROTOCOL || 'ftps' }}
+      SITE_URL: ${{ vars.SITE_URL }}
+    steps:
+      - name: Status & log server
+        run: |
+          ssl=(); [ "$FTP_PROTOCOL" = "ftps" ] && ssl=(--ssl-reqd)
+          get() { curl -sS "${ssl[@]}" --user "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$FTP_SERVER/$FTP_SERVER_DIR$1" 2>/dev/null; }
+          echo "== Versi di server (RELEASE)";            get RELEASE || echo "(tidak ada)"
+          echo; echo "== Status deploy";                   get storage/app/deploy/status.json || echo "(tidak ada)"
+          echo; echo "== Detak cron terakhir";             get storage/app/deploy/heartbeat || echo "(tidak ada: cron belum pernah menjalankan deploy:finish)"
+          echo; echo "== Mode pemeliharaan";               get storage/framework/down > /dev/null && echo "AKTIF" || echo "tidak aktif"
+          echo; echo "== storage/logs/deploy.log (40 baris terakhir)"; get storage/logs/deploy.log | tail -n 40 || true
+          echo; echo "== storage/logs/laravel.log (60 baris terakhir)"; get storage/logs/laravel.log | tail -n 60 || true
+
+      - name: Buka situs
+        if: inputs.confirm == 'BUKA'
+        run: |
+          ssl=(); [ "$FTP_PROTOCOL" = "ftps" ] && ssl=(--ssl-reqd)
+          curl -sS "${ssl[@]}" --user "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$FTP_SERVER/" -Q "DELE ${FTP_SERVER_DIR}storage/framework/down" -o /dev/null
+          sleep 5
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "${SITE_URL%/}/")
+          echo "Beranda sekarang: $code"
+          {
+            echo "### Mode pemeliharaan dibuka (beranda: $code)"
+            echo "Bila migrasi versi terakhir belum berjalan, segera deploy ulang atau rollback (DEPLOY.md)."
+          } >> "$GITHUB_STEP_SUMMARY"

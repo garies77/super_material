@@ -25,7 +25,8 @@ Route::get('/artikel/kategori/{slug}', [ArticleController::class, 'category'])->
 Route::get('/artikel/tag/{slug}', [ArticleController::class, 'tag'])->name('article.tag');
 Route::get('/artikel/{slug}', [ArticleController::class, 'show'])->name('article.show');
 Route::get('/penulis/{slug}', [AuthorController::class, 'show'])->name('author.show');
-Route::get('/cari', SearchController::class)->name('search');
+// Dibatasi seperti live search: tiap pencarian ikut dicatat ke statistik (SearchStat)
+Route::get('/cari', SearchController::class)->middleware('throttle:120,1')->name('search');
 Route::get('/cari/live', [SearchController::class, 'live'])->middleware('throttle:120,1')->name('search.live');
 Route::get('/form/{slug}', [FormController::class, 'show'])->name('form.show');
 // Batas kiriman per IP (anti-spam); honeypot ditangani di controller

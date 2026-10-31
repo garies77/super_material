@@ -30,6 +30,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Pustaka Media: semua gambar di disk publik yang bisa dipakai ulang lewat tombol "Pilih dari Media".
@@ -123,9 +124,9 @@ class MediaResource extends Resource
                             'usages' => MediaUsage::for($record),
                         ]))
                         ->modalSubmitAction(false)->modalCancelActionLabel('Tutup'),
-                    EditAction::make()->label('Ubah info'),
+                    EditAction::make()->label('Ubah info')->visible(fn (Media $record) => self::canEditMedia($record)),
                     Action::make('focus')->label('Titik fokus')->icon(Heroicon::OutlinedViewfinderCircle)
-                        ->visible(fn (Media $record) => $record->isCroppable())
+                        ->visible(fn (Media $record) => $record->isCroppable() && self::canEditMedia($record))
                         ->modalHeading('Tandai bagian penting gambar')
                         ->modalDescription('Klik bagian yang harus selalu terlihat (mis. produknya). Potongan otomatis ke rasio section akan berpusat di titik ini. Potongan yang sudah dipakai konten tidak berubah.')
                         ->modalWidth(Width::ThreeExtraLarge)
@@ -241,6 +242,17 @@ class MediaResource extends Resource
     public static function canDeleteMedia(): bool
     {
         return in_array(auth()->user()?->role, ['admin', 'editor'], true);
+    }
+
+    /** Info & titik fokus: Admin/Editor semua gambar, Kontributor/Penulis hanya gambar unggahannya sendiri. */
+    public static function canEditMedia(Media $media): bool
+    {
+        return self::canDeleteMedia() || (int) $media->uploaded_by === auth()->id();
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return self::canEditMedia($record);
     }
 
     public static function getPages(): array

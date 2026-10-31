@@ -85,7 +85,8 @@ class Search
 
             if (preg_match($pattern, $lower)) {
                 foreach ($synonyms as $synonym) {
-                    $variants[] = preg_replace($pattern, $synonym, $lower);
+                    // Callback, bukan string pengganti: "$1" atau "\1" di teks sinonim tidak boleh dibaca sebagai backreference
+                    $variants[] = preg_replace_callback($pattern, fn () => $synonym, $lower);
                 }
             }
         }
