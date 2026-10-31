@@ -34,11 +34,14 @@ class ManageMedia extends ManageRecords
      */
     public function selectAllUnusedMedia(): void
     {
-        if (! $this->isSelectingMedia || ! MediaResource::canDeleteMedia()) {
+        if (! $this->isSelectingMedia || ! MediaResource::canSelectMediaToDelete()) {
             return;
         }
 
-        $unused = Media::whereNotIn('id', MediaUsage::usedIds())->pluck('id')->all();
+        // Kontributor/Penulis: hanya unggahannya sendiri
+        $unused = Media::whereNotIn('id', MediaUsage::usedIds())
+            ->unless(MediaResource::canDeleteMedia(), fn ($query) => $query->where('uploaded_by', auth()->id()))
+            ->pluck('id')->all();
         $this->selectedMediaIds = array_values(array_unique([...array_map('intval', $this->selectedMediaIds), ...$unused]));
 
         Notification::make()->title(count($unused).' gambar yang belum dipakai ditambahkan ke pilihan')->success()->send();
@@ -57,7 +60,7 @@ class ManageMedia extends ManageRecords
             Action::make('deleteSelected')
                 ->label('Hapus terpilih')
                 ->icon(Heroicon::OutlinedTrash)->color('danger')
-                ->visible(fn () => $this->isSelectingMedia && MediaResource::canDeleteMedia())
+                ->visible(fn () => $this->isSelectingMedia && MediaResource::canSelectMediaToDelete())
                 ->requiresConfirmation()
                 ->modalHeading(fn () => 'Hapus '.count($this->selectedMediaIds).' gambar terpilih?')
                 ->modalDescription('Berkas dihapus permanen dari server. Gambar yang masih dipakai konten otomatis dilewati.')
@@ -73,7 +76,10 @@ class ManageMedia extends ManageRecords
                     $result = MediaResource::deleteUnused(Media::whereKey($ids)->get());
 
                     Notification::make()->title($result['deleted'].' gambar dihapus')
-                        ->body($result['kept'] ? $result['kept'].' gambar dilewati karena masih dipakai konten.' : null)
+                        ->body(collect([
+                            $result['kept'] ? $result['kept'].' gambar dilewati karena masih dipakai konten.' : null,
+                            $result['notOwned'] ? $result['notOwned'].' gambar dilewati karena bukan unggahan Anda.' : null,
+                        ])->filter()->implode(' ') ?: null)
                         ->success()->send();
 
                     $this->isSelectingMedia = false;
@@ -84,7 +90,7 @@ class ManageMedia extends ManageRecords
                 ->label(fn () => $this->isSelectingMedia ? 'Batal' : 'Pilih untuk dihapus')
                 ->icon(fn () => $this->isSelectingMedia ? Heroicon::OutlinedXMark : Heroicon::OutlinedCursorArrowRipple)
                 ->color('gray')
-                ->visible(fn () => MediaResource::canDeleteMedia())
+                ->visible(fn () => MediaResource::canSelectMediaToDelete())
                 ->action(function (): void {
                     $this->isSelectingMedia = ! $this->isSelectingMedia;
                     $this->selectedMediaIds = [];

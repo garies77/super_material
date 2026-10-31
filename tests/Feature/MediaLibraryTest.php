@@ -330,13 +330,49 @@ it('filters the media library to images no content uses', function () {
         ->assertCanNotSeeTableRecords([$used]);
 });
 
-it('hides deleting from authors', function () {
-    $this->actingAs(User::factory()->create(['role' => 'author', 'is_active' => true]));
+it('hides deleting images uploaded by someone else from authors', function () {
     $media = libraryImage('products/foto.png', UploadedFile::fake()->image('a.png'));
+    $this->actingAs(User::factory()->create(['role' => 'author', 'is_active' => true]));
 
     Livewire::test(ManageMedia::class)
         ->assertTableActionHidden('delete', $media)
         ->assertActionHidden('select');
+});
+
+it('lets contributors delete their own unused uploads but never anyone else\'s', function () {
+    $others = libraryImage('products/milik-admin.png', UploadedFile::fake()->image('a.png'));
+    $this->actingAs(User::factory()->create(['role' => 'contributor', 'is_active' => true]));
+    $mistake = libraryImage('products/salah-unggah.png', UploadedFile::fake()->image('b.png', 120, 100));
+    $inUse = libraryImage('products/dipakai.png', UploadedFile::fake()->image('c.png', 130, 100));
+    Setting::put('site_og_image', $inUse->path);
+
+    Livewire::test(ManageMedia::class)
+        ->assertTableActionVisible('delete', $mistake)
+        ->assertTableActionHidden('delete', $others)
+        ->callTableAction('delete', $mistake)
+        ->callTableAction('delete', $inUse);
+
+    Storage::disk('public')->assertMissing($mistake->path);
+    expect(Media::orderBy('id')->pluck('path')->all())->toBe([$others->path, $inUse->path]);
+});
+
+it('shows contributors only their own uploads in select mode and skips other people\'s images', function () {
+    $others = libraryImage('articles/milik-admin.png', UploadedFile::fake()->image('a.png'));
+    $this->actingAs(User::factory()->create(['role' => 'contributor', 'is_active' => true]));
+    $own = libraryImage('articles/punya-saya.png', UploadedFile::fake()->image('b.png', 120, 100));
+
+    Livewire::test(ManageMedia::class)
+        ->callAction('select')
+        ->assertCanSeeTableRecords([$own])
+        ->assertCanNotSeeTableRecords([$others])
+        ->call('selectAllUnusedMedia')
+        ->assertSet('selectedMediaIds', [$own->id])
+        // ID milik orang lain yang diselipkan lewat browser tetap ditolak server
+        ->set('selectedMediaIds', [$own->id, $others->id])
+        ->callAction('deleteSelected')
+        ->assertNotified('1 gambar dihapus');
+
+    expect(Media::pluck('path')->all())->toBe([$others->path]);
 });
 
 /** Tulis CSV impor produk sementara dan jalankan importer yang sama dengan tombol "Impor CSV". */

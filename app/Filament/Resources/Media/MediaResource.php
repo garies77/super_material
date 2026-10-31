@@ -72,6 +72,10 @@ class MediaResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            // Mode pilih untuk Kontributor/Penulis: hanya gambar unggahannya sendiri yang tampil, jadi semua kartu boleh dipilih
+            ->modifyQueryUsing(fn (Builder $query, HasTable $livewire) => self::isSelecting($livewire) && ! self::canDeleteMedia()
+                ? $query->where('uploaded_by', auth()->id())
+                : $query)
             ->columns([
                 Stack::make([
                     // data-media-id dibaca skrip mode pilih (filament/media/select-mode) untuk menandai kartu di browser
@@ -191,11 +195,13 @@ class MediaResource extends Resource
                         }),
                     // Hapus aman: ditolak bila gambar masih dipakai, dengan daftar lokasinya
                     Action::make('delete')->label('Hapus')->icon(Heroicon::OutlinedTrash)->color('danger')
-                        ->visible(fn () => self::canDeleteMedia())
+                        ->visible(fn (Media $record) => self::canDeleteMediaRecord($record))
                         ->requiresConfirmation()
                         ->modalHeading('Hapus gambar dari pustaka?')
                         ->modalDescription('Berkas dihapus permanen dari server. Gambar yang masih dipakai konten tidak bisa dihapus.')
                         ->action(function (Media $record): void {
+                            abort_unless(self::canDeleteMediaRecord($record), 403);
+
                             if ($usages = MediaUsage::for($record)) {
                                 Notification::make()->title('Gambar masih dipakai, tidak dihapus')->danger()->persistent()
                                     ->body('Dipakai di: '.collect($usages)->map(fn (array $usage) => "{$usage['type']} \"{$usage['title']}\"")->take(5)->implode(', ')
@@ -224,24 +230,41 @@ class MediaResource extends Resource
     }
 
     /**
-     * Hapus gambar yang tidak dipakai konten mana pun; yang masih dipakai dilewati.
+     * Hapus gambar yang tidak dipakai konten mana pun dan boleh dihapus pengguna ini;
+     * yang masih dipakai, atau milik pengguna lain (bagi Kontributor/Penulis), dilewati.
      *
      * @param  Collection<int, Media>  $media
-     * @return array{deleted: int, kept: int}
+     * @return array{deleted: int, kept: int, notOwned: int}
      */
     public static function deleteUnused(Collection $media): array
     {
+        [$allowed, $notOwned] = $media->partition(fn (Media $item) => self::canDeleteMediaRecord($item));
         $used = MediaUsage::usedIds();
-        [$kept, $deletable] = $media->partition(fn (Media $item) => $used->contains($item->id));
+        [$kept, $deletable] = $allowed->partition(fn (Media $item) => $used->contains($item->id));
         $deletable->each(fn (Media $item) => MediaLibrary::delete($item));
 
-        return ['deleted' => $deletable->count(), 'kept' => $kept->count()];
+        return ['deleted' => $deletable->count(), 'kept' => $kept->count(), 'notOwned' => $notOwned->count()];
     }
 
-    /** Hapus berkas bersifat permanen dan berdampak ke seluruh situs: hanya Admin & Editor. */
+    /** Hapus gambar siapa pun (permanen, berdampak ke seluruh situs): hanya Admin & Editor. */
     public static function canDeleteMedia(): bool
     {
         return in_array(auth()->user()?->role, ['admin', 'editor'], true);
+    }
+
+    /**
+     * Admin/Editor: semua gambar. Kontributor/Penulis: hanya gambar unggahannya sendiri, mis. untuk membereskan
+     * salah unggah tanpa menunggu Admin. Gambar yang masih dipakai konten tetap ditolak saat dihapus.
+     */
+    public static function canDeleteMediaRecord(Media $media): bool
+    {
+        return self::canDeleteMedia() || ($media->uploaded_by !== null && (int) $media->uploaded_by === auth()->id());
+    }
+
+    /** Tombol mode pilih: tampil bila pengguna bisa menghapus gambar siapa pun, atau punya unggahan sendiri. */
+    public static function canSelectMediaToDelete(): bool
+    {
+        return self::canDeleteMedia() || Media::where('uploaded_by', auth()->id())->exists();
     }
 
     /** Info & titik fokus: Admin/Editor semua gambar, Kontributor/Penulis hanya gambar unggahannya sendiri. */
