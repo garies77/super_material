@@ -12,8 +12,8 @@ use Throwable;
 /**
  * Penyelesai deploy untuk hosting tanpa SSH. GitHub Actions meng-upload kode lewat FTP lalu file RELEASE
  * (berisi kode versi); perintah ini dijalankan cron (schedule:run tiap menit) dan, bila versi berubah,
- * mencadangkan database (bila ada migrasi baru), menjalankan migrasi, menyegarkan cache, lalu membuka situs
- * dari mode pemeliharaan.
+ * mencadangkan database (bila ada migrasi baru), menjalankan migrasi, menyegarkan cache, membuka situs
+ * dari mode pemeliharaan, lalu mendaftarkan gambar baru ke Pustaka Media (media:sync).
  *
  * Hasil ditulis ke storage/app/deploy/status.json (dibaca GitHub Actions lewat FTP, tidak publik)
  * dan storage/logs/deploy.log. Versi yang gagal tidak diulang terus; situs tetap dalam pemeliharaan
@@ -82,7 +82,23 @@ class FinishDeploy extends Command
         $this->record($release, 'done', 'Deploy selesai'.($backup ? '; cadangan database: '.basename($backup) : ''));
         $this->info("Deploy {$release} selesai.");
 
+        $this->syncMediaLibrary();
+
         return self::SUCCESS;
+    }
+
+    /**
+     * Daftarkan gambar baru ke Pustaka Media (tanpa SSH, ini satu-satunya jalan menjalankan media:sync).
+     * Sengaja setelah situs dibuka: run pertama bisa lama karena membuat thumbnail semua gambar, dan
+     * kegagalannya hanya dicatat karena pustaka media tidak menentukan situs berjalan. Aman diulang tiap deploy.
+     */
+    private function syncMediaLibrary(): void
+    {
+        try {
+            $this->step('media:sync');
+        } catch (Throwable $e) {
+            $this->log('media:sync gagal (deploy tetap selesai): '.$e->getMessage());
+        }
     }
 
     /**

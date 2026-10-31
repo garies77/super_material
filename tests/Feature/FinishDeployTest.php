@@ -54,9 +54,21 @@ it('migrates, refreshes caches and lifts maintenance mode once per release', fun
     $this->artisan('deploy:finish')->assertSuccessful();
     $this->artisan('deploy:finish')->assertSuccessful();
 
-    expect(commandsRun())->toBe(['optimize:clear', 'migrate', 'optimize', 'up'])
+    expect(commandsRun())->toBe(['optimize:clear', 'migrate', 'optimize', 'up', 'media:sync'])
         ->and(FinishDeploy::status())->toMatchArray(['release' => 'abc1234', 'status' => 'done'])
         ->and(File::glob(DatabaseBackup::directory().'/*.sql.gz'))->toBeEmpty();
+});
+
+it('keeps the deploy successful when syncing the media library fails', function () {
+    Artisan::call('migrate');
+    File::put($this->releaseFile, 'med4567');
+    $this->failOn = 'media:sync';
+
+    $this->artisan('deploy:finish')->assertSuccessful();
+
+    expect(commandsRun())->toBe(['optimize:clear', 'migrate', 'optimize', 'up', 'media:sync'])
+        ->and(FinishDeploy::status())->toMatchArray(['release' => 'med4567', 'status' => 'done'])
+        ->and(File::get(storage_path('logs/deploy.log')))->toContain('media:sync gagal (deploy tetap selesai)');
 });
 
 it('backs up the database before running new migrations', function () {

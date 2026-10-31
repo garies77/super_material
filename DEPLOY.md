@@ -10,7 +10,8 @@ dijalankan manual di server.
 3. Merge ke `main` → deploy otomatis:
    - memastikan cron hosting hidup (bila tidak, situs **tidak disentuh**);
    - situs masuk mode pemeliharaan, file yang berubah di-upload, file `RELEASE` di-upload terakhir;
-   - cron menjalankan `php artisan deploy:finish`: **cadangan database** (bila ada migrasi baru) → migrasi → cache → situs dibuka;
+   - cron menjalankan `php artisan deploy:finish`: **cadangan database** (bila ada migrasi baru) → migrasi → cache → situs dibuka
+     → gambar baru didaftarkan ke Pustaka Media (`media:sync`; run pertama bisa beberapa menit, situs sudah terbuka);
    - GitHub mengecek halaman situs dan memastikan berkas rahasia tidak bisa diakses publik.
 4. Hasil terlihat di tab **Actions** (centang hijau / silang merah) beserta ringkasannya.
 
