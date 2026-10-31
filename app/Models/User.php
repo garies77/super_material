@@ -37,6 +37,14 @@ class User extends Authenticatable implements FilamentUser
             }
         });
 
+        // Penulis & Kontributor menulis atas nama sendiri: profil penulisnya langsung ada sejak akun dibuat
+        // (atau perannya diubah), tidak menunggu artikel pertama. authorProfile() memakai profil yang sudah ada.
+        static::saved(function (User $user) {
+            if ($user->writesAsOwnAuthor() && ($user->wasRecentlyCreated || $user->wasChanged('role'))) {
+                $user->authorProfile();
+            }
+        });
+
         static::updated(function (User $user) {
             $changes = collect(['role', 'is_active', 'can_manage_custom_html'])->filter(fn ($f) => $user->wasChanged($f))
                 ->mapWithKeys(fn ($f) => [$f => ['from' => $user->getOriginal($f), 'to' => $user->{$f}]])->all();
@@ -85,7 +93,7 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasOne(Author::class);
     }
 
-    /** Profil penulis milik pengguna; dibuat otomatis saat pertama kali menulis artikel. */
+    /** Profil penulis milik pengguna; dibuat otomatis saat akun Penulis/Kontributor dibuat atau saat pertama kali menulis artikel. */
     public function authorProfile(): Author
     {
         if ($author = $this->author()->first()) {

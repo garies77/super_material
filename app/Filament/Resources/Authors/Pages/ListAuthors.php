@@ -12,6 +12,7 @@ class ListAuthors extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [CreateAction::make()];
+        // Penulis & Kontributor sudah punya profil otomatis dan hanya boleh mengubahnya, tidak membuat penulis baru
+        return [CreateAction::make()->visible(fn () => AuthorResource::canCreate())];
     }
 }
