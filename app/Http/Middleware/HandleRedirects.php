@@ -14,16 +14,19 @@ class HandleRedirects
     public function handle(Request $request, Closure $next): Response
     {
         if ($request->isMethod('GET') && ! $request->is('admin*', 'livewire*', 'go/*')) {
-            $map = Cache::remember('redirects.map', 600, fn () => Redirect::query()->get(['from_path', 'to_path', 'code'])->keyBy('from_path')->all());
+            // Simpan array biasa, bukan model: Laravel menolak unserialize objek dari cache (cache.serializable_classes)
+            $map = Cache::remember('redirects.map', 600, fn () => Redirect::query()->get(['from_path', 'to_path', 'code'])
+                ->mapWithKeys(fn (Redirect $redirect) => [$redirect->from_path => ['to_path' => $redirect->to_path, 'code' => (int) $redirect->code]])
+                ->all());
             $path = '/'.ltrim($request->path(), '/');
 
             if ($hit = $map[$path] ?? null) {
-                $to = $hit->to_path;
+                $to = $hit['to_path'];
                 if (str_starts_with($to, '/')) {
                     $to = url($to);
                 }
 
-                return redirect()->to($to, (int) $hit->code);
+                return redirect()->to($to, $hit['code']);
             }
         }
 

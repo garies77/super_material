@@ -99,7 +99,8 @@ class SeoController extends Controller
     {
         abort_unless(in_array($type, self::TYPES, true), 404);
 
-        return Cache::remember("sitemap.entries.{$type}", 3600, fn () => (match ($type) {
+        // Simpan array biasa, bukan Collection: Laravel menolak unserialize objek dari cache (cache.serializable_classes)
+        return collect(Cache::remember("sitemap.entries.{$type}", 3600, fn () => (match ($type) {
             'products' => $this->products()->map(fn (Product $p) => $this->entry($p->url(), $p->updated_at)),
             'categories' => $this->categories()->map(fn (Category $c) => $this->entry($c->url(), $c->updated_at)),
             'articles' => $this->articles()->map(fn (Article $a) => $this->entry($a->url(), $a->modifiedAt())),
@@ -107,7 +108,7 @@ class SeoController extends Controller
             'authors' => Author::active()->whereHas('publishedArticles')->get()
                 ->map(fn (Author $a) => $this->entry($a->url(), $a->updated_at)),
             'images' => $this->images(),
-        })->values());
+        })->values()->all()));
     }
 
     private function entry(string $loc, $lastmod = null, array $images = []): array
