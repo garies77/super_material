@@ -5,7 +5,7 @@
 | Penyusun | Garies |
 | Versi | 0.11 (Draft Revisi) |
 | Tanggal | 20 Oktober 2026 |
-| Domain target | supermaterial.jayaintero.com |
+| Domain target | supermaterial.id |
 | Repository | github.com/garies77/supermaterial |
 | Status proyek | Pengembangan baru dari nol |
 | Framework backend | Laravel 12 |

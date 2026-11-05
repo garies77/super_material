@@ -40,7 +40,7 @@ hanya berkas kode dari repositori, termasuk `public/index.php` dan `public/.htac
    ```dotenv
    APP_ENV=production
    APP_DEBUG=false
-   APP_URL=https://supermaterial.jayaintero.com
+   APP_URL=https://supermaterial.id
    APP_KEY=base64:...            # jangan diubah bila sudah ada
    APP_LOCALE=id
    APP_MAINTENANCE_DRIVER=file   # wajib "file": mode pemeliharaan deploy memakai berkas storage/framework/down
@@ -51,7 +51,7 @@ hanya berkas kode dari repositori, termasuk `public/index.php` dan `public/.htac
    ```
 4. **Cron tiap menit** — hPanel → Advanced → Cron Jobs → Custom, jadwal `* * * * *`:
    ```bash
-   /opt/alt/php84/usr/bin/php /home/USER/domains/supermaterial.jayaintero.com/FOLDER-PROYEK/artisan schedule:run >> /dev/null 2>&1
+   /opt/alt/php84/usr/bin/php /home/USER/domains/supermaterial.id/FOLDER-PROYEK/artisan schedule:run >> /dev/null 2>&1
    ```
    Sesuaikan `USER` dan `FOLDER-PROYEK` (folder yang berisi berkas `artisan`). Path PHP 8.4 di Hostinger umumnya
    `/opt/alt/php84/usr/bin/php`; bila berbeda, tanyakan ke support Hostinger "path PHP 8.4 CLI untuk cron".
@@ -73,7 +73,7 @@ Repositori → **Settings → Secrets and variables → Actions**.
 
 | Nama | Isi |
 |---|---|
-| `FTP_SERVER` | host FTP dari hPanel (mis. `ftp.supermaterial.jayaintero.com` atau IP) |
+| `FTP_SERVER` | host FTP dari hPanel (mis. `ftp.supermaterial.id` atau IP) |
 | `FTP_USERNAME` | username akun FTP |
 | `FTP_PASSWORD` | password akun FTP |
 
@@ -81,8 +81,8 @@ Repositori → **Settings → Secrets and variables → Actions**.
 
 | Nama | Isi | Wajib |
 |---|---|---|
-| `FTP_SERVER_DIR` | folder proyek (berisi `artisan`) **relatif dari folder awal akun FTP**, diakhiri `/`, mis. `domains/supermaterial.jayaintero.com/laravel/` | ya |
-| `SITE_URL` | `https://supermaterial.jayaintero.com` | ya |
+| `FTP_SERVER_DIR` | folder proyek (berisi `artisan`) **relatif dari folder awal akun FTP**, diakhiri `/`, mis. `domains/supermaterial.id/laravel/` | ya |
+| `SITE_URL` | `https://supermaterial.id` | ya |
 | `FTP_PROTOCOL` | `ftps` (bawaan, terenkripsi) atau `ftp` bila server tidak mendukung FTPS | tidak |
 | `FTP_PUBLIC_DIR` | hanya bila isi `public/` disalin terpisah ke `public_html`, diakhiri `/` | tidak |
 
