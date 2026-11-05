@@ -3,6 +3,7 @@
 use App\Models\Article;
 use App\Models\Product;
 use App\Models\User;
+use App\Support\Reports\CatalogHealth;
 use App\Support\SeoScore;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -25,6 +26,21 @@ it('scores product and article SEO completeness from 0 to 100 (PRD 9.10.5)', fun
     expect(SeoScore::forProduct($product->fresh())['checks']['Status ketersediaan terisi'])->toBeTrue();
 
     expect(SeoScore::forArticle(Article::published()->first())['checks'])->toHaveCount(8);
+});
+
+it('treats an empty price validity date as a price without expiry, only a past date counts against it', function () {
+    $product = Product::published()->where('price_display', '!=', 'hidden')->first();
+    $check = 'Masa berlaku harga masih berlaku';
+
+    $product->update(['price_valid_until' => null]);
+    $staleWithoutDate = CatalogHealth::issueCounts()['stale_price'] ?? 0;
+    expect(SeoScore::forProduct($product->fresh())['checks'][$check])->toBeTrue()
+        ->and(CatalogHealth::issuesOf($product->fresh()))->not->toContain(CatalogHealth::ISSUES['stale_price']);
+
+    $product->update(['price_valid_until' => now()->subDay()]);
+    expect(SeoScore::forProduct($product->fresh())['checks'][$check])->toBeFalse()
+        ->and(CatalogHealth::issuesOf($product->fresh()))->toContain(CatalogHealth::ISSUES['stale_price'])
+        ->and(CatalogHealth::issueCounts()['stale_price'])->toBe($staleWithoutDate + 1);
 });
 
 it('flags products with expired prices for review and clears the flag on renewal (PRD 9.10.2)', function () {

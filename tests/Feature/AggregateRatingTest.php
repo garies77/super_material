@@ -8,14 +8,6 @@ uses(RefreshDatabase::class);
 
 beforeEach(fn () => $this->seed(DatabaseSeeder::class));
 
-/** Ambil semua blok JSON-LD dari HTML sebagai array. */
-function jsonLdBlocks(string $html): array
-{
-    preg_match_all('#<script type="application/ld\+json">(.*?)</script>#s', $html, $m);
-
-    return array_map(fn ($json) => json_decode($json, true, flags: JSON_THROW_ON_ERROR), $m[1]);
-}
-
 function productLd(string $html): array
 {
     return collect(jsonLdBlocks($html))

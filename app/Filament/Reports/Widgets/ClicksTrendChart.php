@@ -3,6 +3,7 @@
 namespace App\Filament\Reports\Widgets;
 
 use App\Filament\Reports\Concerns\UsesReportPeriod;
+use App\Models\Setting;
 use App\Support\Reports\ReportMetrics;
 use Filament\Widgets\ChartWidget;
 use Illuminate\Support\Carbon;
@@ -35,8 +36,9 @@ class ClicksTrendChart extends ChartWidget
                 [
                     'label' => 'Periode ini',
                     'data' => array_values($current),
-                    'borderColor' => '#f59309',
-                    'backgroundColor' => 'rgba(245, 147, 9, 0.12)',
+                    // Warna utama dari Pengaturan situs; isian area memakai warna yang sama dengan transparansi
+                    'borderColor' => Setting::themeColor('theme_primary'),
+                    'backgroundColor' => Setting::themeColor('theme_primary').'1f',
                     'fill' => true,
                     'tension' => 0.3,
                 ],

@@ -23,6 +23,7 @@ return [
         'campaign_slot' => ['label' => 'Kampanye slot iklan', 'ratio' => ['728:250', '300:250'], 'width' => null, 'height' => null],
         'og' => ['label' => 'Open Graph', 'ratio' => '1200:630', 'width' => 1200, 'height' => 630],
         'square_small' => ['label' => 'Ikon / foto profil', 'ratio' => '1:1', 'width' => 400, 'height' => 400],
+        'page_image' => ['label' => 'Gambar halaman', 'ratio' => null, 'options' => [null, '1:1', '4:3', '3:2', '16:9', '3:4'], 'width' => 1600, 'height' => null],
         'page_gallery' => ['label' => 'Galeri halaman', 'ratio' => null, 'options' => ['1:1', '4:3', '16:9', null], 'width' => 1600, 'height' => null],
     ],
 

@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasAvatar;
 use Filament\Panel;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -18,7 +19,7 @@ use Laravel\Sanctum\HasApiTokens;
 
 #[Fillable(['name', 'email', 'password', 'role', 'is_active', 'can_manage_custom_html'])]
 #[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable implements FilamentUser
+class User extends Authenticatable implements FilamentUser, HasAvatar
 {
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
@@ -91,6 +92,12 @@ class User extends Authenticatable implements FilamentUser
     public function author(): HasOne
     {
         return $this->hasOne(Author::class);
+    }
+
+    /** Avatar panel admin = foto profil penulis, jadi foto cukup diganti sekali di halaman Profil. */
+    public function getFilamentAvatarUrl(): ?string
+    {
+        return $this->author?->avatarUrl();
     }
 
     /** Profil penulis milik pengguna; dibuat otomatis saat akun Penulis/Kontributor dibuat atau saat pertama kali menulis artikel. */

@@ -10,7 +10,7 @@
 <x-dynamic-component :component="$getFieldWrapperView()" :field="$field">
     <div
         x-data="{
-            state: $wire.$entangle(@js($getStatePath())),
+            state: $wire.$entangle(@js($getStatePath()), @js($isLive())),
             multiple: @js($isMultiple()),
             selected() {
                 return Array.isArray(this.state) ? this.state : []

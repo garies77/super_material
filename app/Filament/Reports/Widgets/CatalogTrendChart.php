@@ -3,6 +3,7 @@
 namespace App\Filament\Reports\Widgets;
 
 use App\Models\CatalogSnapshot;
+use App\Models\Setting;
 use App\Support\Reports\CatalogHealth;
 use Filament\Widgets\ChartWidget;
 
@@ -38,7 +39,7 @@ class CatalogTrendChart extends ChartWidget
         return [
             'datasets' => [
                 $line('Produk lengkap (%)', '#16a34a', fn (array $m) => $m['products'] > 0 ? round($m['complete'] / $m['products'] * 100, 1) : 0),
-                $line('Skor SEO produk', '#f59309', fn (array $m) => $m['product_seo']['avg']),
+                $line('Skor SEO produk', Setting::themeColor('theme_primary'), fn (array $m) => $m['product_seo']['avg']),
                 $line('Skor SEO artikel', '#64748b', fn (array $m) => $m['article_seo']['avg']),
             ],
             'labels' => $weeks->keys()->all(),

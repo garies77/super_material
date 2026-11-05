@@ -8,7 +8,15 @@
     }
     $crumbs[] = [$article->title, null];
 
-    $articleImage = $article->primaryImageUrl();
+    // Video utama di urutan pertama: Google memakai video pertama sebagai video halaman
+    $primaryVideo = $article->primaryVideo();
+    $articleVideos = $article->videos->sortByDesc(fn ($v) => $v->is($primaryVideo))->values();
+    $videosLd = \App\Support\Seo\VideoSchema::many(
+        $articleVideos->map(fn ($v) => $v->toVideoData($article->url())),
+        $article->seoDescription(),
+    );
+
+    $articleImage = $article->primaryImageUrl() ?: $primaryVideo?->thumbnailUrl();
     $imageMultiRatio = \App\Support\ImageDerivatives::multiRatioUrls($articleImage);
     $authorModel = $article->author;
     $authorLd = $authorModel ? array_filter([
@@ -47,6 +55,7 @@
             ],
         ],
         'mainEntityOfPage' => $article->url(),
+        'video' => $videosLd,
     ]);
 
     $faqLd = $article->faqs->isNotEmpty() ? [
@@ -134,7 +143,10 @@
                         @isset($ads['top'])
                             @include('partials.promo-slot', ['ad' => $ads['top'], 'slot' => 'top', 'preview' => $adPreview])
                         @endisset
-                        @if($show['image'])
+                        {{-- Video utama menggantikan gambar utama agar video menjadi konten utama halaman (syarat Google) --}}
+                        @if($primaryVideo)
+                            <x-video-player :video="$primaryVideo->toVideoData($article->url())" primary />
+                        @elseif($show['image'])
                             @include('article.image')
                         @endif
                     @elseif($block === 'summary' && $show['summary'])
@@ -147,6 +159,8 @@
                 @if($show['content'])
                     @include('article.content')
                 @endif
+
+                @include('article.video')
 
                 @isset($ads['bottom'])
                     @include('partials.promo-slot', ['ad' => $ads['bottom'], 'slot' => 'bottom', 'preview' => $adPreview])

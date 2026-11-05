@@ -2,6 +2,7 @@
 
 namespace App\Filament\Reports\Widgets;
 
+use App\Models\Setting;
 use App\Support\Reports\CatalogHealth;
 use Filament\Widgets\ChartWidget;
 
@@ -33,7 +34,7 @@ class SeoScoreDistributionChart extends ChartWidget
                 [
                     'label' => 'Produk',
                     'data' => array_map(fn (string $bucket) => $metrics['product_seo']['buckets'][$bucket] ?? 0, $buckets),
-                    'backgroundColor' => '#f59309',
+                    'backgroundColor' => Setting::themeColor('theme_primary'),
                     'borderRadius' => 4,
                 ],
                 [

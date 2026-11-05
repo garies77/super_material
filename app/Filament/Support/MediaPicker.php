@@ -4,6 +4,7 @@ namespace App\Filament\Support;
 
 use App\Models\Media;
 use App\Rules\MinImagePixels;
+use App\Support\ImageDerivatives;
 use App\Support\MediaLibrary;
 use Filament\Actions\Action;
 use Filament\Forms\Components\BaseFileUpload;
@@ -51,9 +52,11 @@ class MediaPicker
             ->label('Pilih dari Media')
             ->icon(Heroicon::OutlinedPhoto)
             ->modalHeading('Pustaka Media')
-            ->modalDescription(fn (Component $component) => ($ratios = self::targetRatioLabels($component, $preset))
-                ? 'Section ini memakai rasio '.implode(' atau ', $ratios).'. Gambar bertanda "Pas" langsung dipakai; gambar lain dipotong otomatis menjadi salinan baru.'
-                : 'Pilih gambar yang sudah pernah diunggah agar tidak perlu mengunggah ulang.')
+            ->modalDescription(fn (Component $component) => match (true) {
+                self::requiredRatio($component, $preset) !== null && ! self::isMultiple($component) => 'Section ini memakai rasio '.self::targetRatioLabels($component, $preset)[0].'. Gambar bertanda "Pas" langsung dipakai; untuk gambar lain, geser bingkai ke bagian yang ingin dipakai lalu klik "Gunakan gambar".',
+                ($ratios = self::targetRatioLabels($component, $preset)) !== [] => 'Section ini memakai rasio '.implode(' atau ', $ratios).'. Gambar bertanda "Pas" langsung dipakai; gambar lain dipotong otomatis menjadi salinan baru.',
+                default => 'Pilih gambar yang sudah pernah diunggah agar tidak perlu mengunggah ulang.',
+            })
             ->modalWidth(Width::FiveExtraLarge)
             ->modalSubmitActionLabel('Gunakan gambar')
             ->visible(fn (Component $component) => ! $component->isDisabled()
@@ -69,6 +72,28 @@ class MediaPicker
                     // Satu baris ekstra hanya untuk mengetahui apakah tombol "Muat lebih banyak" perlu tampil
                     ->items(fn (Get $get) => self::query($component, $ratios, $get('search'), $get('folder'))
                         ->limit((int) ($get('limit') ?: self::LIMIT) + 1)->get());
+
+                // Field satu gambar dengan rasio wajib: gambar yang rasionya lain dipotong manual lewat bingkai pratinjau
+                $required = self::isMultiple($component) ? null : self::requiredRatio($component, $preset);
+                $cropTarget = fn (Get $get): ?Media => $required === null ? null : self::needsManualCrop(self::selectedMedia($get('selected')), $required);
+
+                if ($required !== null) {
+                    $grid->live()->afterStateUpdated(function (Get $get, Set $set) use ($cropTarget): void {
+                        $media = $cropTarget($get);
+                        $set('crop', ['x' => $media?->focal_x ?? 50, 'y' => $media?->focal_y ?? 50, 'zoom' => 1]);
+                    });
+                }
+
+                $crop = CropFramePicker::make('crop')->label('Pilih bagian yang dipakai')
+                    ->helperText('Seret bingkai ke bagian gambar yang ingin ditampilkan. Geser "Perbesar" untuk memotong lebih rapat.')
+                    ->visible(fn (Get $get) => $cropTarget($get) !== null)
+                    ->image(
+                        fn (Get $get) => ($media = $cropTarget($get)) ? ImageDerivatives::resized($media->url(), 900) : null,
+                        fn (Get $get) => ($media = $cropTarget($get)) ? $media->width / $media->height : null,
+                        fn (Get $get) => $cropTarget($get)?->width,
+                    )
+                    ->targetRatio($required)
+                    ->maxOutputWidth(self::targetWidth($component, $preset));
 
                 // Mengetik/memilih folder/memuat lebih banyak hanya me-render ulang grid, bukan seluruh halaman di belakang modal
                 $renderGridOnly = fn () => $grid->partiallyRender();
@@ -89,6 +114,7 @@ class MediaPicker
                     ]),
                     Hidden::make('limit')->default(self::LIMIT)->live()->afterStateUpdated($renderGridOnly),
                     $grid,
+                    $crop,
                     $preset ? ImagePreset::apply($upload, $preset) : $upload,
                 ];
             })
@@ -108,7 +134,12 @@ class MediaPicker
                     return;
                 }
 
-                self::apply($component, self::fitToSection($component, $preset, $media));
+                $paths = self::fitToSection($component, $preset, $media, isset($data['crop']) ? CropFramePicker::normalize($data['crop']) : null);
+                if ($paths === []) {
+                    return;
+                }
+
+                self::apply($component, $paths);
 
                 // Teks alternatif dari pustaka hanya mengisi field yang masih kosong, tidak menimpa tulisan admin
                 $altField = $altTextField ?? self::$altTextFields[$component] ?? null;
@@ -134,31 +165,55 @@ class MediaPicker
     }
 
     /**
-     * Gambar yang rasionya tidak sesuai section dibuatkan salinan terpotong.
+     * Gambar yang rasionya tidak sesuai section dibuatkan salinan terpotong: di field satu gambar sesuai bingkai
+     * pilihan admin ($crop), di galeri berpusat di titik fokus. Gambar yang tidak bisa dipotong (SVG, tanpa
+     * dimensi, atau gagal diproses) ditolak, bukan dimasukkan dengan rasio yang salah.
      *
      * @param  array<int, Media>  $media
+     * @param  array{x: int, y: int, zoom: float}|null  $crop
      * @return array<int, string>
      */
-    private static function fitToSection(Component $component, ?string $preset, array $media): array
+    private static function fitToSection(Component $component, ?string $preset, array $media, ?array $crop = null): array
     {
         $ratios = self::targetRatios($component, $preset);
         $required = count($ratios) === 1 ? $ratios[0] : null;
+        $manual = $crop !== null && ! self::isMultiple($component) && count($media) === 1 ? $crop : null;
         $cropped = [];
+        $rejected = [];
 
-        $paths = collect($media)->map(function (Media $item) use ($required, $component, $preset, &$cropped): string {
+        $paths = collect($media)->map(function (Media $item) use ($required, $component, $preset, $manual, &$cropped, &$rejected): ?string {
             if ($required === null || $item->matchesRatio($required)) {
                 return $item->path;
             }
 
-            $fitted = MediaLibrary::cropToRatio($item, $required, self::targetWidth($component, $preset));
-            if ($fitted->isNot($item)) {
-                $cropped[] = $item->name;
+            $fitted = MediaLibrary::cropToRatio($item, $required, self::targetWidth($component, $preset), $manual, $manual['zoom'] ?? 1);
+            if (! $fitted->matchesRatio($required)) {
+                $rejected[] = $item->name;
+
+                return null;
             }
 
-            return $fitted->path;
-        })->all();
+            $cropped[] = $item->name;
 
-        if ($cropped !== []) {
+            return $fitted->path;
+        })->filter()->values()->all();
+
+        if ($rejected !== []) {
+            Notification::make()->title(count($rejected).' gambar tidak bisa dipakai di section ini')
+                ->body(implode(', ', $rejected).' tidak bisa dipotong otomatis ke rasio '.self::targetRatioLabels($component, $preset)[0]
+                    .' (mis. SVG). Pilih gambar JPG/PNG/WebP atau unggah gambar baru lalu potong dengan ikon pensil.')
+                ->danger()->persistent()->send();
+        }
+
+        if ($paths === []) {
+            return [];
+        }
+
+        if ($cropped !== [] && $manual !== null) {
+            Notification::make()->title('Gambar dipotong ke rasio '.self::targetRatioLabels($component, $preset)[0])
+                ->body('Potongan sesuai bingkai pilihan Anda disimpan sebagai gambar baru. Gambar asli tetap utuh di pustaka.')
+                ->success()->send();
+        } elseif ($cropped !== []) {
             Notification::make()->title(count($cropped).' gambar dipotong otomatis ke rasio '.self::targetRatioLabels($component, $preset)[0])
                 ->body($component instanceof FileUpload
                     ? 'Potongan berpusat di titik fokus gambar dan disimpan sebagai gambar baru. Klik ikon pensil pada gambar bila ingin menggeser area potongan.'
@@ -175,6 +230,26 @@ class MediaPicker
         }
 
         return $paths;
+    }
+
+    /** Satu rasio wajib section (bukan daftar pilihan), atau null. */
+    private static function requiredRatio(Component $component, ?string $preset): ?float
+    {
+        $ratios = self::targetRatios($component, $preset);
+
+        return count($ratios) === 1 ? $ratios[0] : null;
+    }
+
+    /**
+     * Satu-satunya gambar terpilih bila perlu dipotong manual: bisa dipotong dan rasionya belum pas.
+     *
+     * @param  array<int, Media>  $media
+     */
+    private static function needsManualCrop(array $media, float $ratio): ?Media
+    {
+        $item = count($media) === 1 ? $media[0] : null;
+
+        return $item && $item->isCroppable() && ! $item->matchesRatio($ratio) ? $item : null;
     }
 
     /** @param  array<int, string>  $paths */

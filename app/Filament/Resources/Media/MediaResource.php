@@ -89,7 +89,7 @@ class MediaResource extends Resource
                         ->state(fn (Media $record) => collect([$record->ratioLabel(), $record->dimensionsLabel(), $record->sizeLabel()])->filter()->implode(' · ')),
                 ])->space(2),
             ])
-            ->contentGrid(['md' => 2, 'lg' => 3, 'xl' => 4, '2xl' => 5])
+            ->contentGrid(['md' => 2, 'lg' => 3, 'xl' => 4])
             ->emptyStateIcon('heroicon-o-photo')
             ->emptyStateHeading('Pustaka media masih kosong')
             ->emptyStateDescription('Unggah gambar lewat tombol Unggah gambar, atau daftarkan gambar lama dengan perintah php artisan media:sync.')

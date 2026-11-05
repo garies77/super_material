@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\TracksPublicUrl;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,6 +16,16 @@ class Author extends Model
     public const PUBLIC_ROUTE = 'author.show';
 
     protected $guarded = [];
+
+    protected static function booted(): void
+    {
+        // Penulis & Kontributor hanya boleh mengubah profilnya, tidak menghapus (apa pun jalurnya: tombol, aksi massal, API)
+        static::deleting(function () {
+            if (auth()->user()?->writesAsOwnAuthor()) {
+                throw new AuthorizationException('Penulis dan Kontributor tidak dapat menghapus profil penulis.');
+            }
+        });
+    }
 
     protected function casts(): array
     {

@@ -23,7 +23,7 @@ class CatalogHealth
         'no_category' => 'Tanpa kategori',
         'no_brand' => 'Tanpa merek',
         'no_sku' => 'Tanpa SKU',
-        'stale_price' => 'Masa harga lewat/kosong',
+        'stale_price' => 'Masa harga lewat',
     ];
 
     public const SCORE_BUCKETS = ['0–49' => [0, 49], '50–79' => [50, 79], '80–99' => [80, 99], '100' => [100, 100]];
@@ -40,7 +40,7 @@ class CatalogHealth
             'no_brand' => $query->whereNull('brand_id'),
             'no_sku' => $blank($query, 'sku'),
             'stale_price' => $query->where('price_display', '!=', 'hidden')
-                ->where(fn (Builder $w) => $w->whereNull('price_valid_until')->orWhere('price_valid_until', '<', now())),
+                ->where('price_valid_until', '<', now()),
         };
     }
 
@@ -69,7 +69,7 @@ class CatalogHealth
             'no_category' => blank($product->category_id),
             'no_brand' => blank($product->brand_id),
             'no_sku' => blank($product->sku),
-            'stale_price' => $product->price_display !== 'hidden' && ! $product->price_valid_until?->isFuture(),
+            'stale_price' => $product->price_display !== 'hidden' && (bool) $product->price_valid_until?->isPast(),
         ];
 
         return array_values(array_intersect_key(self::ISSUES, array_filter($issues)));

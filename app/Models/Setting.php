@@ -155,8 +155,9 @@ class Setting extends Model
             'ink-950' => static::mixHex($s, '#000000', 0.4),
         ];
 
-        // Teks di atas warna aksen: hitam atau putih, mana yang kontrasnya lebih tinggi (WCAG)
+        // Teks di atas warna aksen / warna utama (tombol utama, badge): hitam atau putih, mana yang kontrasnya lebih tinggi (WCAG)
         $vars['on-accent'] = static::contrast($a, '#000000') >= static::contrast($a, '#ffffff') ? '#111111' : '#ffffff';
+        $vars['on-brand'] = static::contrast($p, '#000000') >= static::contrast($p, '#ffffff') ? '#111111' : '#ffffff';
 
         $css = '';
         foreach ($vars as $name => $hex) {

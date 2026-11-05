@@ -190,9 +190,9 @@ class ImageDerivatives
 
     /**
      * Potong (cover) ke ukuran target lalu simpan sebagai WebP 85 (JPEG bila WebP tidak tersedia).
-     * Area potong berpusat di titik fokus (persen); default tengah.
+     * Area potong berpusat di titik fokus (persen); default tengah. Zoom > 1 memperkecil area potong (lebih rapat).
      */
-    public static function createDerivative(string $sourcePath, string $targetPath, int $targetW, int $targetH, float $focalX = 50, float $focalY = 50): bool
+    public static function createDerivative(string $sourcePath, string $targetPath, int $targetW, int $targetH, float $focalX = 50, float $focalY = 50, float $zoom = 1): bool
     {
         $info = @getimagesize($sourcePath);
         if (! $info) {
@@ -227,6 +227,11 @@ class ImageDerivatives
             // Gambar sumber lebih tinggi: crop atas/bawah
             $cropW = $srcW;
             $cropH = (int) round($srcW / $targetRatio);
+        }
+
+        if ($zoom > 1) {
+            $cropW = max(1, (int) round($cropW / $zoom));
+            $cropH = max(1, (int) round($cropH / $zoom));
         }
 
         $cropX = (int) max(0, min($srcW - $cropW, round($srcW * $focalX / 100 - $cropW / 2)));

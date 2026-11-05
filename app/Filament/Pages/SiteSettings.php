@@ -2,8 +2,10 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Support\StrictFileUpload;
 use App\Models\AuditLog;
 use App\Models\Setting;
+use App\Rules\OpenGraphImage;
 use App\Support\SudoMode;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -98,7 +100,7 @@ class SiteSettings extends Page implements HasSchemas
                         ->url()
                         ->placeholder('https://domain.com/logo.png')
                         ->helperText('Alternatif jika logo di-host di CDN eksternal (diabaikan jika file logo di atas sudah diunggah).'),
-                    FileUpload::make('site_og_image')
+                    StrictFileUpload::make('site_og_image')
                         ->label('Gambar Default Berbagi / SERP Thumbnail (Open Graph)')
                         ->image()
                         ->imagePreset('og')
@@ -106,7 +108,10 @@ class SiteSettings extends Page implements HasSchemas
                         ->directory('seo')
                         ->visibility('public')
                         ->imagePreviewHeight('100')
-                        ->helperText('Rasio 1.91:1 (rekomendasi 1200 x 630 px). Digunakan sebagai thumbnail default Google SERP dan preview sosial (WhatsApp, FB, X) untuk Beranda, Katalog, dan halaman yang belum memiliki gambar khusus.')
+                        ->acceptedFileTypes(OpenGraphImage::MIME_TYPES)
+                        ->rule(new OpenGraphImage)
+                        ->storedFileRule(new OpenGraphImage)
+                        ->helperText('Wajib rasio 1.91:1, JPG/PNG/WebP, minimal 600×315 px (rekomendasi 1200 x 630 px). Digunakan sebagai thumbnail default Google SERP dan preview sosial (WhatsApp, FB, X) untuk Beranda, Katalog, dan halaman yang belum memiliki gambar khusus.')
                         ->columnSpanFull(),
                 ]),
             Section::make('Warna Tema Situs')

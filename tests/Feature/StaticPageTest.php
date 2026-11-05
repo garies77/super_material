@@ -6,6 +6,7 @@ use App\Models\Page;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
@@ -15,12 +16,27 @@ beforeEach(function () {
     $this->actingAs(User::where('email', 'admin@supermaterial.test')->first());
 });
 
+/** Berkas gambar blok contoh harus ada di disk publik agar field unggahan menerimanya. */
+function fakeBlockImage(): void
+{
+    Storage::fake('public');
+    Storage::disk('public')->put('pages/b.jpg', 'gambar');
+}
+
+/** State form Filament: field unggahan tunggal berisi daftar path, bukan string. */
+function sampleFormBlocks(): array
+{
+    return array_map(fn (array $block) => $block['type'] === 'image'
+        ? ['type' => 'image', 'data' => [...$block['data'], 'path' => [$block['data']['path']]]]
+        : $block, sampleBlocks());
+}
+
 function sampleBlocks(array $override = []): array
 {
     return [
         ['type' => 'heading', 'data' => ['level' => 'h2', 'text' => 'Tentang Kami', 'align' => 'center']],
         ['type' => 'text', 'data' => ['content' => '<p style="text-align: center">Halo <strong>dunia</strong></p><p><img src="/storage/pages/foto.jpg" alt="Foto" width="320" style="width: 320px"></p>']],
-        ['type' => 'image', 'data' => ['image' => '<p><img src="/storage/pages/b.jpg" alt="B"></p>', 'width' => 50, 'width_unit' => '%', 'ratio' => '16/9', 'caption' => 'Gudang kami']],
+        ['type' => 'image', 'data' => ['path' => 'pages/b.jpg', 'alt' => 'Gudang', 'caption' => 'Gudang kami', 'align' => 'right']],
         ['type' => 'button', 'data' => ['label' => 'Hubungi', 'style' => 'primary', 'align' => 'left', 'link_type' => 'internal', 'url' => '/produk', 'new_tab' => false]],
         ['type' => 'list', 'data' => ['style' => 'number', 'items' => [['text' => 'Satu'], ['text' => 'Dua']]]],
         ['type' => 'divider', 'data' => ['spacing' => 'md']],
@@ -40,8 +56,10 @@ it('opens create and edit as full editor pages, not modals', function () {
 });
 
 it('saves a new page as draft without publishing it', function () {
+    fakeBlockImage();
+
     Livewire::test(CreatePage::class)
-        ->fillForm(['title' => 'Tentang Kami', 'slug' => 'tentang-kami-baru', 'draft_blocks' => sampleBlocks()])
+        ->fillForm(['title' => 'Tentang Kami', 'slug' => 'tentang-kami-baru', 'draft_blocks' => sampleFormBlocks()])
         ->call('submitAs', 'draft')
         ->assertHasNoFormErrors();
 
@@ -51,8 +69,10 @@ it('saves a new page as draft without publishing it', function () {
 });
 
 it('publishes all block types to the public page with sanitized output', function () {
+    fakeBlockImage();
+
     Livewire::test(CreatePage::class)
-        ->fillForm(['title' => 'Tentang Kami', 'slug' => 'tentang-kami-baru', 'draft_blocks' => sampleBlocks()])
+        ->fillForm(['title' => 'Tentang Kami', 'slug' => 'tentang-kami-baru', 'draft_blocks' => sampleFormBlocks()])
         ->call('submitAs', 'publish')
         ->assertHasNoFormErrors();
 
@@ -62,7 +82,8 @@ it('publishes all block types to the public page with sanitized output', functio
         ->toContain('<h2 class="text-center">Tentang Kami</h2>')
         ->toContain('style="text-align: center"')
         ->toContain('style="width: 320px"')                  // ukuran hasil tarik tersimpan
-        ->toContain('style="--w:50%;--ratio:16/9"')           // lebar manual + rasio
+        ->toContain('src="'.asset('storage/pages/b.jpg').'" alt="Gudang"') // blok gambar unggahan
+        ->toContain('items-end')                                           // rata kanan
         ->toContain('Gudang kami')
         ->toContain('href="/produk"')
         ->toContain('<ol><li>Satu</li><li>Dua</li></ol>')
@@ -91,6 +112,7 @@ it('keeps edits as draft until published, and preview shows the draft', function
 });
 
 it('keeps the resized image width when the editor is reopened', function () {
+    fakeBlockImage();
     $page = Page::first();
     $page->update(['draft_blocks' => sampleBlocks()]);
 
@@ -99,6 +121,26 @@ it('keeps the resized image width when the editor is reopened', function () {
         ->assertHasNoFormErrors();
 
     expect(json_encode($page->fresh()->draft_blocks))->toContain('width: 320px');
+});
+
+it('converts legacy rich-text image blocks to uploaded image blocks', function () {
+    $legacy = [
+        ['type' => 'image', 'data' => ['image' => '<p style="text-align: right"><img src="https://supermaterial.test/storage/pages/a%20b.png" alt="Gudang &amp; toko" data-id="pages/a.png"></p>', 'width' => 50, 'width_unit' => '%', 'ratio' => '16/9', 'caption' => 'Gudang kami']],
+        ['type' => 'image', 'data' => ['image' => '<p><img src="https://cdn.example.com/luar.png"></p>', 'caption' => null]],
+        ['type' => 'heading', 'data' => ['level' => 'h2', 'text' => 'Tetap', 'align' => 'left']],
+    ];
+
+    $upgraded = Page::upgradeLegacyImageBlocks($legacy);
+
+    expect($upgraded[0]['data'])->toBe(['path' => 'pages/a%20b.png', 'alt' => 'Gudang & toko', 'caption' => 'Gudang kami', 'align' => 'right'])
+        ->and($upgraded[1])->toBe($legacy[1]) // gambar luar /storage tidak dikonversi dan tetap tampil dengan format lama
+        ->and($upgraded[2])->toBe($legacy[2]);
+});
+
+it('still renders legacy image blocks that could not be converted', function () {
+    $html = Page::renderBlocks([['type' => 'image', 'data' => ['image' => '<p><img src="https://cdn.example.com/luar.png" alt="Luar"></p>', 'caption' => 'Dari CDN']]]);
+
+    expect($html)->toContain('src="https://cdn.example.com/luar.png"')->toContain('Dari CDN');
 });
 
 it('redirects preview from the editor and restricts preview to admins and editors', function () {

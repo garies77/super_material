@@ -86,7 +86,7 @@
                         <p class="line-clamp-3 text-sm leading-relaxed text-ink-600">{{ $ad->body }}</p>
                     @endif
                     @if($href)
-                        <a href="{{ $href }}" {!! $linkAttrs !!} class="inline-flex rounded-full bg-brand-500 px-5 py-2 text-sm font-bold text-ink-950 transition hover:bg-brand-400">{{ $ad->cta_label ?: 'Selengkapnya' }}</a>
+                        <a href="{{ $href }}" {!! $linkAttrs !!} class="inline-flex rounded-full bg-brand-500 px-5 py-2 text-sm font-bold text-(--color-on-brand) transition hover:bg-brand-400 hover:text-(--color-on-accent)">{{ $ad->cta_label ?: 'Selengkapnya' }}</a>
                     @endif
                 </div>
                 @break

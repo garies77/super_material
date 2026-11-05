@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Pages\Auth\EditProfile;
 use App\Filament\Pages\Auth\Login;
 use App\Models\Setting;
 use App\Support\Favicon;
@@ -11,10 +12,12 @@ use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Navigation\NavigationGroup;
+use Filament\Navigation\NavigationItem;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\Support\Icons\Heroicon;
 use Filament\View\PanelsIconAlias;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -34,8 +37,9 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login(Login::class)
-            ->profile()
-            ->brandName('Supermaterial')
+            ->profile(EditProfile::class, isSimple: false)
+            // Nama brand dari Pengaturan situs (judul tab, halaman login, alt logo)
+            ->brandName(fn () => Setting::brandName())
             ->brandLogo(fn () => Setting::logoUrl())
             ->brandLogoHeight('2rem')
             // Mengikuti logo di Pengaturan situs; tanpa logo memakai monogram public/favicon.svg
@@ -65,10 +69,18 @@ class AdminPanelProvider extends PanelProvider
                 NavigationGroup::make('Tampilan situs')->collapsed(),
                 NavigationGroup::make('Pengaturan')->collapsed(),
             ])
-            // Oranye brand (= theme_primary situs) dan abu-abu kebiruan yang selaras dengan navy brand (#121826)
-            ->colors([
-                'primary' => Color::hex('#f59309'),
+            // Warna utama mengikuti Pengaturan situs (sama dengan situs publik), dibaca saat halaman dirender
+            ->colors(fn () => [
+                'primary' => Color::hex(Setting::themeColor('theme_primary')),
                 'gray' => Color::Slate,
+            ])
+            // Profil akun (+ profil penulis & foto) langsung di sidebar untuk semua peran, tepat di bawah Dasbor
+            ->navigationItems([
+                NavigationItem::make('Profil saya')
+                    ->icon(Heroicon::OutlinedUserCircle)
+                    ->url(fn (): string => EditProfile::getUrl())
+                    ->isActiveWhen(fn (): bool => request()->routeIs(EditProfile::getRouteName()))
+                    ->sort(-1),
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')

@@ -111,7 +111,7 @@
                             <div class="flex flex-col justify-between">
                                 <div>
                                     <div class="flex items-center gap-2 mb-2">
-                                        <span class="rounded-md bg-brand-500 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-ink-950">
+                                        <span class="rounded-md bg-brand-500 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-(--color-on-brand)">
                                             Headline
                                         </span>
                                         @if($cat = $featured->categories->first())

@@ -25,7 +25,7 @@ class SeoScorePanel
         'Nama file gambar deskriptif' => ['Gunakan nama file foto yang deskriptif', 'photos'],
         'Gambar utama ≥ 800 px' => ['Foto utama minimal 800 px', 'photos'],
         'Merek, SKU, dan harga terisi' => ['Lengkapi merek, SKU, dan harga', 'brand_id'],
-        'Masa berlaku harga masih berlaku' => ['Atur masa berlaku harga', 'price_valid_until'],
+        'Masa berlaku harga masih berlaku' => ['Perbarui masa berlaku harga yang sudah lewat', 'price_valid_until'],
         'Status ketersediaan terisi' => ['Pilih status ketersediaan stok', 'availability'],
         'Gambar Open Graph tersedia dan bukan logo' => ['Siapkan gambar untuk dibagikan', 'photos'],
         'Judul dan deskripsi meta terisi atau dapat dibuat otomatis' => ['Tulis ringkasan produk', 'summary'],

@@ -7,6 +7,11 @@ use App\Models\Author;
 use App\Models\Category;
 use App\Models\Page;
 use App\Models\Product;
+use App\Models\ProductMedia;
+use App\Models\Video;
+use App\Support\Seo\VideoData;
+use App\Support\Seo\VideoDuration;
+use App\Support\Seo\VideoSchema;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -18,7 +23,7 @@ use Illuminate\Support\Str;
  */
 class SeoController extends Controller
 {
-    public const TYPES = ['products', 'categories', 'articles', 'pages', 'authors', 'images'];
+    public const TYPES = ['products', 'categories', 'articles', 'pages', 'authors', 'images', 'videos'];
 
     public const PER_FILE = 5000;
 
@@ -59,16 +64,25 @@ class SeoController extends Controller
         abort_if($page > 1 && $entries->isEmpty(), 404);
 
         $xml = '<?xml version="1.0" encoding="UTF-8"?>';
-        $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"'.($type === 'images' ? ' xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"' : '').'>';
+        $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"'.(match ($type) {
+            'images' => ' xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"',
+            'videos' => ' xmlns:video="http://www.google.com/schemas/sitemap-video/1.1"',
+            default => '',
+        }).'>';
 
         foreach ($entries as $entry) {
             $xml .= '<url><loc>'.e($entry['loc']).'</loc>';
-            if ($type !== 'images' && $entry['lastmod']) {
+            if (! in_array($type, ['images', 'videos'], true) && $entry['lastmod']) {
                 $xml .= '<lastmod>'.$entry['lastmod'].'</lastmod>';
             }
             if ($type === 'images') {
                 foreach ($entry['images'] as $img) {
                     $xml .= '<image:image><image:loc>'.e($img).'</image:loc></image:image>';
+                }
+            }
+            if ($type === 'videos') {
+                foreach ($entry['videos'] as $video) {
+                    $xml .= $this->videoXml($video);
                 }
             }
             $xml .= '</url>';
@@ -108,15 +122,17 @@ class SeoController extends Controller
             'authors' => Author::active()->whereHas('publishedArticles')->get()
                 ->map(fn (Author $a) => $this->entry($a->url(), $a->updated_at)),
             'images' => $this->images(),
+            'videos' => $this->videos(),
         })->values()->all()));
     }
 
-    private function entry(string $loc, $lastmod = null, array $images = []): array
+    private function entry(string $loc, $lastmod = null, array $images = [], array $videos = []): array
     {
         return [
             'loc' => $loc,
             'lastmod' => $lastmod?->toAtomString(),
             'images' => array_values(array_unique(array_filter($images))),
+            'videos' => $videos,
         ];
     }
 
@@ -169,6 +185,58 @@ class SeoController extends Controller
             ->merge($this->categories()->map(fn (Category $c) => $this->entry($c->url(), null, [$c->primaryImageUrl()])))
             ->filter(fn ($e) => ! empty($e['images']))
             ->filter(fn ($e) => ! collect($e['images'])->contains(fn ($u) => Str::startsWith($u, 'data:')));
+    }
+
+    /** Peta situs video: video artikel dan produk yang datanya lengkap untuk Google (sama dengan syarat VideoObject). */
+    private function videos(): Collection
+    {
+        $articles = $this->indexable(Article::published()->with('videos')->get())
+            ->map(fn (Article $a) => $this->entry($a->url(), null, [], $this->videoEntries(
+                $a->videos->sortByDesc('is_primary')->map(fn (Video $v) => $v->toVideoData($a->url())),
+                $a->seoDescription(),
+            )));
+
+        $products = $this->products()
+            ->map(fn (Product $p) => $this->entry($p->url(), null, [], $this->videoEntries(
+                $p->media->filter(fn (ProductMedia $m) => $m->isVideo())
+                    ->map(fn (ProductMedia $m) => $m->toVideoData($p->url(), 'Video '.$p->name)),
+                $p->seoDescription(),
+            )));
+
+        return collect()->merge($articles)->merge($products)->filter(fn ($e) => ! empty($e['videos']));
+    }
+
+    /**
+     * @param  Collection<int, VideoData>  $videos
+     * @return array<int, array<string, string|int|null>>
+     */
+    private function videoEntries(Collection $videos, ?string $fallbackDescription): array
+    {
+        return $videos->map(fn (VideoData $video) => VideoSchema::make($video, $fallbackDescription))
+            ->filter()
+            ->map(fn (array $ld) => [
+                'thumbnail' => $ld['thumbnailUrl'][0],
+                'title' => $ld['name'],
+                'description' => Str::limit($ld['description'], 2048, ''),
+                'player' => $ld['embedUrl'] ?? null,
+                'content' => $ld['contentUrl'] ?? null,
+                'duration' => isset($ld['duration']) ? VideoDuration::fromIso($ld['duration']) : null,
+                'date' => $ld['uploadDate'],
+            ])
+            ->values()->all();
+    }
+
+    private function videoXml(array $video): string
+    {
+        return '<video:video>'
+            .'<video:thumbnail_loc>'.e($video['thumbnail']).'</video:thumbnail_loc>'
+            .'<video:title>'.e($video['title']).'</video:title>'
+            .'<video:description>'.e($video['description']).'</video:description>'
+            .($video['content'] ? '<video:content_loc>'.e($video['content']).'</video:content_loc>' : '')
+            .($video['player'] ? '<video:player_loc>'.e($video['player']).'</video:player_loc>' : '')
+            .($video['duration'] ? '<video:duration>'.$video['duration'].'</video:duration>' : '')
+            .'<video:publication_date>'.e($video['date']).'</video:publication_date>'
+            .'</video:video>';
     }
 
     private function xml(string $body)

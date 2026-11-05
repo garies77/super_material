@@ -179,3 +179,12 @@ it('lists only article categories with published articles, with their count, in 
 
     $this->get('/artikel/kategori/kategori-terbit')->assertOk()->assertSee('aria-current="page"', false);
 });
+
+it('picks readable text for primary buttons and brand badges from the brand color', function () {
+    expect(Setting::themeCss())->toContain('--color-on-brand:#111111'); // oranye bawaan: teks gelap
+
+    Setting::put('theme_primary', '#342df5'); // biru gelap: teks putih
+    expect(Setting::themeCss())->toContain('--color-on-brand:#ffffff');
+
+    $this->get('/artikel')->assertOk()->assertSee('--color-on-brand:#ffffff', false);
+});

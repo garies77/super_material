@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 /*
@@ -44,7 +45,16 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+/**
+ * Semua blok JSON-LD di halaman, sudah di-decode. Dipakai beberapa file tes, jadi didefinisikan sekali di sini
+ * (fungsi global yang sama di dua file tes membuat seluruh suite berhenti dengan "Cannot redeclare").
+ *
+ * @return array<int, array<string, mixed>>
+ */
+function jsonLdBlocks(string|TestResponse $page): array
 {
-    // ..
+    $html = $page instanceof TestResponse ? (string) $page->getContent() : $page;
+    preg_match_all('#<script type="application/ld\+json">(.*?)</script>#s', $html, $matches);
+
+    return array_map(fn (string $json) => json_decode($json, true, flags: JSON_THROW_ON_ERROR), $matches[1]);
 }

@@ -5,9 +5,12 @@ use App\Filament\Resources\Products\ProductResource;
 use App\Filament\Resources\Users\Pages\ManageUsers;
 use App\Models\Article;
 use App\Models\Product;
+use App\Models\Setting;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
+use Filament\Support\Colors\Color;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Vite;
 use Livewire\Livewire;
 
@@ -61,6 +64,7 @@ it('orders the sidebar by operational priority and supports the collapsed icon r
 
     expect($m[1])->toBe([
         'Dasbor',
+        'Profil saya',
         'Produk', 'Kategori', 'Merek', 'Kanal beli', 'Sinonim pencarian',
         'Artikel', 'Halaman', 'Media', 'Penulis',
         'Kampanye', 'Formulir', 'Jawaban formulir',
@@ -131,4 +135,43 @@ it('shows a branded login page and the brand favicon on admin and public pages',
         ->assertSee(asset('favicon.svg'), false);
 
     $this->get('/')->assertOk()->assertSee('<link rel="icon" href="'.asset('favicon.svg').'" type="image/svg+xml">', false);
+});
+
+it('brands the login page with the name, accent word and logo from site settings', function () {
+    Storage::fake('public');
+    $image = imagecreatetruecolor(300, 300);
+    ob_start();
+    imagepng($image);
+    Storage::disk('public')->put('logos/jaya.png', (string) ob_get_clean());
+    Setting::put('site_logo', 'logos/jaya.png');
+    Setting::put('site_brand_name', 'Jaya Intero');
+    Setting::put('site_brand_accent', 'Intero');
+
+    $html = $this->get('/admin/login')->assertOk()
+        ->assertSee('Masuk untuk mengelola katalog, artikel, dan kampanye Jaya Intero.')
+        ->assertSee('Jaya <span class="sm-auth-brand-accent">Intero</span>', false)
+        ->assertSee('&copy; '.now()->year.' Jaya Intero', false)
+        ->assertDontSee(asset('favicon.svg'), false)
+        ->getContent();
+
+    expect($html)->toMatch('#<title>\s*[^<]*-\s*Jaya Intero\s*</title>#')
+        ->toContain('/storage/favicons/')
+        ->not->toContain('Supermaterial');
+});
+
+it('colors the admin panel and the printable report with the primary color from site settings', function () {
+    Setting::put('theme_primary', '#342df5');
+
+    $blue = Color::hex('#342df5')[500];
+    $orange = Color::hex('#f59309')[500];
+
+    $this->get('/admin/login')->assertOk()
+        ->assertSee('--primary-500:'.$blue, false)
+        ->assertDontSee($orange, false);
+
+    $this->actingAs(User::factory()->create(['role' => 'editor', 'is_active' => true]))
+        ->get(route('reports.print'))->assertOk()
+        ->assertSee('border-bottom: 3px solid #342df5', false)
+        ->assertSee('background: #342df5; color: #ffffff', false)
+        ->assertDontSee('#f59309', false);
 });

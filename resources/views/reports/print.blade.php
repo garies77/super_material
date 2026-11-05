@@ -9,7 +9,10 @@
     $tone = fn (?float $change) => $change === null || $change == 0 ? 'flat' : ($change > 0 ? 'up' : 'down');
     $team = $summary['team'];
     $catalog = $summary['catalog'];
-    $brand = Setting::get('site_brand_name', 'Supermaterial');
+    $brand = Setting::brandName();
+    // Warna utama dari Pengaturan situs; teks tombol hitam/putih sesuai kontrasnya
+    $primary = Setting::themeColor('theme_primary');
+    $onPrimary = Setting::contrast($primary, '#000000') >= Setting::contrast($primary, '#ffffff') ? '#111111' : '#ffffff';
 @endphp
 <!DOCTYPE html>
 <html lang="id">
@@ -23,10 +26,10 @@
         * { box-sizing: border-box; }
         body { margin: 0; background: #f1f5f9; color: #0f172a; font: 13px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .toolbar { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 12px; padding: 12px 24px; background: #0f172a; color: #e2e8f0; font-size: 13px; }
-        .toolbar button { margin-left: auto; border: 0; border-radius: 8px; padding: 8px 16px; background: #f59309; color: #fff; font: 600 13px/1 inherit; cursor: pointer; }
+        .toolbar button { margin-left: auto; border: 0; border-radius: 8px; padding: 8px 16px; background: {{ $primary }}; color: {{ $onPrimary }}; font: 600 13px/1 inherit; cursor: pointer; }
         .sheet { width: 210mm; min-height: 297mm; margin: 24px auto; padding: 14mm; background: #fff; box-shadow: 0 1px 3px rgb(15 23 42 / .12); }
-        header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; padding-bottom: 14px; border-bottom: 3px solid #f59309; }
-        .brand { font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #f59309; }
+        header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; padding-bottom: 14px; border-bottom: 3px solid {{ $primary }}; }
+        .brand { font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: {{ $primary }}; }
         h1 { margin: 2px 0 0; font-size: 24px; line-height: 1.2; }
         .meta { text-align: right; color: #64748b; font-size: 12px; }
         .meta strong { display: block; color: #0f172a; font-size: 14px; }

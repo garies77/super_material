@@ -115,21 +115,25 @@ class MediaLibrary
     }
 
     /**
-     * Salinan gambar yang dipotong tengah ke rasio section dan diperkecil ke lebar maksimum (tanpa memperbesar).
+     * Salinan gambar yang dipotong ke rasio section dan diperkecil ke lebar maksimum (tanpa memperbesar).
+     * Pusat potongan: pilihan admin ($center, persen) atau titik fokus gambar; zoom > 1 memotong lebih rapat.
      * Berkas asli tidak diubah karena bisa dipakai konten lain. SVG dan format lain dikembalikan apa adanya.
+     *
+     * @param  array{x: int, y: int}|null  $center
      */
-    public static function cropToRatio(Media $media, float $ratio, ?int $maxWidth = null): Media
+    public static function cropToRatio(Media $media, float $ratio, ?int $maxWidth = null, ?array $center = null, float $zoom = 1): Media
     {
         if (! $media->isCroppable()) {
             return $media;
         }
 
-        $cropWidth = min($media->width, (int) floor($media->height * $ratio));
-        $width = min($cropWidth, $maxWidth ?? $cropWidth);
+        $zoom = max(1, $zoom);
+        $cropWidth = (int) floor(min($media->width, $media->height * $ratio) / $zoom);
+        $width = max(1, min($cropWidth, $maxWidth ?? $cropWidth));
         $height = (int) round($width / $ratio);
-        // Titik fokus selain tengah masuk ke nama berkas: potongan lama yang sudah dipakai konten tidak tertimpa
-        $focal = [$media->focal_x ?? 50, $media->focal_y ?? 50];
-        $focalSuffix = $focal === [50, 50] ? '' : "-f{$focal[0]}-{$focal[1]}";
+        // Titik fokus/zoom selain bawaan masuk ke nama berkas: potongan lama yang sudah dipakai konten tidak tertimpa
+        $focal = [$center['x'] ?? $media->focal_x ?? 50, $center['y'] ?? $media->focal_y ?? 50];
+        $focalSuffix = ($focal === [50, 50] ? '' : "-f{$focal[0]}-{$focal[1]}").($zoom > 1 ? '-z'.(int) round($zoom * 100) : '');
         $path = self::folderFor($media->path).'/'.pathinfo($media->path, PATHINFO_FILENAME)."-{$width}x{$height}{$focalSuffix}.webp";
 
         if ($existing = Media::firstWhere('path', $path)) {
@@ -137,7 +141,7 @@ class MediaLibrary
         }
 
         $disk = Storage::disk(Media::DISK);
-        if (! ImageDerivatives::createDerivative($disk->path($media->path), $disk->path($path), $width, $height, $focal[0], $focal[1]) || ! $disk->exists($path)) {
+        if (! ImageDerivatives::createDerivative($disk->path($media->path), $disk->path($path), $width, $height, $focal[0], $focal[1], $zoom) || ! $disk->exists($path)) {
             return $media;
         }
 

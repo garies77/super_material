@@ -44,6 +44,8 @@ class Article extends Model
                 $article->content_updated_at = now();
             }
         });
+
+        static::deleted(fn (Article $article) => $article->videos()->delete());
     }
 
     protected function casts(): array
@@ -114,6 +116,17 @@ class Article extends Model
     public function faqs(): MorphMany
     {
         return $this->morphMany(Faq::class, 'faqable')->orderBy('sort_order');
+    }
+
+    public function videos(): MorphMany
+    {
+        return $this->morphMany(Video::class, 'videoable')->orderBy('sort_order');
+    }
+
+    /** Video utama (tampil di atas artikel); dari relasi yang sudah dimuat bila ada. */
+    public function primaryVideo(): ?Video
+    {
+        return $this->videos->firstWhere('is_primary', true);
     }
 
     /** Terbit bila published_at terisi dan sudah lewat (mendukung penjadwalan). */

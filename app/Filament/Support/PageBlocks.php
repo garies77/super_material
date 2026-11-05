@@ -40,16 +40,14 @@ class PageBlocks
                 ]),
 
                 Block::make('image')->label('Gambar')->icon('heroicon-o-photo')->schema([
-                    self::richEditor('image')->label('Gambar')
-                        ->toolbarButtons([['attachFiles'], ['alignStart', 'alignCenter', 'alignEnd'], ['undo', 'redo']])
-                        ->helperText('Klik ikon gambar untuk mengunggah, lalu tarik titik di sudut gambar untuk memperbesar/memperkecil. Rasio aspek dijaga otomatis.'),
-                    Grid::make(4)->schema([
-                        TextInput::make('width')->label('Lebar manual')->numeric()->minValue(1)->maxValue(2000)
-                            ->helperText('Opsional, menimpa hasil tarik.'),
-                        Select::make('width_unit')->label('Satuan')->options(['%' => '%', 'px' => 'px'])->default('%'),
-                        Select::make('ratio')->label('Rasio aspek')->default('auto')
-                            ->options(['auto' => 'Asli', '1/1' => '1:1', '4/3' => '4:3', '3/2' => '3:2', '16/9' => '16:9', '3/4' => '3:4']),
+                    FileUpload::make('path')->label('Gambar')->image()->imagePreset('page_image')->altTextField('alt')
+                        ->disk('public')->directory('pages')->visibility('public')
+                        ->acceptedFileTypes(['image/png', 'image/jpeg', 'image/webp', 'image/gif'])->maxSize(4096)->required()
+                        ->helperText('Klik ikon pensil di pratinjau untuk memotong, memutar, atau memilih rasio (bebas, 1:1, 4:3, 3:2, 16:9, 3:4).'),
+                    Grid::make(3)->schema([
+                        TextInput::make('alt')->label('Teks alternatif')->maxLength(255),
                         TextInput::make('caption')->label('Keterangan')->maxLength(255),
+                        Select::make('align')->label('Rata')->options(self::ALIGN)->default('center'),
                     ]),
                 ]),
 

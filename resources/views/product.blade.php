@@ -163,17 +163,14 @@
         ]);
     }
 
-    $firstVideo = $mediaList->firstWhere('type', 'video');
-    if ($firstVideo) {
-        $ld['video'] = array_filter([
-            '@type' => 'VideoObject',
-            'name' => 'Video ' . $product->name,
-            'description' => $product->seoDescription(),
-            'thumbnailUrl' => [$firstVideo->posterUrl() ?: $mainImageUrl],
-            'uploadDate' => $product->created_at->toIso8601String(),
-            'contentUrl' => $firstVideo->url(),
-            'embedUrl' => $firstVideo->embedUrl(),
-        ]);
+    // Semua video produk dengan judul, tanggal unggah, durasi, dan chapter masing-masing
+    $videosLd = \App\Support\Seo\VideoSchema::many(
+        $mediaList->filter(fn ($m) => $m->isVideo())
+            ->map(fn ($m) => $m->toVideoData($product->url(), 'Video '.$product->name)),
+        $product->seoDescription(),
+    );
+    if ($videosLd) {
+        $ld['video'] = $videosLd;
     }
 
     $faqLd = $product->faqs->isNotEmpty() ? [

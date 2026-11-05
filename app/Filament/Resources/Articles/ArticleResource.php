@@ -10,6 +10,7 @@ use App\Filament\Support\DescriptiveFileName;
 use App\Filament\Support\ReviewWorkflow;
 use App\Filament\Support\SeoFields;
 use App\Filament\Support\SeoScorePanel;
+use App\Filament\Support\VideoFields;
 use App\Models\Article;
 use App\Rules\MinImagePixels;
 use App\Support\SeoScore;
@@ -193,6 +194,15 @@ class ArticleResource extends Resource
                     Select::make('products')->label('Produk yang dibahas')->relationship('products', 'name')->multiple()->searchable()->preload(),
                 ]),
 
+                Section::make('Video')->collapsed(fn (?Article $record) => ! $record?->videos()->exists())
+                    ->description('Video YouTube untuk artikel. Jadikan video utama bila video adalah inti artikel (mis. tutorial) agar berpeluang tampil di hasil video Google.')
+                    ->schema([
+                        Repeater::make('videos')->relationship()->label('')->defaultItems(0)->orderColumn('sort_order')
+                            ->columns(2)->addActionLabel('Tambah video')->collapsible()
+                            ->itemLabel(fn (array $state) => ($state['title'] ?? null) ?: null)
+                            ->schema(VideoFields::make(withPrimaryToggle: true)),
+                    ]),
+
                 Section::make('FAQ')->collapsed()->schema([
                     Repeater::make('faqs')->relationship()->label('')->defaultItems(0)->orderColumn('sort_order')->schema([
                         TextInput::make('question')->label('Pertanyaan')->required(),
@@ -214,6 +224,8 @@ class ArticleResource extends Resource
                 ->orderByRaw('CASE WHEN published_at IS NULL THEN 0 ELSE 1 END')
                 ->orderByDesc('published_at')
                 ->orderByDesc('created_at'))
+            // Kolom Skor SEO memeriksa kategori & tag tiap baris: dimuat sekaligus agar tidak satu query per artikel
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['categories:id', 'tags:id']))
             ->columns([
                 TextColumn::make('title')->label('Judul')->searchable()->limit(60),
                 TextColumn::make('author.name')->label('Penulis'),

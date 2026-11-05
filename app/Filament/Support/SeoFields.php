@@ -3,8 +3,7 @@
 namespace App\Filament\Support;
 
 use App\Http\Controllers\SeoController;
-use App\Rules\MinImagePixels;
-use Filament\Forms\Components\FileUpload;
+use App\Rules\OpenGraphImage;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -47,7 +46,7 @@ class SeoFields
 
         if ($withImage) {
             array_splice($fields, 3, 0, [
-                FileUpload::make('og_image')
+                StrictFileUpload::make('og_image')
                     ->label('Gambar Open Graph')
                     ->image()
                     ->imagePreset('og')
@@ -55,8 +54,10 @@ class SeoFields
                     ->directory('og')
                     ->visibility('public')
                     ->getUploadedFileNameForStorageUsing(DescriptiveFileName::from('slug', 'og', 'og'))
-                    ->rule(new MinImagePixels(50000))
-                    ->helperText('Resolusi minimal 50.000 piksel (disarankan 1200×630).'),
+                    ->acceptedFileTypes(OpenGraphImage::MIME_TYPES)
+                    ->rule(new OpenGraphImage)
+                    ->storedFileRule(new OpenGraphImage)
+                    ->helperText('Wajib rasio 1.91:1, JPG/PNG/WebP, minimal 600×315 px (disarankan 1200×630). Gambar dari Media yang rasionya berbeda dipotong otomatis.'),
             ]);
         }
 

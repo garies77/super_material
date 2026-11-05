@@ -23,8 +23,9 @@
     <div class="sm-auth">
         <aside class="sm-auth-brand" aria-hidden="true">
             <div class="sm-auth-brand-top">
-                <img src="{{ asset('favicon.svg') }}" alt="" class="sm-auth-mark" width="40" height="40">
-                <span class="sm-auth-brand-name">{{ $brand }}</span>
+                {{-- Logo & nama mengikuti Pengaturan situs: ikon persegi dari logo (App\Support\Favicon), kata aksen diberi warna --}}
+                <img src="{{ \App\Support\Favicon::url() }}" alt="" class="sm-auth-mark" width="40" height="40">
+                <span class="sm-auth-brand-name">{!! \App\Models\Setting::brandHtml('sm-auth-brand-accent') !!}</span>
             </div>
 
             <div class="sm-auth-brand-body">

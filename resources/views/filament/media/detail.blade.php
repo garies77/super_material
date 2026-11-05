@@ -14,12 +14,35 @@
         <dt>Path</dt>
         <dd><code>{{ $media->path }}</code></dd>
         <dt>URL</dt>
-        <dd x-data="{ copied: false }">
+        {{-- Clipboard API hanya ada di koneksi aman; selain itu pakai textarea + execCommand. "Tersalin" hanya bila berhasil. --}}
+        <dd x-data="{
+            copied: false,
+            async copy(text) {
+                let ok = false;
+                if (navigator.clipboard && window.isSecureContext) {
+                    try { await navigator.clipboard.writeText(text); ok = true; } catch {}
+                }
+                if (! ok) {
+                    const area = document.createElement('textarea');
+                    area.value = text;
+                    area.style.position = 'fixed';
+                    area.style.opacity = '0';
+                    document.body.appendChild(area);
+                    area.select();
+                    try { ok = document.execCommand('copy'); } catch {}
+                    area.remove();
+                }
+                if (ok) {
+                    this.copied = true;
+                    setTimeout(() => this.copied = false, 1500);
+                }
+            },
+        }">
             <code>{{ $media->url() }}</code>
             <x-filament::link
                 tag="button"
                 size="sm"
-                x-on:click="navigator.clipboard.writeText(@js($media->url())); copied = true; setTimeout(() => copied = false, 1500)"
+                x-on:click="copy(@js($media->url()))"
             >
                 <span x-text="copied ? 'Tersalin' : 'Salin URL'"></span>
             </x-filament::link>

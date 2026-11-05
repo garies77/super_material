@@ -127,6 +127,7 @@ class ArticleController extends Controller
                 'products.links.channel',
                 'relatedArticles.categories',
                 'faqs',
+                'videos',
             ])
             ->firstOrFail();
 
@@ -145,7 +146,7 @@ class ArticleController extends Controller
     {
         $article->loadMissing([
             'author', 'categories', 'tags', 'products.category', 'products.media',
-            'products.links.channel', 'relatedArticles.categories', 'faqs',
+            'products.links.channel', 'relatedArticles.categories', 'faqs', 'videos',
         ]);
 
         if ($preview) {

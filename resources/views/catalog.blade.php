@@ -144,7 +144,7 @@
                     <button type="button" data-filter-open aria-controls="filter-panel" aria-expanded="false" class="btn btn-ghost !py-2 lg:hidden">
                         <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
                         Filter
-                        @if($activeCount)<span class="grid h-5 min-w-5 place-items-center rounded-full bg-brand-500 px-1.5 text-[11px] font-bold text-ink-950">{{ $activeCount }}</span>@endif
+                        @if($activeCount)<span class="grid h-5 min-w-5 place-items-center rounded-full bg-brand-500 px-1.5 text-[11px] font-bold text-(--color-on-brand)">{{ $activeCount }}</span>@endif
                     </button>
                 </div>
 

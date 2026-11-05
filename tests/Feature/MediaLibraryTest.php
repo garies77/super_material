@@ -483,3 +483,74 @@ it('uploads several images at once from the media library page', function () {
 
     expect(Media::orderBy('path')->pluck('path')->all())->toBe(['media/bata-ringan-1.png', 'media/semen-gresik-40kg-1.jpg']);
 });
+
+it('crops a square library image to 1.91:1 for the Open Graph field', function () {
+    $media = libraryImage('products/persegi.jpg', UploadedFile::fake()->image('persegi.jpg', 1200, 1200));
+    $category = Category::create(['name' => 'Semen', 'slug' => 'semen', 'is_active' => true]);
+
+    Livewire::test(EditCategory::class, ['record' => $category->getRouteKey()])
+        ->callAction(TestAction::make('pickFromMediaLibrary')->schemaComponent('og_image'), ['selected' => [$media->path]])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($category->refresh()->og_image)->toBe('products/persegi-1200x630.webp');
+});
+
+it('refuses library images that cannot be cropped to the Open Graph ratio', function () {
+    Storage::disk('public')->put('logos/qr.svg', '<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"></svg>');
+    $svg = Media::factory()->create(['path' => 'logos/qr.svg', 'folder' => 'logos', 'name' => 'qr.svg', 'mime_type' => 'image/svg+xml', 'width' => 128, 'height' => 128]);
+    $category = Category::create(['name' => 'Semen', 'slug' => 'semen', 'is_active' => true]);
+
+    Livewire::test(EditCategory::class, ['record' => $category->getRouteKey()])
+        ->callAction(TestAction::make('pickFromMediaLibrary')->schemaComponent('og_image'), ['selected' => [$svg->path]])
+        ->assertNotified('1 gambar tidak bisa dipakai di section ini')
+        ->call('save');
+
+    expect($category->refresh()->og_image)->toBeNull();
+});
+
+it('rejects a saved Open Graph image with the wrong ratio, size, or file type', function (string $path, UploadedFile $image) {
+    Storage::disk('public')->put($path, $image->getContent());
+    $category = Category::create(['name' => 'Semen', 'slug' => 'semen', 'is_active' => true]);
+
+    Livewire::test(EditCategory::class, ['record' => $category->getRouteKey()])
+        ->set('data.og_image', ['gambar' => $path])
+        ->call('save')
+        ->assertHasFormErrors(['og_image']);
+
+    expect($category->refresh()->og_image)->toBeNull();
+})->with([
+    'rasio 1:1' => ['og/persegi.jpg', UploadedFile::fake()->image('persegi.jpg', 1200, 1200)],
+    'terlalu kecil' => ['og/kecil.jpg', UploadedFile::fake()->image('kecil.jpg', 400, 210)],
+    'GIF' => ['og/animasi.gif', UploadedFile::fake()->image('animasi.gif', 1200, 630)],
+]);
+
+it('accepts a 1200×630 Open Graph image', function () {
+    Storage::disk('public')->put('og/pas.jpg', UploadedFile::fake()->image('pas.jpg', 1200, 630)->getContent());
+    $category = Category::create(['name' => 'Semen', 'slug' => 'semen', 'is_active' => true]);
+
+    Livewire::test(EditCategory::class, ['record' => $category->getRouteKey()])
+        ->set('data.og_image', ['gambar' => 'og/pas.jpg'])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($category->refresh()->og_image)->toBe('og/pas.jpg');
+});
+
+it('crops a library image at the frame position and zoom the admin chose', function () {
+    $media = libraryImage('products/persegi.jpg', UploadedFile::fake()->image('persegi.jpg', 1200, 1200));
+    $category = Category::create(['name' => 'Semen', 'slug' => 'semen', 'is_active' => true]);
+
+    Livewire::test(EditCategory::class, ['record' => $category->getRouteKey()])
+        ->callAction(TestAction::make('pickFromMediaLibrary')->schemaComponent('og_image'), [
+            'selected' => [$media->path],
+            'crop' => ['x' => 0, 'y' => 20, 'zoom' => 2],
+        ])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    $path = $category->refresh()->og_image;
+    expect($path)->toBe('products/persegi-600x315-f0-20-z200.webp')
+        ->and(getimagesize(Storage::disk('public')->path($path))[0])->toBe(600)
+        ->and($media->refresh()->path)->toBe('products/persegi.jpg'); // gambar asli tidak berubah
+});

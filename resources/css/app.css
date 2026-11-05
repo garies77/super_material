@@ -39,7 +39,8 @@
         @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold
                transition duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500;
     }
-    .btn-primary { @apply bg-brand-500 text-ink-950 shadow-lg shadow-brand-500/25 hover:-translate-y-0.5 hover:bg-brand-400; }
+    /* Warna teks mengikuti kontras warna brand dari Pengaturan situs (Setting::themeCss): hitam di brand terang, putih di brand gelap */
+    .btn-primary { @apply bg-brand-500 text-(--color-on-brand) shadow-lg shadow-brand-500/25 hover:-translate-y-0.5 hover:bg-brand-400 hover:text-(--color-on-accent); }
     .btn-dark { @apply bg-ink-900 text-white hover:-translate-y-0.5 hover:bg-ink-800; }
     .btn-ghost { @apply border border-ink-200 bg-white text-ink-800 hover:border-brand-400 hover:text-brand-700; }
 

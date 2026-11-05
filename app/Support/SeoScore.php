@@ -24,7 +24,7 @@ class SeoScore
             'Nama file gambar deskriptif' => $media->isNotEmpty() && $media->every(fn ($m) => self::descriptiveName((string) $m->path)),
             'Gambar utama ≥ 800 px' => self::minSide($media->first()?->path, 800),
             'Merek, SKU, dan harga terisi' => filled($p->brand_id) && filled($p->sku) && $priceOk,
-            'Masa berlaku harga masih berlaku' => $p->isPriceHidden() || ($p->price_valid_until && $p->price_valid_until->isFuture()),
+            'Masa berlaku harga masih berlaku' => $p->isPriceHidden() || ! $p->price_valid_until || $p->price_valid_until->isFuture(),
             'Status ketersediaan terisi' => filled($p->availability),
             'Gambar Open Graph tersedia dan bukan logo' => self::ogOk($p->primaryImageUrl()),
             'Judul dan deskripsi meta terisi atau dapat dibuat otomatis' => filled($p->meta_title ?: $p->name) && filled($p->meta_description ?: $p->summary),

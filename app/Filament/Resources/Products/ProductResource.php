@@ -11,6 +11,7 @@ use App\Filament\Support\MediaPicker;
 use App\Filament\Support\ReviewWorkflow;
 use App\Filament\Support\SeoFields;
 use App\Filament\Support\SeoScorePanel;
+use App\Filament\Support\VideoFields;
 use App\Models\AuditLog;
 use App\Models\Brand;
 use App\Models\Category;
@@ -21,6 +22,7 @@ use App\Models\SalesChannel;
 use App\Rules\MinImagePixels;
 use App\Support\Catalog\ProductDuplicator;
 use App\Support\SeoScore;
+use App\Support\YouTube;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
@@ -119,9 +121,7 @@ class ProductResource extends Resource
     /** Baris video di product_media: tautan YouTube = embed, selain itu berkas video unggahan (API). */
     private static function videoData(array $data): array
     {
-        $isYoutube = (bool) preg_match('#^https://(www\.|m\.)?(youtube\.com|youtu\.be)/#i', (string) ($data['path'] ?? ''));
-
-        return [...$data, 'type' => 'video', 'provider' => $isYoutube ? 'youtube' : 'upload'];
+        return [...$data, 'type' => 'video', 'provider' => YouTube::isYouTubeUrl($data['path'] ?? null) ? 'youtube' : 'upload'];
     }
 
     public static function canAccess(): bool
@@ -202,12 +202,9 @@ class ProductResource extends Resource
                             ->live()->afterStateUpdated($refreshSeo),
                         Repeater::make('videos')->label('Video (opsional)')
                             ->relationship('media', fn (Builder $query) => $query->where('type', 'video'))
-                            ->defaultItems(0)->columns(2)->addActionLabel('Tambah video')
-                            ->schema([
-                                TextInput::make('path')->label('URL video YouTube')->required()->maxLength(500)
-                                    ->placeholder('https://www.youtube.com/watch?v=…'),
-                                TextInput::make('alt_text')->label('Judul video')->maxLength(255)->placeholder('cth: Cara memasang keramik 60x60'),
-                            ])
+                            ->defaultItems(0)->columns(2)->addActionLabel('Tambah video')->collapsible()
+                            ->itemLabel(fn (array $state) => ($state['alt_text'] ?? null) ?: null)
+                            ->schema(VideoFields::make(urlField: 'path', titleField: 'alt_text', thumbnailField: 'poster_path', titleRequired: false))
                             ->mutateRelationshipDataBeforeCreateUsing(fn (array $data) => self::videoData($data))
                             ->mutateRelationshipDataBeforeSaveUsing(fn (array $data) => self::videoData($data)),
                     ]),
@@ -270,7 +267,7 @@ class ProductResource extends Resource
                         ->placeholder('Pilih ketersediaan (opsional)')
                         ->helperText('Ditampilkan ke Google bila diisi.'),
                     DatePicker::make('price_valid_until')->label('Harga berlaku sampai')->live()->afterStateUpdated($refreshSeo)
-                        ->helperText('Setelah tanggal ini, harga ditandai perlu ditinjau.'),
+                        ->helperText('Opsional. Kosongkan bila harga tidak punya batas waktu; bila diisi, setelah tanggal ini harga ditandai perlu ditinjau.'),
                     TextInput::make('whatsapp_number')->label('Nomor WhatsApp khusus')->helperText('Kosong = nomor WhatsApp utama di Pengaturan.'),
                     TextInput::make('shipping_note')->label('Catatan pengiriman')->placeholder('Pengiriman dari Medan · Ongkir terjangkau'),
                     TextInput::make('guarantee_note')->label('Catatan jaminan')->placeholder('100% Original · Garansi Pabrik'),
@@ -312,7 +309,8 @@ class ProductResource extends Resource
             ->emptyStateIcon('heroicon-o-cube')
             ->emptyStateHeading('Belum ada produk')
             ->emptyStateDescription('Tambah produk pertama, atau impor banyak sekaligus dari Excel lewat tombol Impor CSV.')
-            ->modifyQueryUsing(fn (Builder $query) => $query->with('media'))
+            // Kolom Skor SEO butuh foto & harga varian tiap baris: dimuat sekaligus agar tidak satu query per produk
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['media', 'variants']))
             ->columns([
                 // Foto utama dari galeri (product_media), termasuk produk dari API yang kolom image-nya kosong
                 ImageColumn::make('image')->label('')->square()->size(40)->state(fn (Product $record) => $record->imageUrl()),

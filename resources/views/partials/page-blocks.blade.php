@@ -18,7 +18,17 @@
         @elseif($type === 'text')
             <div class="content">{!! $clean($d['content'] ?? '') !!}</div>
 
+        @elseif($type === 'image' && filled($d['path'] ?? null))
+            <figure class="page-image flex flex-col {{ ['left' => 'items-start', 'center' => 'items-center', 'right' => 'items-end'][$d['align'] ?? 'center'] ?? 'items-center' }}">
+                <img src="{{ asset('storage/'.ltrim((string) $d['path'], '/')) }}" alt="{{ $d['alt'] ?? '' }}" loading="lazy"
+                     class="h-auto max-w-full rounded-xl">
+                @if(filled($d['caption'] ?? null))
+                    <figcaption class="mt-2 text-center text-sm text-ink-500">{{ $d['caption'] }}</figcaption>
+                @endif
+            </figure>
+
         @elseif($type === 'image')
+            {{-- Format lama (HTML dari editor teks), dipertahankan untuk blok yang belum dikonversi --}}
             @php
                 // Lebar manual (opsional) menimpa hasil tarik; nilai sudah divalidasi angka sehingga aman di atribut style
                 $width = (int) ($d['width'] ?? 0);
@@ -71,9 +81,9 @@
             <div aria-hidden="true" style="height:{{ max(4, min(400, (int) ($d['height'] ?? 40))) }}px"></div>
 
         @elseif($type === 'embed')
-            @if(preg_match('#(?:v=|youtu\.be/|shorts/|embed/)([\w-]{11})#', $d['url'] ?? '', $m))
+            @if($youtubeId = \App\Support\YouTube::videoId($d['url'] ?? null))
                 <div class="aspect-video overflow-hidden rounded-xl bg-ink-100">
-                    <iframe src="https://www.youtube-nocookie.com/embed/{{ $m[1] }}" title="{{ $d['title'] ?? 'Video' }}" loading="lazy"
+                    <iframe src="{{ \App\Support\YouTube::embedUrl($youtubeId) }}" title="{{ $d['title'] ?? 'Video' }}" loading="lazy"
                             class="h-full w-full border-0" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowfullscreen
                             referrerpolicy="strict-origin-when-cross-origin"></iframe>
                 </div>

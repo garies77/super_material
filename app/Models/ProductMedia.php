@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Support\Seo\VideoData;
+use App\Support\YouTube;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -13,6 +15,9 @@ class ProductMedia extends Model
     {
         return [
             'sort_order' => 'integer',
+            'upload_date' => 'datetime',
+            'duration_seconds' => 'integer',
+            'clips' => 'array',
         ];
     }
 
@@ -37,11 +42,7 @@ class ProductMedia extends Model
             return null;
         }
 
-        if (preg_match('%(?:youtube(?:-nocookie)?\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/\s]{11})%i', $this->path, $match)) {
-            return $match[1];
-        }
-
-        return null;
+        return YouTube::videoId($this->path);
     }
 
     public function url(): string
@@ -64,10 +65,32 @@ class ProductMedia extends Model
         }
 
         if ($this->isVideo() && ($vid = $this->youtubeVideoId())) {
-            return "https://img.youtube.com/vi/{$vid}/hqdefault.jpg";
+            return YouTube::thumbnailUrl($vid);
         }
 
         return null;
+    }
+
+    /**
+     * Data VideoObject. Judul memakai alt_text; tanggal unggah cadangan = waktu video ditambahkan ke produk.
+     */
+    public function toVideoData(string $pageUrl, string $fallbackTitle): VideoData
+    {
+        $youtubeId = $this->youtubeVideoId();
+
+        return new VideoData(
+            title: trim((string) $this->alt_text) ?: $fallbackTitle,
+            description: $this->description,
+            thumbnailUrl: $this->posterUrl(),
+            uploadDate: $this->upload_date ?? $this->created_at,
+            durationSeconds: $this->duration_seconds,
+            youtubeId: $youtubeId,
+            fileUrl: $youtubeId ? null : $this->url(),
+            pageUrl: $pageUrl,
+            clips: Video::normalizeClips($this->clips),
+            creatorName: $this->creator_name,
+            creatorUrl: $this->creator_url,
+        );
     }
 
     public function embedUrl(): ?string

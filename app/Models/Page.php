@@ -58,6 +58,40 @@ class Page extends Model
         $this->save();
     }
 
+    /**
+     * Blok gambar format lama (HTML dari editor teks + lebar/rasio manual) menjadi format unggahan berkas:
+     * path di disk publik, teks alternatif, keterangan, dan rata. Gambar dari luar /storage dibiarkan apa adanya.
+     *
+     * @param  array<int, array{type?: string, data?: array<string, mixed>}>|null  $blocks
+     * @return array<int, array{type?: string, data?: array<string, mixed>}>|null
+     */
+    public static function upgradeLegacyImageBlocks(?array $blocks): ?array
+    {
+        if ($blocks === null) {
+            return null;
+        }
+
+        return array_map(function ($block) {
+            $data = $block['data'] ?? [];
+            if (($block['type'] ?? null) !== 'image' || filled($data['path'] ?? null)
+                || ! preg_match('#<img[^>]*\ssrc="(?:https?://[^/"]+)?/storage/([^"?]+)"#i', (string) ($data['image'] ?? ''), $src)) {
+                return $block;
+            }
+
+            preg_match('#<img[^>]*\salt="([^"]*)"#i', $data['image'], $alt);
+            preg_match('#text-align:\s*(left|center|right)#i', $data['image'], $align);
+
+            $block['data'] = [
+                'path' => html_entity_decode($src[1]),
+                'alt' => isset($alt[1]) ? html_entity_decode($alt[1]) : null,
+                'caption' => $data['caption'] ?? null,
+                'align' => strtolower($align[1] ?? 'center'),
+            ];
+
+            return $block;
+        }, $blocks);
+    }
+
     public static function renderBlocks(?array $blocks): string
     {
         return view('partials.page-blocks', ['blocks' => $blocks ?? []])->render();

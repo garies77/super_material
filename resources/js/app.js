@@ -525,3 +525,40 @@ document.querySelectorAll('[data-chip-scroller]').forEach((root) => {
     window.addEventListener('resize', update, { passive: true });
     update();
 });
+
+// Momen penting video (Clip JSON-LD): ?t=detik membuka video utama di detik itu; tautan chapter memutar tanpa reload
+(() => {
+    const players = document.querySelectorAll('[data-video-player]');
+    if (!players.length) return;
+
+    const seek = (player, seconds, autoplay) => {
+        const frame = player.querySelector('[data-video-frame]');
+        if (!frame) return;
+        if (frame.tagName === 'VIDEO') {
+            frame.currentTime = seconds;
+            if (autoplay) frame.play().catch(() => {});
+            return;
+        }
+        const url = new URL(frame.dataset.embed, location.href);
+        url.searchParams.set('start', String(seconds));
+        if (autoplay) url.searchParams.set('autoplay', '1');
+        frame.src = url.toString();
+    };
+
+    const start = parseInt(new URLSearchParams(location.search).get('t') ?? '', 10);
+    if (start > 0) {
+        seek(players[0], start, false);
+        players[0].scrollIntoView({ block: 'center' });
+    }
+
+    document.addEventListener('click', (e) => {
+        const link = e.target.closest('[data-video-seek]');
+        if (!link) return;
+        const player = link.closest('[data-video-player]');
+        if (!player) return;
+        e.preventDefault();
+        seek(player, parseInt(link.dataset.videoSeek, 10) || 0, true);
+        player.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        history.replaceState(null, '', link.href);
+    });
+})();
