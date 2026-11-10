@@ -22,6 +22,7 @@ use App\Models\Tag;
 use App\Support\Api\ApiCache;
 use App\Support\Api\ApiError;
 use App\Support\Api\ClientHash;
+use App\Support\GoogleMerchant\ProductSync;
 use App\Support\MediaLibrary;
 use App\Support\SvgSanitizer;
 use Closure;
@@ -58,7 +59,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Satu antrean sinkron Google Merchant per request/perintah, dikirim setelah respons
+        $this->app->scoped(ProductSync::class);
     }
 
     /**

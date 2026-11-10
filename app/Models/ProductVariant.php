@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\GoogleMerchant\ProductSync;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
@@ -9,6 +10,13 @@ use Illuminate\Support\Str;
 class ProductVariant extends Model
 {
     protected $guarded = [];
+
+    protected static function booted(): void
+    {
+        // Varian berubah/dihapus: produk induknya dikirim ulang ke Google Merchant Center
+        static::saved(fn (ProductVariant $variant) => app(ProductSync::class)->queue($variant->product_id));
+        static::deleted(fn (ProductVariant $variant) => app(ProductSync::class)->queue($variant->product_id));
+    }
 
     protected function casts(): array
     {
