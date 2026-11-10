@@ -21,31 +21,53 @@
     $whatsappChannel = $channels->first->isWhatsapp();
 
     // Prepare JSON for interactive gallery and variants
-    $mediaData = $mediaList->map(function ($m, $i) {
+    // Galeri memakai turunan WebP sesuai ukuran tampil (berkas asli bisa ratusan KB); gambar eksternal/SVG tetap apa adanya
+    $resized = fn (?string $url, int $width) => \App\Support\ImageDerivatives::resized($url, $width);
+    $gallerySrcset = fn (?string $url) => \App\Support\ImageDerivatives::srcset($url, [480, 800, 1200]);
+    $gallerySizes = '(min-width: 1024px) 560px, calc(100vw - 4rem)';
+
+    $mediaData = $mediaList->map(function ($m, $i) use ($resized, $gallerySrcset) {
+        $still = $m->isVideo() ? ($m->posterUrl() ?: $m->url()) : $m->url();
+
         return [
             'index' => $i,
             'type' => $m->type,
-            'url' => $m->url(),
+            'rawUrl' => $m->url(),
+            'rawPosterUrl' => $m->posterUrl() ?: $m->url(),
+            'url' => $resized($still, 800),
+            'srcset' => $gallerySrcset($still),
+            'fullUrl' => $resized($still, 1600),
             'embedUrl' => $m->embedUrl(),
-            'posterUrl' => $m->posterUrl() ?: $m->url(),
             'alt' => $m->alt_text ?: '',
             'isVideo' => $m->isVideo(),
         ];
     })->values();
 
-    $variantsData = $activeVariants->map(function ($v) {
+    $priceHidden = $product->isPriceHidden();
+    $rupiah = fn (?int $amount) => $amount ? 'Rp'.number_format($amount, 0, ',', '.') : null;
+    $priceSuffix = $product->unit ? ' / '.$product->unit : '';
+
+    // Harga awal dirender server (tanpa menunggu JavaScript); harga tersembunyi tidak ikut dikirim ke browser
+    $initialPrice = ($initialVariant && ! $priceHidden) ? $rupiah($initialVariant->effectivePrice()) : null;
+    $initialCompare = $initialPrice ? $rupiah($initialVariant->effectiveCompareAtPrice()) : null;
+    $initialDiscount = $priceHidden ? null : ($initialVariant?->discountPercentage() ?: $product->maxDiscountPercentage());
+    $initialPriceText = $initialPrice ? $initialPrice.$priceSuffix : ($product->priceLabel() ?? 'Cek harga di toko');
+
+    $variantsData = $activeVariants->map(function ($v) use ($priceHidden, $rupiah, $resized, $gallerySrcset) {
         return [
             'id' => $v->id,
             'name' => $v->name,
             'slug' => $v->slug,
             'sku' => $v->sku,
             'group' => $v->option_group ?: 'Pilihan',
-            'price' => $v->effectivePrice(),
-            'compareAtPrice' => $v->effectiveCompareAtPrice(),
-            'discount' => $v->discountPercentage(),
-            'formattedPrice' => $v->effectivePrice() ? 'Rp' . number_format($v->effectivePrice(), 0, ',', '.') : null,
-            'formattedCompare' => $v->effectiveCompareAtPrice() ? 'Rp' . number_format($v->effectiveCompareAtPrice(), 0, ',', '.') : null,
+            'price' => $priceHidden ? null : $v->effectivePrice(),
+            'compareAtPrice' => $priceHidden ? null : $v->effectiveCompareAtPrice(),
+            'discount' => $priceHidden ? null : $v->discountPercentage(),
+            'formattedPrice' => $priceHidden ? null : $rupiah($v->effectivePrice()),
+            'formattedCompare' => $priceHidden ? null : $rupiah($v->effectiveCompareAtPrice()),
             'image' => $v->imageUrl(),
+            'displayImage' => $resized($v->imageUrl(), 800),
+            'displaySrcset' => $gallerySrcset($v->imageUrl()),
         ];
     })->values();
 
@@ -204,6 +226,9 @@
             name: @json($product->name),
             slug: @json($product->slug),
             unit: @json($product->unit ?: 'item'),
+            priceSuffix: @json($priceSuffix),
+            gallerySizes: @json($gallerySizes),
+            preselected: @json($initialVariantSlug && $initialVariant && $initialVariant->slug === $initialVariantSlug),
             url: @json($product->url()),
             isPriceHidden: @json($product->isPriceHidden()),
             defaultPrice: @json($product->priceLabel()),
@@ -229,12 +254,12 @@
             <div class="grid gap-8 lg:grid-cols-[1fr_1.15fr] lg:gap-12">
                 
                 {{-- ==================== KOLOM KIRI: GALERI MEDIA (RASIO 1:1) ==================== --}}
-                <div class="space-y-4" id="media-gallery">
+                <div class="min-w-0 space-y-4" id="media-gallery">
                     {{-- Viewer Media Utama (Rasio 1:1) --}}
                     <div class="relative aspect-square w-full overflow-hidden rounded-2xl border border-ink-100 bg-[#f8fafc]">
                         {{-- Tag Badge Diskon di Galeri --}}
-                        <div id="gallery-discount-badge" class="{{ $product->maxDiscountPercentage() ? '' : 'hidden' }} absolute left-3 top-3 z-10 rounded-md bg-rose-500 px-2.5 py-1 text-xs font-extrabold uppercase tracking-wide text-white shadow-md">
-                            <span id="gallery-discount-text">-{{ $product->maxDiscountPercentage() }}%</span>
+                        <div id="gallery-discount-badge" class="{{ $initialDiscount ? '' : 'hidden' }} absolute left-3 top-3 z-10 rounded-md bg-rose-500 px-2.5 py-1 text-xs font-extrabold uppercase tracking-wide text-white shadow-md">
+                            <span id="gallery-discount-text">-{{ $initialDiscount }}%</span>
                         </div>
 
                         {{-- Tombol Zoom Lightbox --}}
@@ -256,7 +281,7 @@
                                 @php $firstMedia = $mediaList->first(); @endphp
                                 @if($firstMedia->isVideo())
                                     <div class="relative h-full w-full cursor-pointer group" id="video-preview-trigger" data-embed="{{ $firstMedia->embedUrl() }}">
-                                        <img id="main-image-el" src="{{ $firstMedia->posterUrl() ?: $firstMedia->url() }}" alt="{{ $firstMedia->alt_text ?: $product->name }}" width="800" height="800" fetchpriority="high" class="h-full w-full object-contain p-2 md:p-4">
+                                        <img id="main-image-el" src="{{ $mediaData[0]['url'] }}" @if($mediaData[0]['srcset']) srcset="{{ $mediaData[0]['srcset'] }}" sizes="{{ $gallerySizes }}" @endif alt="{{ $firstMedia->alt_text ?: $product->name }}" width="800" height="800" fetchpriority="high" class="h-full w-full object-contain p-2 md:p-4">
                                         <div class="absolute inset-0 flex items-center justify-center bg-black/20 transition group-hover:bg-black/30">
                                             <div class="flex h-16 w-16 items-center justify-center rounded-full bg-rose-600 text-white shadow-xl transition group-hover:scale-110">
                                                 <svg viewBox="0 0 24 24" class="ml-1 h-8 w-8 fill-current"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -265,7 +290,7 @@
                                     </div>
                                     <div id="video-player-container" class="hidden h-full w-full"></div>
                                 @else
-                                    <img id="main-image-el" src="{{ $firstMedia->url() }}" alt="{{ $firstMedia->alt_text ?: $product->name }}" width="800" height="800" fetchpriority="high" class="h-full w-full object-contain p-2 md:p-4 transition duration-300">
+                                    <img id="main-image-el" src="{{ $mediaData[0]['url'] }}" @if($mediaData[0]['srcset']) srcset="{{ $mediaData[0]['srcset'] }}" sizes="{{ $gallerySizes }}" @endif alt="{{ $firstMedia->alt_text ?: $product->name }}" width="800" height="800" fetchpriority="high" class="h-full w-full object-contain p-2 md:p-4 transition duration-300">
                                 @endif
                             @else
                                 <div class="placeholder-art grid h-full w-full place-items-center">
@@ -280,7 +305,7 @@
                         <div class="relative">
                             {{-- Panah Scroll Kiri --}}
                             <button type="button" id="thumb-prev" aria-label="Geser gambar sebelumnya"
-                                    class="absolute -left-3 top-1/2 z-10 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full border border-ink-100 bg-white text-ink-700 shadow-md transition hover:bg-ink-50">
+                                    class="absolute -left-3 top-1/2 z-10 hidden -translate-y-1/2 h-8 w-8 md:flex items-center justify-center rounded-full border border-ink-100 bg-white text-ink-700 shadow-md transition hover:bg-ink-50">
                                 <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
                             </button>
 
@@ -290,7 +315,7 @@
                                     <button type="button" data-media-index="{{ $index }}"
                                             class="thumb-btn group relative h-16 w-16 md:h-20 md:w-20 shrink-0 overflow-hidden rounded-xl border-2 transition-all {{ $loop->first ? 'border-brand-600 ring-2 ring-brand-500/20' : 'border-ink-100 hover:border-brand-300' }}"
                                             aria-label="Pilih media {{ $index + 1 }}">
-                                        <img src="{{ $item->posterUrl() ?: $item->url() }}" alt="{{ $item->alt_text ?: 'Thumbnail ' . ($index + 1) }}"
+                                        <img src="{{ $resized($item->isVideo() ? ($item->posterUrl() ?: $item->url()) : $item->url(), 160) }}" alt="{{ $item->alt_text ?: 'Thumbnail ' . ($index + 1) }}"
                                              width="80" height="80" loading="lazy" class="h-full w-full object-cover">
                                         @if($item->isVideo())
                                             <div class="absolute inset-0 flex items-center justify-center bg-black/30">
@@ -305,7 +330,7 @@
 
                             {{-- Panah Scroll Kanan --}}
                             <button type="button" id="thumb-next" aria-label="Geser gambar selanjutnya"
-                                    class="absolute -right-3 top-1/2 z-10 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full border border-ink-100 bg-white text-ink-700 shadow-md transition hover:bg-ink-50">
+                                    class="absolute -right-3 top-1/2 z-10 hidden -translate-y-1/2 h-8 w-8 md:flex items-center justify-center rounded-full border border-ink-100 bg-white text-ink-700 shadow-md transition hover:bg-ink-50">
                                 <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
                             </button>
                         </div>
@@ -313,7 +338,7 @@
                 </div>
 
                 {{-- ==================== KOLOM KANAN: DETAIL & PEMBELIAN (SHOPEE STYLE) ==================== --}}
-                <div class="flex flex-col">
+                <div class="flex min-w-0 flex-col">
                     
                     {{-- Judul H1 & Badge --}}
                     <div class="flex flex-wrap items-center gap-2">
@@ -349,7 +374,7 @@
                             <span class="text-ink-300">|</span>
                         @endif
                         <div class="text-ink-500 text-xs">
-                            Kategori: <a href="{{ $product->category?->url() }}" class="font-medium text-brand-600 hover:underline">{{ $product->category?->name ?? 'Material' }}</a>
+                            Kategori: <a href="{{ $product->category?->url() ?? route('product.index') }}" class="font-medium text-brand-600 hover:underline">{{ $product->category?->name ?? 'Semua produk' }}</a>
                         </div>
                     </div>
 
@@ -357,18 +382,14 @@
                     <div class="mt-4 rounded-2xl bg-[#fafafa] p-4 border border-ink-100 sm:p-5">
                         <div class="flex flex-wrap items-baseline gap-3">
                             {{-- Harga Coret (Sebelum Diskon) --}}
-                            <span id="price-compare" class="{{ ($initialVariant?->effectiveCompareAtPrice()) ? '' : 'hidden' }} text-base text-ink-400 line-through md:text-lg">
-                                {{ $initialVariant ? $initialVariant->formattedCompare : '' }}
-                            </span>
+                            <span id="price-compare" class="{{ $initialCompare ? '' : 'hidden' }} text-base text-ink-400 line-through md:text-lg">{{ $initialCompare }}</span>
 
                             {{-- Harga Jual Utama --}}
-                            <span id="price-main" class="font-display text-3xl font-extrabold text-brand-600 md:text-4xl">
-                                {{ $initialVariant ? $initialVariant->formattedPrice : ($product->priceLabel() ?? 'Cek harga di toko') }}
-                            </span>
+                            <span id="price-main" class="font-display text-2xl font-extrabold text-brand-600 sm:text-3xl md:text-4xl">{{ $initialPriceText }}</span>
 
                             {{-- Badge Diskon Otomatis --}}
-                            <span id="price-discount-badge" class="{{ ($initialVariant?->discountPercentage() ?: $product->maxDiscountPercentage()) ? '' : 'hidden' }} rounded bg-rose-500 px-2 py-0.5 text-xs font-bold text-white shadow-sm">
-                                <span id="price-discount-pct">-{{ $initialVariant?->discountPercentage() ?: $product->maxDiscountPercentage() }}%</span>
+                            <span id="price-discount-badge" class="{{ $initialDiscount ? '' : 'hidden' }} rounded bg-rose-500 px-2 py-0.5 text-xs font-bold text-white shadow-sm">
+                                <span id="price-discount-pct">-{{ $initialDiscount }}%</span>
                             </span>
                         </div>
                         <p data-nosnippet class="mt-2 text-xs text-ink-500">
@@ -399,11 +420,11 @@
                         <div class="mt-6 rounded-xl border border-ink-100 bg-white p-4 transition-all duration-300" id="variant-section-box">
                             @foreach($variantGroups as $groupName => $groupVariants)
                                 <div class="mb-3.5 last:mb-0">
-                                    <div class="flex items-center justify-between">
-                                        <h2 class="font-display text-xs font-bold uppercase tracking-wider text-ink-500">
+                                    <div class="flex items-center justify-between gap-3">
+                                        <h2 class="max-w-[55%] shrink-0 font-display text-xs font-bold uppercase tracking-wider text-ink-500">
                                             {{ $groupName }}
                                         </h2>
-                                        <span class="text-xs text-brand-700 font-semibold" id="selected-variant-label">
+                                        <span class="min-w-0 truncate text-right text-xs font-semibold text-brand-700" id="selected-variant-label">
                                             {{ $initialVariant ? $initialVariant->name : 'Pilih varian' }}
                                         </span>
                                     </div>
@@ -415,14 +436,14 @@
                                             <button type="button"
                                                     data-variant-id="{{ $v->id }}"
                                                     data-variant-slug="{{ $v->slug }}"
-                                                    class="variant-btn relative flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm transition-all {{ $isSelected ? 'border-brand-600 ring-2 ring-brand-500/20 bg-brand-50/40 text-brand-700 font-semibold shadow-sm' : 'border-ink-200 bg-white text-ink-800 hover:border-brand-400' }}"
+                                                    class="variant-btn relative flex min-h-11 items-center gap-2 rounded-xl border px-3.5 py-2 text-left text-sm transition-all {{ $isSelected ? 'border-brand-600 ring-2 ring-brand-500/20 bg-brand-50/40 text-brand-700 font-semibold shadow-sm' : 'border-ink-200 bg-white text-ink-800 hover:border-brand-400' }}"
                                                     role="radio"
                                                     aria-checked="{{ $isSelected ? 'true' : 'false' }}">
                                                 @if($v->imageUrl())
-                                                    <img src="{{ $v->imageUrl() }}" alt="" width="32" height="32" class="h-7 w-7 rounded object-cover">
+                                                    <img src="{{ $resized($v->imageUrl(), 64) }}" alt="" width="32" height="32" loading="lazy" class="h-7 w-7 rounded object-cover">
                                                 @endif
                                                 <span>{{ $v->name }}</span>
-                                                @if($v->discountPercentage())
+                                                @if(! $priceHidden && $v->discountPercentage())
                                                     <span class="rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700">-{{ $v->discountPercentage() }}%</span>
                                                 @endif
                                             </button>
@@ -445,13 +466,13 @@
                             <span class="text-xs font-bold uppercase tracking-wider text-ink-500">Jumlah</span>
                             <div class="flex items-center rounded-xl border border-ink-200 bg-white shadow-sm">
                                 <button type="button" id="qty-minus" aria-label="Kurangi jumlah"
-                                        class="flex h-9 w-9 items-center justify-center text-ink-500 transition hover:bg-ink-50 hover:text-ink-900 disabled:opacity-40" disabled>
+                                        class="flex h-11 w-11 items-center justify-center text-ink-500 transition hover:bg-ink-50 hover:text-ink-900 disabled:opacity-40" disabled>
                                     <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>
                                 </button>
-                                <input type="number" id="qty-input" value="1" min="1" max="9999"
-                                       class="h-9 w-14 border-x border-ink-200 text-center font-display text-sm font-semibold text-ink-900 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                                <input type="number" id="qty-input" value="1" min="1" max="9999" inputmode="numeric" aria-label="Jumlah"
+                                       class="h-11 w-16 border-x border-ink-200 text-center font-display text-base font-semibold text-ink-900 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
                                 <button type="button" id="qty-plus" aria-label="Tambah jumlah"
-                                        class="flex h-9 w-9 items-center justify-center text-ink-500 transition hover:bg-ink-50 hover:text-ink-900">
+                                        class="flex h-11 w-11 items-center justify-center text-ink-500 transition hover:bg-ink-50 hover:text-ink-900">
                                     <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                                 </button>
                             </div>
@@ -508,12 +529,12 @@
             
             {{-- Kiri Bawah: Spesifikasi Teknis (Tabel 2 Kolom Shopee Style) --}}
             <div class="space-y-8">
-                <section class="rounded-2xl border border-ink-100 bg-white p-6 shadow-sm sm:p-8">
+                <section class="rounded-2xl border border-ink-100 bg-white p-4 shadow-sm sm:p-8">
                     <h2 class="font-display text-xl font-bold text-ink-950 sm:text-2xl">Spesifikasi Produk</h2>
                     
                     <div class="mt-4 divide-y divide-ink-100 text-sm">
                         {{-- Baris Kategori Hierarki --}}
-                        <div class="grid grid-cols-[140px_1fr] gap-4 py-3 sm:grid-cols-[180px_1fr]">
+                        <div class="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-3 py-3 [overflow-wrap:anywhere] sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-4">
                             <span class="text-ink-500 font-medium">Kategori</span>
                             <div class="flex flex-wrap items-center gap-1.5 text-brand-600 font-medium">
                                 <a href="{{ route('product.index') }}" class="hover:underline">Produk</a>
@@ -528,7 +549,7 @@
 
                         {{-- Baris Merek --}}
                         @if($product->brand)
-                            <div class="grid grid-cols-[140px_1fr] gap-4 py-3 sm:grid-cols-[180px_1fr]">
+                            <div class="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-3 py-3 [overflow-wrap:anywhere] sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-4">
                                 <span class="text-ink-500 font-medium">Merek</span>
                                 <span class="font-semibold text-ink-900">{{ $product->brand->name }}</span>
                             </div>
@@ -536,7 +557,7 @@
 
                         {{-- Baris Satuan Penjualan --}}
                         @if($product->unit)
-                            <div class="grid grid-cols-[140px_1fr] gap-4 py-3 sm:grid-cols-[180px_1fr]">
+                            <div class="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-3 py-3 [overflow-wrap:anywhere] sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-4">
                                 <span class="text-ink-500 font-medium">Satuan Penjualan</span>
                                 <span class="font-semibold text-ink-900">{{ $product->unit }}</span>
                             </div>
@@ -545,7 +566,7 @@
                         {{-- Baris Spesifikasi Dinamis dari Database --}}
                         @if(! empty($product->specifications))
                             @foreach($product->specifications as $attr => $val)
-                                <div class="grid grid-cols-[140px_1fr] gap-4 py-3 sm:grid-cols-[180px_1fr]">
+                                <div class="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-3 py-3 [overflow-wrap:anywhere] sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-4">
                                     <span class="text-ink-500 font-medium">{{ $attr }}</span>
                                     <span class="font-semibold text-ink-900">{{ $val }}</span>
                                 </div>
@@ -556,7 +577,7 @@
 
                 {{-- Deskripsi Produk dengan Clamp "Lihat Selengkapnya" --}}
                 @if($product->description)
-                    <section class="rounded-2xl border border-ink-100 bg-white p-6 shadow-sm sm:p-8">
+                    <section class="rounded-2xl border border-ink-100 bg-white p-4 shadow-sm sm:p-8">
                         <h2 class="font-display text-xl font-bold text-ink-950 sm:text-2xl">Deskripsi Produk</h2>
                         
                         <div class="relative mt-4">
@@ -584,7 +605,7 @@
             <div class="space-y-8">
                 {{-- FAQ Produk --}}
                 @if($product->faqs->isNotEmpty())
-                    <section class="rounded-2xl border border-ink-100 bg-white p-6 shadow-sm sm:p-8">
+                    <section class="rounded-2xl border border-ink-100 bg-white p-4 shadow-sm sm:p-8">
                         <div class="flex items-center gap-2">
                             <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
                                 <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -607,7 +628,7 @@
 
                 {{-- Artikel Terkait --}}
                 @if($articles->isNotEmpty())
-                    <section class="rounded-2xl border border-ink-100 bg-white p-6 shadow-sm sm:p-8">
+                    <section class="rounded-2xl border border-ink-100 bg-white p-4 shadow-sm sm:p-8">
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="font-display text-xl font-bold text-ink-950">Panduan & Artikel</h2>
                             <a href="{{ route('article.index') }}" class="text-xs font-semibold text-brand-600 hover:underline">Semua Artikel →</a>
@@ -659,14 +680,14 @@
     </div>
 
     {{-- ==================== MODAL PILIHAN KANAL MARKETPLACE ==================== --}}
-    <div id="channel-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
-        <div class="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl transition-all">
+    <div id="channel-modal" class="fixed inset-0 z-50 hidden flex items-end justify-center bg-black/60 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="channel-modal-title">
+        <div class="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-3xl sm:p-6">
             <div class="flex items-center justify-between border-b border-ink-100 pb-4">
                 <div>
-                    <h3 class="font-display text-lg font-extrabold text-ink-950">Pilih Toko Rekanan Resmi</h3>
+                    <h3 id="channel-modal-title" class="font-display text-lg font-extrabold text-ink-950">Pilih Toko Rekanan Resmi</h3>
                     <p class="text-xs text-ink-500 mt-0.5">Beli di marketplace resmi rekanan Supermaterial</p>
                 </div>
-                <button type="button" id="close-channel-modal" class="flex h-8 w-8 items-center justify-center rounded-full bg-ink-100 text-ink-600 hover:bg-ink-200" aria-label="Tutup modal">
+                <button type="button" id="close-channel-modal" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ink-100 text-ink-600 hover:bg-ink-200" aria-label="Tutup modal">
                     <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
             </div>
@@ -717,12 +738,12 @@
     </div>
 
     {{-- ==================== LIGHTBOX MODAL FULLSCREEN ==================== --}}
-    <div id="lightbox-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/95 p-4 backdrop-blur-md" role="dialog" aria-modal="true">
-        <button type="button" id="close-lightbox" class="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30">
+    <div id="lightbox-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/95 p-4" role="dialog" aria-modal="true" aria-label="Galeri produk">
+        <button type="button" id="close-lightbox" aria-label="Tutup" class="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30">
             <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
 
-        <button type="button" id="lightbox-prev" class="absolute left-4 top-1/2 z-20 -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30">
+        <button type="button" id="lightbox-prev" aria-label="Media sebelumnya" class="absolute left-4 top-1/2 z-20 -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30">
             <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
         </button>
 
@@ -730,14 +751,14 @@
             {{-- Injected dynamically via JS --}}
         </div>
 
-        <button type="button" id="lightbox-next" class="absolute right-4 top-1/2 z-20 -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30">
+        <button type="button" id="lightbox-next" aria-label="Media selanjutnya" class="absolute right-4 top-1/2 z-20 -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30">
             <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
         </button>
     </div>
 
     {{-- ==================== MOBILE STICKY PURCHASE BAR ==================== --}}
     @if($channels->isNotEmpty())
-        <div class="fixed inset-x-0 bottom-0 z-40 border-t border-ink-100 bg-white/95 p-3 backdrop-blur shadow-2xl lg:hidden">
+        <div class="fixed inset-x-0 bottom-0 z-40 border-t border-ink-100 bg-white p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(11,15,25,0.08)] lg:hidden">
             <div class="flex items-center gap-3">
                 @if($whatsappChannel)
                     <button type="button" id="mobile-sticky-wa"
@@ -749,13 +770,11 @@
 
                 <div class="flex-1 min-w-0">
                     <p class="text-[11px] text-ink-500 truncate" id="mobile-sticky-title">{{ $product->name }}</p>
-                    <p class="font-display text-base font-extrabold text-brand-600" id="mobile-sticky-price">
-                        {{ $initialVariant ? $initialVariant->formattedPrice : ($product->priceLabel() ?? 'Cek harga') }}
-                    </p>
+                    <p class="truncate font-display text-base font-extrabold text-brand-600" id="mobile-sticky-price">{{ $initialPrice ?: ($product->priceLabel() ?? 'Cek harga') }}</p>
                 </div>
 
                 <button type="button" id="mobile-sticky-buy"
-                        class="btn bg-brand-400 px-5 py-2.5 text-sm font-bold text-(--color-on-accent) shadow-md hover:bg-brand-300">
+                        class="btn shrink-0 bg-brand-400 px-5 py-3 text-sm font-bold text-(--color-on-accent) shadow-md hover:bg-brand-300">
                     <span>Beli Sekarang</span>
                 </button>
             </div>
@@ -769,6 +788,12 @@
             let currentMediaIndex = 0;
             let selectedVariant = P.initialVariantId ? P.variants.find(v => v.id === P.initialVariantId) : null;
             let currentQty = 1;
+            let showingVariantImage = false;
+
+            // Teks dari admin (alt, nama varian) tidak boleh ditafsirkan sebagai HTML saat disisipkan lewat innerHTML
+            const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+            const mainImageHtml = (src, srcset, alt) => `<img id="main-image-el" src="${esc(src)}"${srcset ? ` srcset="${esc(srcset)}" sizes="${esc(P.gallerySizes)}"` : ''} alt="${esc(alt)}" width="800" height="800" class="h-full w-full object-contain p-2 md:p-4 transition duration-300">`;
+            const openExternal = (url) => window.open(url, '_blank', 'noopener');
 
             // Elements
             const mainMediaContainer = document.getElementById('main-media-container');
@@ -821,10 +846,11 @@
                 }
 
                 // Render main media
+                showingVariantImage = false;
                 if (m.isVideo) {
                     mainMediaContainer.innerHTML = `
-                        <div class="relative h-full w-full cursor-pointer group" id="video-preview-trigger" data-embed="${m.embedUrl}">
-                            <img id="main-image-el" src="${m.posterUrl}" alt="${m.alt}" width="800" height="800" class="h-full w-full object-contain p-2 md:p-4">
+                        <div class="relative h-full w-full cursor-pointer group" id="video-preview-trigger">
+                            ${mainImageHtml(m.url, m.srcset, m.alt)}
                             <div class="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition">
                                 <div class="flex h-16 w-16 items-center justify-center rounded-full bg-rose-600 text-white shadow-xl group-hover:scale-110 transition">
                                     <svg viewBox="0 0 24 24" class="ml-1 h-8 w-8 fill-current"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -836,25 +862,43 @@
                         playMainVideo(m.embedUrl);
                     });
                 } else {
-                    mainMediaContainer.innerHTML = `
-                        <img id="main-image-el" src="${m.url}" alt="${m.alt}" width="800" height="800" class="h-full w-full object-contain p-2 md:p-4 transition duration-300">
-                    `;
+                    mainMediaContainer.innerHTML = mainImageHtml(m.url, m.srcset, m.alt);
                 }
             }
 
             function playMainVideo(embedUrl) {
                 if (!embedUrl) return;
                 mainMediaContainer.innerHTML = `
-                    <iframe src="${embedUrl}" title="Video Produk" class="h-full w-full rounded-2xl" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                    <iframe src="${esc(embedUrl)}" title="Video Produk" class="h-full w-full rounded-2xl" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
                 `;
             }
 
-            // Thumbnail Click & Hover
+            // Thumbnail: klik/tap memilih; hover hanya untuk perangkat dengan mouse (di layar sentuh memicu render ganda)
+            const canHover = window.matchMedia('(hover: hover)').matches;
             document.querySelectorAll('.thumb-btn').forEach(btn => {
                 const idx = parseInt(btn.dataset.mediaIndex, 10);
                 btn.addEventListener('click', () => switchMedia(idx));
-                btn.addEventListener('mouseenter', () => switchMedia(idx));
+                if (canHover) btn.addEventListener('mouseenter', () => { if (idx !== currentMediaIndex || showingVariantImage) switchMedia(idx); });
             });
+
+            // Geser (swipe) kiri/kanan pada gambar utama untuk berpindah media di layar sentuh
+            if (P.media && P.media.length > 1) {
+                let touchX = null;
+                let touchY = null;
+                mainMediaContainer.addEventListener('touchstart', (e) => {
+                    touchX = e.touches[0].clientX;
+                    touchY = e.touches[0].clientY;
+                }, { passive: true });
+                mainMediaContainer.addEventListener('touchend', (e) => {
+                    if (touchX === null || mainMediaContainer.querySelector('iframe')) return;
+                    const dx = e.changedTouches[0].clientX - touchX;
+                    const dy = e.changedTouches[0].clientY - touchY;
+                    touchX = null;
+                    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+                    switchMedia(currentMediaIndex + (dx < 0 ? 1 : -1));
+                    document.querySelector(`.thumb-btn[data-media-index="${currentMediaIndex}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center' });
+                }, { passive: true });
+            }
 
             // Thumbnail Strip Scroll Buttons
             const thumbStrip = document.getElementById('thumbnail-strip');
@@ -893,14 +937,19 @@
                 const m = P.media[currentMediaIndex];
                 if (m.isVideo && m.embedUrl) {
                     lightboxContent.innerHTML = `
-                        <iframe src="${m.embedUrl}" class="w-[85vw] h-[55vh] md:w-[70vw] md:h-[65vh] rounded-xl" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+                        <iframe src="${esc(m.embedUrl)}" title="Video Produk" class="w-[92vw] aspect-video md:w-[70vw] rounded-xl" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
                     `;
                 } else {
                     lightboxContent.innerHTML = `
-                        <img src="${m.url}" alt="${m.alt}" class="max-h-[85vh] max-w-[90vw] object-contain rounded-xl">
+                        <img src="${esc(m.fullUrl || m.url)}" alt="${esc(m.alt)}" class="max-h-[85vh] max-w-[92vw] object-contain rounded-xl">
                     `;
                 }
             }
+
+            // Tap di area gelap menutup lightbox
+            lightboxModal.addEventListener('click', (e) => {
+                if (e.target === lightboxModal) closeLightboxModal();
+            });
 
             if (btnOpenLightbox) btnOpenLightbox.addEventListener('click', openLightbox);
             if (closeLightbox) closeLightbox.addEventListener('click', closeLightboxModal);
@@ -933,10 +982,10 @@
                 document.querySelectorAll('.variant-btn').forEach(btn => {
                     const id = parseInt(btn.dataset.variantId, 10);
                     if (id === v.id) {
-                        btn.className = 'variant-btn relative flex items-center gap-2 rounded-xl border border-brand-600 ring-2 ring-brand-500/20 bg-brand-50/40 text-brand-700 font-semibold px-3.5 py-2 text-sm shadow-sm transition-all';
+                        btn.className = 'variant-btn relative flex min-h-11 items-center gap-2 rounded-xl border border-brand-600 ring-2 ring-brand-500/20 bg-brand-50/40 text-brand-700 font-semibold px-3.5 py-2 text-left text-sm shadow-sm transition-all';
                         btn.setAttribute('aria-checked', 'true');
                     } else {
-                        btn.className = 'variant-btn relative flex items-center gap-2 rounded-xl border border-ink-200 bg-white text-ink-800 hover:border-brand-400 px-3.5 py-2 text-sm transition-all';
+                        btn.className = 'variant-btn relative flex min-h-11 items-center gap-2 rounded-xl border border-ink-200 bg-white text-ink-800 hover:border-brand-400 px-3.5 py-2 text-left text-sm transition-all';
                         btn.setAttribute('aria-checked', 'false');
                     }
                 });
@@ -947,7 +996,7 @@
 
                 // Update Prices in Price Block
                 if (priceMain && v.formattedPrice) {
-                    priceMain.textContent = v.formattedPrice + (P.unit ? ' / ' + P.unit : '');
+                    priceMain.textContent = v.formattedPrice + P.priceSuffix;
                 }
                 if (mobileStickyPrice && v.formattedPrice) {
                     mobileStickyPrice.textContent = v.formattedPrice;
@@ -976,13 +1025,13 @@
 
                 // Switch gallery media if variant has specific image
                 if (v.image) {
-                    const matchingIdx = P.media.findIndex(m => m.url === v.image || m.posterUrl === v.image);
+                    const matchingIdx = P.media.findIndex(m => m.rawUrl === v.image || m.rawPosterUrl === v.image);
                     if (matchingIdx !== -1) {
-                        switchMedia(matchingIdx);
+                        // Gambar yang sama sudah tampil: jangan dirender ulang (menghindari kedipan dan unduhan ulang)
+                        if (matchingIdx !== currentMediaIndex || showingVariantImage) switchMedia(matchingIdx);
                     } else {
-                        mainMediaContainer.innerHTML = `
-                            <img id="main-image-el" src="${v.image}" alt="${v.name}" width="800" height="800" class="h-full w-full object-contain p-2 md:p-4 transition duration-300">
-                        `;
+                        mainMediaContainer.innerHTML = mainImageHtml(v.displayImage || v.image, v.displaySrcset, v.name);
+                        showingVariantImage = true;
                     }
                 }
 
@@ -1012,9 +1061,10 @@
 
             // --- 3. STEPPER KUANTITAS ---
             function updateQty(newQty) {
-                currentQty = Math.max(1, newQty);
+                currentQty = Math.min(9999, Math.max(1, newQty));
                 if (qtyInput) qtyInput.value = currentQty;
                 if (qtyMinus) qtyMinus.disabled = currentQty <= 1;
+                if (qtyPlus) qtyPlus.disabled = currentQty >= 9999;
             }
 
             if (qtyMinus) qtyMinus.addEventListener('click', () => updateQty(currentQty - 1));
@@ -1057,6 +1107,12 @@
                 return `https://wa.me/${number}?text=${encodeURIComponent(msg)}`;
             }
 
+            function setChannelModal(open) {
+                channelModal.classList.toggle('hidden', !open);
+                document.body.style.overflow = open ? 'hidden' : '';
+                if (open) closeChannelModal?.focus();
+            }
+
             function handleBuyAction() {
                 if (!validateSelection()) return;
 
@@ -1071,11 +1127,11 @@
 
                 if (P.marketplaceChannels.length === 1) {
                     const firstLink = document.querySelector('.channel-redirect-btn');
-                    if (firstLink) window.open(firstLink.href, '_blank');
+                    if (firstLink) openExternal(firstLink.href);
                 } else if (P.marketplaceChannels.length > 1) {
-                    channelModal.classList.remove('hidden');
+                    setChannelModal(true);
                 } else {
-                    window.open(getWhatsappUrl(), '_blank');
+                    openExternal(getWhatsappUrl());
                 }
             }
 
@@ -1084,7 +1140,7 @@
             if (btnActionWa) {
                 btnActionWa.addEventListener('click', () => {
                     if (!validateSelection()) return;
-                    window.open(getWhatsappUrl(), '_blank');
+                    openExternal(getWhatsappUrl());
                 });
             }
 
@@ -1095,7 +1151,7 @@
             if (btnActionBuyConsult) {
                 btnActionBuyConsult.addEventListener('click', () => {
                     if (!validateSelection()) return;
-                    window.open(getWhatsappUrl(), '_blank');
+                    openExternal(getWhatsappUrl());
                 });
             }
 
@@ -1104,7 +1160,7 @@
             if (mobileStickyWa) {
                 mobileStickyWa.addEventListener('click', () => {
                     if (!validateSelection()) return;
-                    window.open(getWhatsappUrl(), '_blank');
+                    openExternal(getWhatsappUrl());
                 });
             }
 
@@ -1113,18 +1169,21 @@
 
             // Channel Modal Close
             if (closeChannelModal) {
-                closeChannelModal.addEventListener('click', () => channelModal.classList.add('hidden'));
+                closeChannelModal.addEventListener('click', () => setChannelModal(false));
             }
             channelModal.addEventListener('click', (e) => {
-                if (e.target === channelModal) channelModal.classList.add('hidden');
+                if (e.target === channelModal) setChannelModal(false);
+            });
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && !channelModal.classList.contains('hidden')) setChannelModal(false);
             });
 
             const modalWaBtn = document.getElementById('modal-wa-btn');
             if (modalWaBtn) {
                 modalWaBtn.addEventListener('click', () => {
                     if (!validateSelection()) return;
-                    channelModal.classList.add('hidden');
-                    window.open(getWhatsappUrl(), '_blank');
+                    setChannelModal(false);
+                    openExternal(getWhatsappUrl());
                 });
             }
 
@@ -1171,8 +1230,9 @@
                 relNext.addEventListener('click', () => relCarousel.scrollBy({ left: 260, behavior: 'smooth' }));
             }
 
-            // If initial variant existed from query string, apply initial state
-            if (selectedVariant) {
+            // Harga & pilihan awal sudah dirender server. Hanya varian dari tautan ?varian= yang perlu
+            // diterapkan ulang (untuk memindahkan galeri ke gambar varian itu).
+            if (selectedVariant && P.preselected) {
                 selectVariant(selectedVariant);
             }
         });

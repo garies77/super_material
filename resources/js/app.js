@@ -215,8 +215,20 @@ document.querySelectorAll('[data-autosubmit]').forEach((el) => {
     });
 });
 
+// Menu lipat mobile (<details>): tutup saat mengetuk di luar menu atau membuka pencarian
+const mobileMenu = document.querySelector('[data-mobile-menu]');
+if (mobileMenu) {
+    document.addEventListener('click', (e) => {
+        if (mobileMenu.open && !mobileMenu.contains(e.target)) mobileMenu.open = false;
+    });
+}
+
 document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
+    if (mobileMenu?.open) {
+        mobileMenu.open = false;
+        mobileMenu.querySelector('summary')?.focus();
+    }
     if (searchOverlay && !searchOverlay.classList.contains('hidden')) setSearch(false);
     if (filterPanel && !filterPanel.classList.contains('hidden') && !desktop.matches) setFilter(false);
 });

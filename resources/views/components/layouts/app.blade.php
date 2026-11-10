@@ -166,7 +166,7 @@
 <body class="flex min-h-screen flex-col">
     <a href="#konten" class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2">Lewati ke konten</a>
 
-    <header class="sticky top-0 z-40 border-b border-ink-100 bg-white/85 backdrop-blur-lg">
+    <header class="sticky top-0 z-40 border-b border-ink-100 bg-white lg:bg-white/85 lg:backdrop-blur-lg">
         <div class="container-x flex h-16 items-center justify-between gap-2">
             <a href="{{ route('home') }}" class="flex shrink-0 items-center gap-2.5" aria-label="{{ $siteName }} — beranda">
                 @if($siteLogo = Setting::logoUrl())
@@ -203,23 +203,23 @@
     @endphp
     <div id="search-overlay" data-nosnippet data-search-overlay data-search-live="{{ route('search.live') }}" data-search-type="{{ $searchType }}"
          role="dialog" aria-modal="true" aria-label="Pencarian" class="fixed inset-0 z-50 hidden">
-        <div data-search-close class="absolute inset-0 bg-ink-950/60 backdrop-blur-sm"></div>
+        <div data-search-close class="absolute inset-0 bg-ink-950/60 lg:backdrop-blur-sm"></div>
         <div class="relative mx-auto mt-3 flex max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-2xl flex-col rounded-2xl bg-white p-3 shadow-2xl sm:mt-24 sm:max-h-[calc(100dvh-8rem)] sm:p-4">
             <form action="{{ route('search') }}" method="get" role="search" class="flex shrink-0 items-center gap-2">
                 @if($searchType)<input type="hidden" name="type" value="{{ $searchType }}">@endif
                 <label for="search-input" class="sr-only">Kata kunci</label>
                 <svg viewBox="0 0 24 24" class="ml-2 h-5 w-5 shrink-0 text-ink-400" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
                 <input id="search-input" name="q" type="search" value="{{ request('q') }}" autocomplete="off" placeholder="{{ $searchPlaceholder }}"
-                       role="combobox" aria-autocomplete="list" aria-controls="search-results" aria-expanded="false" maxlength="100"
+                       role="combobox" aria-autocomplete="list" aria-controls="search-results" aria-expanded="false" maxlength="100" enterkeyhint="search"
                        class="min-w-0 flex-1 bg-transparent px-2 py-3 text-base outline-none placeholder:text-ink-400">
                 <span data-search-spinner class="hidden h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-ink-200 border-t-brand-500" aria-hidden="true"></span>
-                <button type="submit" class="btn btn-primary !px-4 !py-2.5">Cari</button>
+                <button type="submit" class="btn btn-primary hidden !px-4 !py-2.5 min-[400px]:inline-flex">Cari</button>
                 <button type="button" data-search-close class="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-ink-400 hover:bg-ink-50 hover:text-ink-900" aria-label="Tutup pencarian">
                     <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
                 </button>
             </form>
             <div id="search-results" data-search-results role="listbox" aria-label="Hasil pencarian" class="mt-2 min-h-0 flex-1 overflow-y-auto overscroll-contain"></div>
-            <p data-search-status aria-live="polite" class="mt-2 shrink-0 px-2 text-xs text-ink-400">Contoh: semen 50 kg, keramik 40x40, besi ulir. Tekan <kbd class="rounded border border-ink-200 px-1">Esc</kbd> untuk menutup.</p>
+            <p data-search-status aria-live="polite" class="mt-2 shrink-0 px-2 text-xs text-ink-400">Contoh: semen 50 kg, keramik 40x40, besi ulir.<span class="hidden lg:inline"> Tekan <kbd class="rounded border border-ink-200 px-1">Esc</kbd> untuk menutup.</span></p>
         </div>
     </div>
 

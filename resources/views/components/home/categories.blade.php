@@ -7,9 +7,9 @@
     <section @class(['container-x relative', '-mt-10' => $overlap, 'mt-20' => ! $overlap]) aria-label="{{ $section->title ?: 'Kategori' }}">
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 {{ $cols }}">
             @foreach($categories as $c)
-                <a href="{{ $c->url() }}" class="card card-hover group flex items-center gap-4 p-4">
+                <a href="{{ $c->url() }}" class="card card-hover group flex items-center gap-3 p-3 sm:gap-4 sm:p-4">
                     @if($c->image)
-                        <img src="{{ preg_match('#^https?://#', $c->image) ? $c->image : asset('storage/'.ltrim($c->image, '/')) }}" alt="" loading="lazy"
+                        <img src="{{ \App\Support\ImageDerivatives::resized(preg_match('#^https?://#', $c->image) ? $c->image : asset('storage/'.ltrim($c->image, '/')), 96) }}" alt="" loading="lazy" decoding="async"
                              width="48" height="48" class="h-12 w-12 shrink-0 rounded-xl bg-brand-50 object-cover ring-1 ring-ink-100 transition group-hover:ring-brand-500">
                     @else
                         <span class="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-brand-50 font-display text-xl font-bold text-brand-600 transition group-hover:bg-brand-500 group-hover:text-white">{{ mb_strtoupper(mb_substr($c->name, 0, 1)) }}</span>

@@ -35,17 +35,20 @@
 
 @unless($compact)
     {{-- Mobile: menu lipat tanpa JavaScript --}}
-    <details class="relative md:hidden">
-        <summary class="grid h-11 cursor-pointer list-none place-items-center rounded-xl border border-ink-200 bg-white px-3 text-sm font-semibold text-ink-800 [&::-webkit-details-marker]:hidden">Menu</summary>
-        <div class="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-ink-100 bg-white p-2 shadow-lg">
+    <details data-mobile-menu class="relative md:hidden">
+        <summary class="flex h-11 cursor-pointer list-none items-center gap-1.5 rounded-xl border border-ink-200 bg-white px-3 text-sm font-semibold text-ink-800 [&::-webkit-details-marker]:hidden">
+            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+            Menu
+        </summary>
+        <div class="absolute right-0 top-full z-50 mt-2 max-h-[calc(100dvh-5.5rem)] w-[min(18rem,calc(100vw-2rem))] overflow-y-auto overscroll-contain rounded-xl border border-ink-100 bg-white p-2 shadow-lg">
             @foreach($items as $item)
                 @if($item['href'])
-                    <a href="{{ $item['href'] }}" {!! $target($item) !!} class="block rounded-lg px-3 py-2 text-sm font-semibold {{ $isActive($item) ? 'bg-brand-50 text-brand-700' : 'text-ink-800 hover:bg-ink-50' }}">{{ $item['label'] }}</a>
+                    <a href="{{ $item['href'] }}" {!! $target($item) !!} class="block rounded-lg px-3 py-3 text-sm font-semibold {{ $isActive($item) ? 'bg-brand-50 text-brand-700' : 'text-ink-800 hover:bg-ink-50' }}">{{ $item['label'] }}</a>
                 @else
                     <p class="px-3 pb-1 pt-2 text-xs font-bold uppercase tracking-wider text-ink-400">{{ $item['label'] }}</p>
                 @endif
                 @foreach($item['children'] ?? [] as $child)
-                    <a href="{{ $child['href'] }}" {!! $target($child) !!} class="block rounded-lg py-2 pl-6 pr-3 text-sm text-ink-700 hover:bg-ink-50">{{ $child['label'] }}</a>
+                    <a href="{{ $child['href'] }}" {!! $target($child) !!} class="block rounded-lg py-3 pl-6 pr-3 text-sm text-ink-700 hover:bg-ink-50">{{ $child['label'] }}</a>
                 @endforeach
             @endforeach
         </div>

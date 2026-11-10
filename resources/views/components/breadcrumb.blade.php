@@ -18,15 +18,15 @@
     ];
 @endphp
 @push('jsonld')<x-jsonld :data="$ld" />@endpush
-<nav aria-label="Breadcrumb" class="mb-6 text-sm text-ink-400">
-    <ol class="flex flex-wrap items-center gap-1.5">
+<nav aria-label="Breadcrumb" class="mb-4 text-sm text-ink-400 sm:mb-6">
+    <ol class="no-scrollbar flex items-center gap-1.5 overflow-x-auto whitespace-nowrap sm:flex-wrap sm:whitespace-normal">
         @foreach($trail as $i => $t)
-            <li class="flex items-center gap-1.5">
+            <li class="flex shrink-0 items-center gap-1.5 sm:min-w-0 sm:shrink">
                 @if($i > 0)<span aria-hidden="true">/</span>@endif
                 @if(! $loop->last && ! empty($t[1]))
                     <a href="{{ $t[1] }}" class="transition hover:text-brand-700">{{ $t[0] }}</a>
                 @else
-                    <span class="font-medium text-ink-600" aria-current="page">{{ $t[0] }}</span>
+                    <span class="max-w-[70vw] truncate font-medium text-ink-600 sm:max-w-md" aria-current="page">{{ $t[0] }}</span>
                 @endif
             </li>
         @endforeach
