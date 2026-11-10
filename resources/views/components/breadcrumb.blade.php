@@ -21,7 +21,8 @@
 <nav aria-label="Breadcrumb" class="mb-4 text-sm text-ink-400 sm:mb-6">
     <ol class="no-scrollbar flex items-center gap-1.5 overflow-x-auto whitespace-nowrap sm:flex-wrap sm:whitespace-normal">
         @foreach($trail as $i => $t)
-            <li class="flex shrink-0 items-center gap-1.5 sm:min-w-0 sm:shrink">
+            {{-- Item terakhir boleh menyusut agar judul panjang berakhir dengan "…" di layar sempit --}}
+            <li @class(['flex items-center gap-1.5', 'min-w-0 shrink' => $loop->last, 'shrink-0 sm:min-w-0 sm:shrink' => ! $loop->last])>
                 @if($i > 0)<span aria-hidden="true">/</span>@endif
                 @if(! $loop->last && ! empty($t[1]))
                     <a href="{{ $t[1] }}" class="transition hover:text-brand-700">{{ $t[0] }}</a>
