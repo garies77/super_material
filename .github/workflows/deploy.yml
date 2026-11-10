@@ -1,14 +1,13 @@
-# Tes otomatis + deploy ke shared hosting tanpa SSH (lewat FTP). Panduan lengkap: DEPLOY.md
+# Tes otomatis + deploy ke shared hosting lewat SSH. Panduan lengkap: DEPLOY.md
 #
 # Alur:
 #   1. Setiap push / pull request: semua tes dijalankan, ditambah uji migrasi + cadangan/pulih di MariaDB.
 #   2. Hanya push ke main (atau tombol "Run workflow" dari main untuk versi yang sudah ada di main) yang di-deploy,
 #      dan hanya setelah semua tes lulus.
-#   3. Sebelum situs disentuh: cron hosting dipastikan hidup (berkas detak dari deploy:finish).
-#   4. Situs masuk mode pemeliharaan, file yang berubah di-upload lewat FTP (.env & storage/ tidak pernah disentuh),
-#      lalu file RELEASE di-upload terakhir.
-#   5. Cron menjalankan `deploy:finish`: cadangan database (bila ada migrasi baru), migrasi, cache, buka situs.
-#   6. Workflow menunggu hasilnya, lalu mengecek halaman situs dan memastikan berkas rahasia tidak bisa diakses publik.
+#   3. Kode produksi dikemas menjadi satu arsip lalu dikirim lewat SSH (.env & storage/ tidak pernah disentuh).
+#   4. Di server: mode pemeliharaan, arsip dibongkar, lalu `deploy:finish` (cadangan database bila ada migrasi baru,
+#      migrasi, cache, buka situs). Situs hanya tertutup beberapa detik.
+#   5. Workflow mengecek halaman situs dan memastikan berkas rahasia tidak bisa diakses publik.
 #
 # Rollback: Actions -> "Tes & deploy" -> Run workflow (branch main) -> isi kode commit versi lama yang ada di main.
 # Darurat : Actions -> "Darurat: buka mode pemeliharaan".
@@ -99,32 +98,35 @@ jobs:
     # Hanya dari branch main: push (setelah merge) atau Run workflow yang dijalankan dari main
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
-    # Deploy pertama meng-upload seluruh vendor/ (ribuan file) dan bisa lama; berikutnya hanya file yang berubah
-    timeout-minutes: 120
+    timeout-minutes: 30
     environment: production
     # Satu deploy dalam satu waktu; deploy berikutnya menunggu, tidak membatalkan yang sedang berjalan
     concurrency:
       group: production-deploy
       cancel-in-progress: false
     env:
-      FTP_SERVER: ${{ secrets.FTP_SERVER }}
-      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
-      FTP_SERVER_DIR: ${{ vars.FTP_SERVER_DIR }}
-      FTP_PROTOCOL: ${{ vars.FTP_PROTOCOL || 'ftps' }}
+      SSH_HOST: ${{ vars.SSH_HOST }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      SSH_PORT: ${{ vars.SSH_PORT }}
+      SSH_USER: ${{ vars.SSH_USER }}
+      # Sidik jari kunci host ED25519 (hPanel -> SSH Access): koneksi ditolak bila yang menjawab bukan server kita
+      SSH_HOST_FINGERPRINT: ${{ vars.SSH_HOST_FINGERPRINT }}
+      SSH_PHP: ${{ vars.SSH_PHP || '/opt/alt/php84/usr/bin/php' }}
+      # Folder proyek (berisi artisan) relatif dari folder home akun hosting, diakhiri /
+      APP_DIR: ${{ vars.FTP_SERVER_DIR }}
       SITE_URL: ${{ vars.SITE_URL }}
     steps:
       - name: Periksa pengaturan
         run: |
           missing=""
-          for name in FTP_SERVER FTP_USERNAME FTP_PASSWORD FTP_SERVER_DIR SITE_URL; do
+          for name in SSH_HOST SSH_PRIVATE_KEY SSH_PORT SSH_USER SSH_HOST_FINGERPRINT APP_DIR SITE_URL; do
             [ -n "${!name}" ] || missing="$missing $name"
           done
           if [ -n "$missing" ]; then
             echo "::error::Pengaturan belum diisi:$missing (lihat DEPLOY.md bagian Pengaturan GitHub)"
             exit 1
           fi
-          case "$FTP_SERVER_DIR" in */) ;; *) echo "::error::FTP_SERVER_DIR harus diakhiri tanda /"; exit 1 ;; esac
+          case "$APP_DIR" in */) ;; *) echo "::error::FTP_SERVER_DIR harus diakhiri tanda /"; exit 1 ;; esac
 
       - uses: actions/checkout@v4
         with:
@@ -139,6 +141,28 @@ jobs:
             exit 1
           fi
 
+      - name: Siapkan SSH
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$SSH_PORT" -t ed25519 "$SSH_HOST" 2>/dev/null > "$RUNNER_TEMP/host_key"
+          actual=$(ssh-keygen -lf "$RUNNER_TEMP/host_key" | awk '{print $2}')
+          if [ "$actual" != "$SSH_HOST_FINGERPRINT" ]; then
+            echo "::error::Sidik jari server SSH (${actual:-tidak terbaca}) tidak cocok dengan SSH_HOST_FINGERPRINT. Situs TIDAK disentuh."
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/host_key" >> ~/.ssh/known_hosts
+          {
+            echo "Host hosting"
+            echo "  HostName $SSH_HOST"
+            echo "  Port $SSH_PORT"
+            echo "  User $SSH_USER"
+            echo "  IdentityFile ~/.ssh/deploy_key"
+            echo "  IdentitiesOnly yes"
+            echo "  ServerAliveInterval 15"
+          } > ~/.ssh/config
+          ssh hosting "test -f '${APP_DIR}artisan'" || { echo "::error::${APP_DIR}artisan tidak ditemukan di server. Situs TIDAK disentuh."; exit 1; }
+
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ env.PHP_VERSION }}
@@ -152,175 +176,48 @@ jobs:
 
       - name: Rakit kode produksi
         run: |
-          # .env sementara hanya untuk skrip composer (package:discover, filament:upgrade); tidak ikut di-upload
+          # .env sementara hanya untuk skrip composer (package:discover, filament:upgrade); tidak ikut dikirim
           cp .env.example .env
           composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-progress
           npm ci && npm run build
           rm -f .env
           echo "RELEASE=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
 
-      - name: Siapkan perintah FTP
+      # Tidak pernah dikirim (jadi tidak pernah ditimpa di server): .env, storage/ (foto produk, unggahan, log,
+      # cadangan), symlink public/storage, cache config/route milik server di bootstrap/cache
+      - name: Kemas arsip rilis
         run: |
-          cat > "$RUNNER_TEMP/ftp.sh" <<'SH'
-          # ftp_put <file lokal> <path relatif FTP_SERVER_DIR> | ftp_get <path> | ftp_delete <path>
-          ssl=(); [ "$FTP_PROTOCOL" = "ftps" ] && ssl=(--ssl-reqd)
-          base="ftp://$FTP_SERVER/"
-          ftp_put()    { curl -sS "${ssl[@]}" --user "$FTP_USERNAME:$FTP_PASSWORD" --ftp-create-dirs -T "$1" "$base$FTP_SERVER_DIR$2"; }
-          ftp_get()    { curl -sS "${ssl[@]}" --user "$FTP_USERNAME:$FTP_PASSWORD" "$base$FTP_SERVER_DIR$1"; }
-          ftp_delete() { curl -sS "${ssl[@]}" --user "$FTP_USERNAME:$FTP_PASSWORD" "$base" -Q "DELE $FTP_SERVER_DIR$1" -o /dev/null; }
-          SH
+          tar -czf "$RUNNER_TEMP/release.tar.gz" \
+            --exclude=./.git --exclude='./.git*' --exclude=./node_modules --exclude=./.github --exclude=./.claude \
+            --exclude=./.env --exclude='./.env.*' --exclude=./.editorconfig --exclude=./.mcp.json --exclude=./.npmrc \
+            --exclude='./*.md' --exclude=./boost.json --exclude=./phpunit.xml --exclude=./package.json \
+            --exclude=./package-lock.json --exclude=./vite.config.js --exclude=./RELEASE --exclude=./scratch \
+            --exclude=./tests --exclude=./storage --exclude=./public/storage --exclude=./public/hot \
+            --exclude=./bootstrap/cache/config.php --exclude='./bootstrap/cache/routes-*.php' --exclude=./bootstrap/cache/events.php \
+            .
+          ls -lh "$RUNNER_TEMP/release.tar.gz"
 
-      # FTPS memeriksa nama di sertifikat server: FTP_SERVER harus memakai nama itu, bukan alamat IP
-      - name: Nama di sertifikat FTPS
-        if: env.FTP_PROTOCOL == 'ftps'
-        continue-on-error: true
+      - name: Kirim arsip
         run: |
-          echo | timeout 20 openssl s_client -connect "$FTP_SERVER:21" -starttls ftp 2>/dev/null \
-            | openssl x509 -noout -subject -ext subjectAltName || echo "Sertifikat tidak terbaca"
+          ssh hosting "mkdir -p ~/deploy-releases"
+          scp -q "$RUNNER_TEMP/release.tar.gz" "hosting:deploy-releases/$RELEASE.tar.gz"
 
-      - name: Pastikan cron hosting hidup
+      # Situs tertutup hanya selama arsip dibongkar + deploy:finish (cadangan database bila ada migrasi baru, migrasi,
+      # cache, buka situs). Bila deploy:finish gagal, situs sengaja tetap dalam pemeliharaan agar data aman.
+      - name: Pasang rilis
+        id: install
         run: |
-          source "$RUNNER_TEMP/ftp.sh"
-          # Deploy pertama: deploy:finish belum ada di server, jadi belum ada detak (cron wajib disiapkan dulu, lihat DEPLOY.md)
-          if ! ftp_get RELEASE > /dev/null 2>&1; then
-            echo "::warning::Deploy pertama: detak cron belum bisa diperiksa. Pastikan cron schedule:run tiap menit sudah aktif."
-            exit 0
-          fi
-          beat=$(ftp_get storage/app/deploy/heartbeat 2>/dev/null || true)
-          if [ -z "$beat" ] || [ $(( $(date -u +%s) - $(date -u -d "$beat" +%s 2>/dev/null || echo 0) )) -gt 300 ]; then
-            echo "::error::Cron hosting tidak berjalan (detak terakhir: ${beat:-tidak ada}). Situs TIDAK disentuh. Aktifkan cron schedule:run tiap menit (DEPLOY.md), lalu jalankan ulang workflow ini."
-            exit 1
-          fi
-          echo "Cron hidup (detak terakhir $beat)."
-
-      - name: Mode pemeliharaan
-        id: maintenance
-        run: |
-          source "$RUNNER_TEMP/ftp.sh"
-          echo '{"except":[],"redirect":null,"retry":60,"refresh":null,"secret":null,"status":503,"template":null}' > "$RUNNER_TEMP/down"
-          ftp_put "$RUNNER_TEMP/down" storage/framework/down
-          echo "Situs dalam mode pemeliharaan selama upload."
-
-      - name: Upload file yang berubah
-        id: upload
-        continue-on-error: true
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
-          local-dir: ./
-          server-dir: ${{ vars.FTP_SERVER_DIR }}
-          # Tidak pernah disentuh (tidak di-upload maupun dihapus): .env, storage/ (foto produk, unggahan, log,
-          # cadangan), symlink public/storage, cache server di bootstrap/cache selain packages.php & services.php
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/node_modules/**
-            .github/**
-            .claude/**
-            .env
-            .env.*
-            .editorconfig
-            .mcp.json
-            .npmrc
-            *.md
-            boost.json
-            phpunit.xml
-            package.json
-            package-lock.json
-            vite.config.js
-            RELEASE
-            scratch/**
-            tests/**
-            storage/**
-            public/storage
-            public/storage/**
-            public/hot
-
-      - name: Upload ulang (koneksi FTP terputus)
-        if: steps.upload.outcome == 'failure'
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
-          local-dir: ./
-          server-dir: ${{ vars.FTP_SERVER_DIR }}
-          # Tidak pernah disentuh (tidak di-upload maupun dihapus): .env, storage/ (foto produk, unggahan, log,
-          # cadangan), symlink public/storage, cache server di bootstrap/cache selain packages.php & services.php
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/node_modules/**
-            .github/**
-            .claude/**
-            .env
-            .env.*
-            .editorconfig
-            .mcp.json
-            .npmrc
-            *.md
-            boost.json
-            phpunit.xml
-            package.json
-            package-lock.json
-            vite.config.js
-            RELEASE
-            scratch/**
-            tests/**
-            storage/**
-            public/storage
-            public/storage/**
-            public/hot
-
-
-      - name: Upload isi public/ ke public_html (opsional)
-        if: vars.FTP_PUBLIC_DIR != ''
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
-          local-dir: ./public/
-          server-dir: ${{ vars.FTP_PUBLIC_DIR }}
-          state-name: .ftp-deploy-public-state.json
-          # index.php & .htaccess di public_html biasanya sudah disesuaikan path-nya; jangan ditimpa
-          exclude: |
-            index.php
-            .htaccess
-            storage
-            storage/**
-            hot
-
-      - name: Tandai versi baru
-        run: |
-          source "$RUNNER_TEMP/ftp.sh"
-          echo "$RELEASE" > "$RUNNER_TEMP/RELEASE"
-          ftp_put "$RUNNER_TEMP/RELEASE" RELEASE
-          echo "Versi $RELEASE di-upload. Menunggu cron menjalankan deploy:finish..."
-
-      - name: Tunggu cadangan, migrasi & cache (deploy:finish)
-        run: |
-          source "$RUNNER_TEMP/ftp.sh"
-          for i in $(seq 1 60); do
-            sleep 10
-            status=$(ftp_get storage/app/deploy/status.json 2>/dev/null || true)
-            echo "$status" | grep -q "\"release\": \"$RELEASE\"" || continue
-            if echo "$status" | grep -q '"status": "done"'; then
-              echo "$status"; exit 0
-            fi
-            if echo "$status" | grep -q '"status": "failed"'; then
-              echo "::error::deploy:finish gagal. Situs tetap dalam mode pemeliharaan agar data aman. Lihat DEPLOY.md bagian Jika deploy gagal."
-              echo "$status"; exit 1
-            fi
-          done
-          # Situs sengaja tetap dalam pemeliharaan: membuka situs dengan kode baru tapi database belum dimigrasi bisa merusak data
-          echo "::error::deploy:finish belum selesai dalam 10 menit (status: ${status:-belum ada}). Situs tetap dalam mode pemeliharaan. Deploy akan selesai sendiri begitu cron berjalan; bila mendesak, lihat DEPLOY.md bagian Jika deploy gagal."
-          exit 1
+          ssh hosting "RELEASE='$RELEASE' APP_DIR='$APP_DIR' PHP='$SSH_PHP' bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd ~/"$APP_DIR"
+          mkdir -p storage/framework
+          echo '{"except":[],"redirect":null,"retry":60,"refresh":null,"secret":null,"status":503,"template":null}' > storage/framework/down
+          tar -xzf ~/deploy-releases/"$RELEASE".tar.gz -C .
+          echo "$RELEASE" > RELEASE
+          "$PHP" artisan deploy:finish --force
+          # Simpan 3 arsip terbaru untuk rollback cepat
+          ls -1t ~/deploy-releases/*.tar.gz | tail -n +4 | xargs -r rm -f
+          REMOTE
 
       - name: Cek halaman situs
         run: |
@@ -331,7 +228,7 @@ jobs:
             [ "$code" = "200" ] || failed=1
           done
           # Berkas rahasia/teknis tidak boleh bisa diunduh dari internet
-          for path in /.env /RELEASE /composer.json /storage/logs/laravel.log /storage/app/deploy/status.json /.ftp-deploy-sync-state.json /vendor/autoload.php; do
+          for path in /.env /RELEASE /composer.json /storage/logs/laravel.log /storage/app/deploy/status.json /vendor/autoload.php; do
             code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "${SITE_URL%/}$path")
             echo "$code  $path (harus bukan 200)"
             [ "$code" != "200" ] || { echo "::error::$path bisa diakses publik! Periksa document root (DEPLOY.md)."; failed=1; }
@@ -343,10 +240,10 @@ jobs:
         run: |
           {
             echo "### Deploy $RELEASE tidak selesai"
-            if [ "${{ steps.maintenance.outcome }}" = "success" ]; then
+            if [ "${{ steps.install.outcome }}" = "failure" ]; then
               echo "Situs kemungkinan masih dalam **mode pemeliharaan** (data aman)."
             else
-              echo "Situs **tidak disentuh** (gagal sebelum mode pemeliharaan)."
+              echo "Situs **tidak disentuh** atau sudah terbuka kembali."
             fi
             echo ""
             echo "- Perbaiki lalu push lagi ke main, **atau** rollback: Run workflow (branch main) dengan kode commit versi sebelumnya."
