@@ -6,6 +6,7 @@ use App\Models\Concerns\GuardsCustomCode;
 use App\Models\Concerns\HasReviewWorkflow;
 use App\Models\Concerns\HasSeo;
 use App\Models\Concerns\TracksPublicUrl;
+use App\Support\GoogleMerchant\ProductSync;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -30,6 +31,11 @@ class Product extends Model
                 $product->price_review_needed = false;
             }
         });
+
+        // Setiap perubahan produk ikut dikirim ke Google Merchant Center setelah respons
+        static::saved(fn (Product $product) => app(ProductSync::class)->queue($product->id));
+        static::deleted(fn (Product $product) => app(ProductSync::class)
+            ->queueRemoval((array) ($product->google_merchant_offer_ids ?? [])));
     }
 
     protected function casts(): array
@@ -46,6 +52,8 @@ class Product extends Model
             'show_quantity' => 'boolean',
             'price_valid_until' => 'datetime',
             'price_review_needed' => 'boolean',
+            'google_merchant_offer_ids' => 'array',
+            'google_merchant_synced_at' => 'datetime',
         ];
     }
 
