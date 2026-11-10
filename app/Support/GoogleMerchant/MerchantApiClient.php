@@ -57,6 +57,23 @@ class MerchantApiClient
         }
     }
 
+    /**
+     * Registrasi developer sekali jalan: menautkan project Google Cloud milik service account ke akun
+     * Merchant Center. Tanpa ini Merchant API menolak semua panggilan dengan 401.
+     *
+     * @return array<int, string> ID project Google Cloud yang sudah tertaut
+     */
+    public function registerDeveloper(string $developerEmail): array
+    {
+        return Http::withToken($this->accessToken())
+            ->acceptJson()
+            ->post('https://merchantapi.googleapis.com/accounts/v1/accounts/'.config('services.google_merchant.account_id').'/developerRegistration:registerGcp', [
+                'developerEmail' => $developerEmail,
+            ])
+            ->throw()
+            ->json('gcpIds', []);
+    }
+
     private function accountUrl(string $path): string
     {
         return self::BASE_URL.'/accounts/'.config('services.google_merchant.account_id').'/'.$path;

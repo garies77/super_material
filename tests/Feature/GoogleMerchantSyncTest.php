@@ -123,6 +123,21 @@ it('records the Merchant API error on the product when Google rejects it', funct
     expect(Product::where('slug', 'semen-tiga-roda-50-kg')->value('google_merchant_error'))->toContain('Invalid data source');
 });
 
+it('registers the Google Cloud project with the Merchant Center account', function () {
+    configureGoogleMerchant();
+    Http::fake([
+        'oauth2.googleapis.com/*' => Http::response(['access_token' => 'test-token']),
+        'merchantapi.googleapis.com/*' => Http::response(['gcpIds' => ['supermaterial-merchant']]),
+    ]);
+
+    $this->artisan('merchant:register', ['email' => 'dev@supermaterial.id'])
+        ->expectsOutputToContain('supermaterial-merchant')
+        ->assertSuccessful();
+
+    Http::assertSent(fn (Request $request) => str_ends_with($request->url(), '/accounts/v1/accounts/5902937861/developerRegistration:registerGcp')
+        && $request['developerEmail'] === 'dev@supermaterial.id');
+});
+
 it('does not contact Google while the integration is not configured', function () {
     fakeGoogle();
     config()->set('services.google_merchant.account_id', null);
