@@ -170,6 +170,14 @@ jobs:
           ftp_delete() { curl -sS "${ssl[@]}" --user "$FTP_USERNAME:$FTP_PASSWORD" "$base" -Q "DELE $FTP_SERVER_DIR$1" -o /dev/null; }
           SH
 
+      # FTPS memeriksa nama di sertifikat server: FTP_SERVER harus memakai nama itu, bukan alamat IP
+      - name: Nama di sertifikat FTPS
+        if: env.FTP_PROTOCOL == 'ftps'
+        continue-on-error: true
+        run: |
+          echo | timeout 20 openssl s_client -connect "$FTP_SERVER:21" -starttls ftp 2>/dev/null \
+            | openssl x509 -noout -subject -ext subjectAltName || echo "Sertifikat tidak terbaca"
+
       - name: Pastikan cron hosting hidup
         run: |
           source "$RUNNER_TEMP/ftp.sh"
