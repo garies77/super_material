@@ -88,3 +88,23 @@ it('includes variant and quantity in WhatsApp redirection message', function () 
     expect($location)->toContain('Varian: '.$variant->name)
         ->and($location)->toContain('Jumlah: 10 sak');
 });
+
+it('renders the selected variant price in the server HTML so it does not depend on JavaScript', function () {
+    $product = Product::where('slug', 'semen-tiga-roda-50-kg')->first();
+    $variant = $product->variants->firstWhere('slug', 'sak-40-kg');
+    $price = 'Rp'.number_format($variant->effectivePrice(), 0, ',', '.');
+
+    $this->get('/produk/'.$product->slug.'?varian='.$variant->slug)->assertOk()
+        ->assertSeeInOrder(['id="price-main"', $price, 'id="mobile-sticky-price"', $price], false);
+});
+
+it('does not send variant prices to the browser when the product price is hidden', function () {
+    $product = Product::where('slug', 'semen-tiga-roda-50-kg')->first();
+    $product->update(['price_display' => 'hidden']);
+    $variant = $product->variants->first();
+
+    $this->get('/produk/'.$product->slug)->assertOk()
+        ->assertSee('Hubungi kami untuk harga')
+        ->assertDontSee('"formattedPrice":"Rp', false)
+        ->assertDontSee('"price":'.$variant->effectivePrice(), false);
+});

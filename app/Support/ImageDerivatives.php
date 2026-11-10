@@ -108,7 +108,8 @@ class ImageDerivatives
         $urls = collect($widths)->mapWithKeys(fn ($w) => [$w => self::resized($sourceUrlOrPath, $w)])
             ->reject(fn ($url) => $url === $sourceUrlOrPath)->unique();
 
-        return $urls->map(fn ($url, $w) => "{$url} {$w}w")->implode(', ');
+        // Deskriptor memakai lebar berkas sebenarnya: sumber yang lebih kecil dari permintaan tidak diperbesar
+        return $urls->map(fn ($url, $w) => $url.' '.(preg_match('/_w(\d+)\.webp$/', $url, $m) ? $m[1] : $w).'w')->implode(', ');
     }
 
     /**

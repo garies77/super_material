@@ -4,7 +4,7 @@
         @php $isActive = $category && $category->id === $node->id; @endphp
         <li>
             <a href="{{ $node->url() }}" @if($isActive) aria-current="page" @endif
-               class="block rounded-lg px-2.5 py-1.5 text-sm transition {{ $isActive ? 'bg-brand-50 font-semibold text-brand-700' : (in_array($node->id, $activeIds) ? 'font-semibold text-ink-900' : 'text-ink-600 hover:bg-ink-50 hover:text-ink-900') }}">
+               class="block rounded-lg px-2.5 py-2.5 text-sm transition lg:py-1.5 {{ $isActive ? 'bg-brand-50 font-semibold text-brand-700' : (in_array($node->id, $activeIds) ? 'font-semibold text-ink-900' : 'text-ink-600 hover:bg-ink-50 hover:text-ink-900') }}">
                 {{ $node->name }}
             </a>
             @if(isset($tree[$node->id]) && $depth < 2)

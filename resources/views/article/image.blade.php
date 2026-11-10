@@ -18,7 +18,7 @@
                                 <span class="italic">{{ $article->image_caption }}</span>
                             @endif
                             <span class="text-ink-400 font-medium">
-                                (Foto: {{ $article->image_credit ?: 'Dok. Supermaterial' }})
+                                (Foto: {{ preg_replace('/^\s*foto\s*:\s*/i', '', (string) $article->image_credit) ?: 'Dok. Supermaterial' }})
                             </span>
                         </figcaption>
                     </figure>

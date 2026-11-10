@@ -27,7 +27,9 @@
 
 @layer base {
     [x-cloak] { display: none !important; }
-    html { scroll-behavior: smooth; }
+    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+    /* Kilatan abu-abu bawaan browser HP saat elemen disentuh dimatikan; umpan balik memakai gaya :active/:focus sendiri */
+    a, button, summary, label, select, [role="button"] { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     body { @apply bg-ink-50 text-ink-800 antialiased font-sans; }
     h1, h2, h3, h4 { @apply font-display tracking-tight text-ink-900; }
 }
@@ -62,10 +64,14 @@
     .content ol { @apply my-4 list-decimal pl-6; }
     .content a { @apply font-medium text-brand-700 underline underline-offset-2; }
     .content img { @apply my-6 h-auto max-w-full rounded-xl; }
+    /* Isi dari editor tidak boleh melebarkan halaman di HP: kata/URL panjang dipatahkan, embed dan tabel mengikuti lebar layar */
+    .content { overflow-wrap: anywhere; }
+    .content iframe, .content video { @apply max-w-full; }
+    .content pre { @apply my-4 overflow-x-auto rounded-xl bg-ink-900 p-4 text-sm text-ink-100; }
     /* Gambar block mengikuti perataan paragraf dari editor (kiri/tengah/kanan) */
     .content [style*="text-align: center"] img { @apply mx-auto; }
     .content [style*="text-align: right"] img, .content [style*="text-align: end"] img { @apply ml-auto mr-0; }
-    .content table { @apply my-6 w-full text-sm; }
+    .content table { @apply my-6 block w-full max-w-full overflow-x-auto text-sm sm:table; overflow-wrap: normal; }
     .content th, .content td { @apply border border-ink-200 px-3 py-2 text-left; }
     .content blockquote { @apply my-6 border-l-4 border-brand-400 bg-brand-50 px-5 py-3 italic; }
     /* Slot iklan dalam isi tidak mewarisi gaya tipografi artikel */
@@ -80,6 +86,20 @@
     .content .sm-feature a { @apply font-normal no-underline; color: inherit; }
     .content .sm-feature img { @apply m-0 rounded-none; }
     .content .sm-feature p { @apply m-0; }
+}
+
+/* Baris geser horizontal (thumbnail galeri, produk terkait) tanpa scrollbar */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* iOS memperbesar halaman saat fokus ke isian berhuruf < 16px; di layar sentuh isian dibuat 16px */
+@media (pointer: coarse) and (max-width: 1023px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea { font-size: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .rise, .rise-2, .rise-3, .animate-ping, .animate-pulse { animation: none; }
 }
 
 .hero-grid {

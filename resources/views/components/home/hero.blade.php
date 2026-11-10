@@ -31,7 +31,7 @@
         <div class="absolute -bottom-40 left-1/4 h-80 w-80 rounded-full bg-brand-600/20 blur-3xl pointer-events-none"></div>
     @endif
 
-    <div class="container-x relative py-16 sm:py-24">
+    <div class="container-x relative py-12 sm:py-24">
         <div @class([
             'grid items-center gap-10 lg:grid-cols-12 lg:gap-12' => $style === 'card',
             'max-w-4xl' => $style === 'banner',
@@ -73,7 +73,7 @@
                         'mt-9 shadow-black/30' => ! $twoCol,
                     ])>
                         <label for="q-hero" class="sr-only">Cari produk</label>
-                        <input id="q-hero" name="q" type="search" placeholder="{{ $placeholder }}" class="min-w-0 flex-1 rounded-xl px-4 py-3 text-ink-900 outline-none placeholder:text-ink-400">
+                        <input id="q-hero" name="q" type="search" enterkeyhint="search" placeholder="{{ $placeholder }}" class="min-w-0 flex-1 rounded-xl px-3 py-3 text-ink-900 outline-none placeholder:text-ink-400 sm:px-4">
                         <button class="btn btn-primary" type="submit">Cari</button>
                     </form>
                 @endif

@@ -54,16 +54,16 @@
         <header class="max-w-3xl">
             <h1 class="font-display text-3xl font-extrabold sm:text-4xl">{{ $heading }}</h1>
             @if($isCategory && $category->intro)
-                <p class="mt-3 text-lg leading-8 text-ink-600">{{ $category->intro }}</p>
+                <p class="mt-3 text-base leading-7 text-ink-600 sm:text-lg sm:leading-8">{{ $category->intro }}</p>
             @elseif(! $isCategory)
-                <p class="mt-3 text-lg leading-8 text-ink-600">Temukan bahan bangunan berdasarkan kategori, merek, dan rentang harga.</p>
+                <p class="mt-3 text-base leading-7 text-ink-600 sm:text-lg sm:leading-8">Temukan bahan bangunan berdasarkan kategori, merek, dan rentang harga.</p>
             @endif
         </header>
 
         @if($children->isNotEmpty())
             <div class="mt-5 flex flex-wrap gap-2">
                 @foreach($children as $child)
-                    <a href="{{ $child->url() }}" class="rounded-full border border-ink-200 bg-white px-4 py-1.5 text-sm font-medium transition hover:border-brand-400 hover:text-brand-700">{{ $child->name }}</a>
+                    <a href="{{ $child->url() }}" class="rounded-full border border-ink-200 bg-white px-4 py-2 text-sm font-medium transition hover:border-brand-400 hover:text-brand-700">{{ $child->name }}</a>
                 @endforeach
             </div>
         @endif
@@ -71,7 +71,7 @@
         <div class="mt-8 grid gap-8 lg:grid-cols-[17rem_1fr]">
             {{-- Sidebar katalog: sidebar di desktop, drawer di mobile --}}
             <div data-filter-panel class="fixed inset-0 z-50 hidden lg:sticky lg:top-24 lg:z-auto lg:block lg:self-start">
-                <div data-filter-close class="absolute inset-0 bg-ink-950/50 backdrop-blur-sm lg:hidden"></div>
+                <div data-filter-close class="absolute inset-0 bg-ink-950/50 lg:hidden"></div>
                 <aside id="filter-panel" aria-label="Filter katalog"
                        class="absolute inset-y-0 left-0 flex w-[88%] max-w-sm flex-col bg-white shadow-2xl lg:static lg:max-h-[calc(100vh-7rem)] lg:w-auto lg:max-w-none lg:rounded-2xl lg:border lg:border-ink-100 lg:shadow-sm">
                     <div class="flex items-center justify-between border-b border-ink-100 px-5 py-4 lg:hidden">
@@ -85,7 +85,7 @@
                         <section>
                             <h2 class="mb-2 text-xs font-bold uppercase tracking-wider text-ink-400">Kategori</h2>
                             <a href="{{ route('product.index') }}" @unless($isCategory) aria-current="page" @endunless
-                               class="mb-0.5 block rounded-lg px-2.5 py-1.5 text-sm transition {{ $isCategory ? 'text-ink-600 hover:bg-ink-50 hover:text-ink-900' : 'bg-brand-50 font-semibold text-brand-700' }}">Semua produk</a>
+                               class="mb-0.5 block rounded-lg px-2.5 py-2.5 text-sm transition lg:py-1.5 {{ $isCategory ? 'text-ink-600 hover:bg-ink-50 hover:text-ink-900' : 'bg-brand-50 font-semibold text-brand-700' }}">Semua produk</a>
                             @include('partials.category-tree', ['parentId' => 0, 'depth' => 0])
                         </section>
 
@@ -104,9 +104,9 @@
                                     <legend class="mb-2 text-xs font-bold uppercase tracking-wider text-ink-400">Merek</legend>
                                     <div class="space-y-1">
                                         @foreach($brands as $b)
-                                            <label class="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm hover:bg-ink-50">
+                                            <label class="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2.5 text-sm hover:bg-ink-50 lg:py-1.5">
                                                 <input type="checkbox" name="brand[]" value="{{ $b->id }}" data-autosubmit @checked(in_array($b->id, $brandIds))
-                                                       class="h-4 w-4 rounded border-ink-200 accent-brand-500">
+                                                       class="h-5 w-5 shrink-0 rounded border-ink-200 accent-brand-500 lg:h-4 lg:w-4">
                                                 {{ $b->name }}
                                             </label>
                                         @endforeach
@@ -130,7 +130,7 @@
                         </form>
                     </div>
 
-                    <div class="flex gap-2 border-t border-ink-100 p-4">
+                    <div class="flex gap-2 border-t border-ink-100 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:pb-4">
                         <button type="submit" form="catalog-filter" class="btn btn-dark flex-1 !py-2.5">Terapkan filter</button>
                         <a href="{{ $base }}" class="btn btn-ghost !py-2.5 {{ $filtered ? '' : 'pointer-events-none opacity-50' }}" @unless($filtered) aria-disabled="true" tabindex="-1" @endunless>Reset filter</a>
                     </div>
