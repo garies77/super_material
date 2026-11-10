@@ -17,8 +17,10 @@ abstract class TestCase extends BaseTestCase
 
         parent::setUp();
 
-        if (config('database.connections.'.config('database.default').'.database') !== ':memory:') {
-            throw new RuntimeException('Test hanya boleh memakai database :memory: (lihat phpunit.xml).');
+        // Selain :memory:, hanya database tes sekali pakai berakhiran "_test" (mis. MariaDB di GitHub Actions)
+        $database = (string) config('database.connections.'.config('database.default').'.database');
+        if ($database !== ':memory:' && ! str_ends_with($database, '_test')) {
+            throw new RuntimeException('Test hanya boleh memakai database :memory: atau database berakhiran "_test" (lihat phpunit.xml).');
         }
     }
 }
