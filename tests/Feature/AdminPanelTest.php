@@ -67,8 +67,8 @@ it('orders the sidebar by operational priority and supports the collapsed icon r
         'Profil saya',
         'Produk', 'Kategori', 'Merek', 'Kanal beli', 'Sinonim pencarian',
         'Artikel', 'Halaman', 'Media', 'Penulis',
-        'Kampanye', 'Formulir', 'Jawaban formulir',
-        'Pusat laporan', 'Kinerja tim', 'Kesehatan katalog', 'Laporan klik', 'Laporan kampanye', 'Riwayat XP',
+        'Kampanye', 'Formulir', 'Link Bio', 'Jawaban formulir',
+        'Pusat laporan', 'Kinerja tim', 'Kesehatan katalog', 'Laporan klik', 'Laporan kampanye', 'Laporan Link Bio', 'Riwayat XP',
         'Beranda', 'Menu navigasi', 'Footer situs',
         'Pengaturan situs', 'Pengguna', 'Token API', 'Pengalihan URL',
     ])->and($html)->not->toContain('Penggunas');

@@ -7,6 +7,7 @@ use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\FormController;
 use App\Http\Controllers\GoController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\LinkPageController;
 use App\Http\Controllers\LoginLinkController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\PagePreviewController;
@@ -32,6 +33,9 @@ Route::get('/form/{slug}', [FormController::class, 'show'])->name('form.show');
 // Batas kiriman per IP (anti-spam); honeypot ditangani di controller
 Route::post('/form/{slug}', [FormController::class, 'submit'])->middleware('throttle:form-submit')->name('form.submit');
 Route::get('/go/{product}/{channel}', GoController::class)->middleware('throttle:60,1')->name('go');
+// Link-in-bio (seperti Linktree): halaman publik + pengalihan klik yang dicatat ke statistik
+Route::get('/l/{slug}', [LinkPageController::class, 'show'])->where('slug', '[a-z0-9\-]+')->name('link.show');
+Route::get('/l/{slug}/{item}', [LinkPageController::class, 'click'])->where('slug', '[a-z0-9\-]+')->whereNumber('item')->middleware('throttle:60,1')->name('link.click');
 // Kampanye internal artikel: jalur netral agar tidak cocok dengan pola daftar filter ad blocker (/ad/, /promo)
 Route::get('/sm-link/{ad}', [AdController::class, 'click'])->whereNumber('ad')->middleware('throttle:60,1')->name('ad.click');
 Route::post('/sm-link/{ad}/event', [AdController::class, 'event'])->whereNumber('ad')->middleware('throttle:120,1')->name('ad.event');
