@@ -25,6 +25,9 @@ class LinkItem extends Model
 
     protected $guarded = [];
 
+    /** Hanya untuk pratinjau admin: URL gambar unggahan yang belum disimpan. */
+    public ?string $previewThumbnailUrl = null;
+
     protected function casts(): array
     {
         return [
@@ -66,6 +69,10 @@ class LinkItem extends Model
 
     public function thumbnailUrl(): ?string
     {
+        if ($this->previewThumbnailUrl) {
+            return $this->previewThumbnailUrl;
+        }
+
         if ($this->thumbnail_path) {
             return Storage::disk('public')->url($this->thumbnail_path);
         }

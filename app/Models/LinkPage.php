@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\LinkBioDesign;
 use App\Support\SocialPlatforms;
 use Database\Factories\LinkPageFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -19,12 +20,6 @@ class LinkPage extends Model
     /** @use HasFactory<LinkPageFactory> */
     use HasFactory;
 
-    public const THEMES = [
-        'light' => 'Terang',
-        'dark' => 'Gelap',
-        'brand' => 'Warna merek',
-    ];
-
     /** Platform ikon sosial: yang ada di SocialPlatforms plus TikTok & YouTube (ikonnya sudah ada di partials/social-icon). */
     public const SOCIAL_HOSTS = [
         'tiktok' => ['label' => 'TikTok', 'hosts' => ['tiktok.com']],
@@ -35,7 +30,7 @@ class LinkPage extends Model
 
     protected function casts(): array
     {
-        return ['socials' => 'array', 'is_published' => 'boolean'];
+        return ['socials' => 'array', 'design' => 'array', 'is_published' => 'boolean'];
     }
 
     public function items(): HasMany
@@ -61,6 +56,17 @@ class LinkPage extends Model
     public function avatarUrl(): ?string
     {
         return $this->avatar_path ? Storage::disk('public')->url($this->avatar_path) : null;
+    }
+
+    public function bannerUrl(): ?string
+    {
+        return $this->banner_path ? Storage::disk('public')->url($this->banner_path) : null;
+    }
+
+    /** @return array<string, string|null> pengaturan tampilan yang sudah disaring (App\Support\LinkBioDesign) */
+    public function resolvedDesign(): array
+    {
+        return LinkBioDesign::forPage($this);
     }
 
     /** @return array<string, string> */
