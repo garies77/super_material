@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Media;
 use App\Filament\Resources\Media\Pages\ManageMedia;
 use App\Filament\Support\FocalPointPicker;
 use App\Filament\Support\ImagePreset;
+use App\Filament\Support\LibraryFileUpload;
 use App\Models\AuditLog;
 use App\Models\Media;
 use App\Support\ImageDerivatives;
@@ -31,6 +32,10 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 /**
  * Pustaka Media: semua gambar di disk publik yang bisa dipakai ulang lewat tombol "Pilih dari Media".
@@ -146,23 +151,44 @@ class MediaResource extends Resource
 
                             Notification::make()->title('Titik fokus disimpan')->success()->send();
                         }),
+                    // Potong manual dengan editor gambar Filament (Cropper.js): pengguna melihat & menggeser area potong sendiri.
+                    // Hasil editor diunggah sebagai berkas baru dan didaftarkan sebagai media baru; gambar asli tidak berubah.
                     Action::make('crop')->label('Potong')->icon(Heroicon::OutlinedScissors)
                         ->visible(fn (Media $record) => $record->isCroppable())
-                        ->modalHeading('Buat potongan untuk section')
-                        ->modalDescription('Gambar dipotong sesuai ukuran section, berpusat di titik fokus (default tengah), dan disimpan sebagai gambar baru. Gambar asli tidak berubah.')
-                        ->modalSubmitActionLabel('Buat potongan')
-                        ->schema([
-                            Select::make('preset')->label('Ukuran section')->required()
-                                ->options(fn () => collect(config('media.presets'))
-                                    ->filter(fn (array $preset) => ImagePreset::singleRatio($preset) !== null)
-                                    ->map(fn (array $preset) => $preset['label'].' ('.$preset['ratio'].(filled($preset['width']) ? ', '.$preset['width'].'×'.$preset['height'].' px' : '').')')),
+                        ->modalHeading('Potong gambar')
+                        ->modalDescription('Klik ikon pensil pada gambar untuk membuka editor. Pilih rasio section, geser dan perbesar area potong, lalu klik Simpan di editor dan "Simpan potongan" di bawah. Hasilnya disimpan sebagai gambar baru; gambar asli tidak berubah.')
+                        ->modalWidth(Width::FourExtraLarge)
+                        ->modalSubmitActionLabel('Simpan potongan')
+                        ->fillForm(fn (Media $record) => ['image' => $record->path])
+                        ->schema(fn (Media $record) => [
+                            LibraryFileUpload::make('image')->hiddenLabel()->required()
+                                ->image()->disk(Media::DISK)->directory(MediaLibrary::folderFor($record->path))->visibility('public')
+                                ->imageEditor()->imageEditorMode(1)->imageEditorAspectRatioOptions(self::cropRatios())
+                                ->imageEditorEmptyFillColor('#ffffff')
+                                // Jangan deletable(false): editor menyimpan dengan menghapus gambar lama dari field lalu menambah hasil potong.
+                                // Gambar asli di disk tidak ikut terhapus (tidak ada deleteUploadedFileUsing).
+                                ->maxFiles(1)
+                                ->getUploadedFileNameForStorageUsing(fn (TemporaryUploadedFile $file) => self::croppedFileName($record, $file))
+                                ->helperText(self::cropRatioHelp()),
                         ])
                         ->action(function (Media $record, array $data): void {
-                            $preset = ImagePreset::get($data['preset']);
-                            $crop = MediaLibrary::cropToRatio($record, ImagePreset::singleRatio($preset), $preset['width'] ?? null);
+                            $path = is_array($data['image']) ? Arr::first($data['image']) : $data['image'];
 
-                            Notification::make()->title($crop->is($record) ? 'Gambar ini sudah sesuai atau tidak bisa dipotong' : "Potongan dibuat: {$crop->name}")
-                                ->success()->send();
+                            if (! is_string($path) || $path === $record->path) {
+                                Notification::make()->title('Gambar belum dipotong')
+                                    ->body('Klik ikon pensil pada gambar, atur area potong, lalu klik Simpan di editor sebelum menyimpan potongan.')
+                                    ->warning()->send();
+
+                                return;
+                            }
+
+                            $crop = MediaLibrary::register($path, basename($path));
+                            $crop?->update(['alt_text' => $record->alt_text]);
+                            AuditLog::record(request(), 'media.cropped', $record, ['from' => $record->path, 'to' => $path]);
+
+                            Notification::make()->title($crop ? "Potongan disimpan: {$crop->name}" : 'Potongan gagal disimpan')
+                                ->body($crop ? $crop->dimensionsLabel().' · siap dipilih dari Pustaka Media.' : null)
+                                ->{$crop ? 'success' : 'danger'}()->send();
                         }),
                     Action::make('replace')->label('Ganti di semua tempat')->icon(Heroicon::OutlinedArrowPath)
                         ->visible(fn () => self::canDeleteMedia())
@@ -217,6 +243,45 @@ class MediaResource extends Resource
                 ])->tooltip('Aksi')->iconButton()
                     ->visible(fn (HasTable $livewire) => ! self::isSelecting($livewire)),
             ]);
+    }
+
+    /**
+     * Rasio pilihan di editor potong: bebas + setiap rasio tetap dari preset section (config/media.php).
+     *
+     * @return array<int, string|null>
+     */
+    private static function cropRatios(): array
+    {
+        return collect(config('media.presets'))
+            ->filter(fn (array $preset) => ImagePreset::singleRatio($preset) !== null)
+            ->pluck('ratio')->unique()->prepend(null)->values()->all();
+    }
+
+    /** Rasio di editor tampil sebagai angka (mis. 16:9); teks ini memetakannya ke section. */
+    private static function cropRatioHelp(): string
+    {
+        return 'Rasio section: '.collect(config('media.presets'))
+            ->filter(fn (array $preset) => ImagePreset::singleRatio($preset) !== null)
+            ->groupBy('ratio')
+            ->map(fn ($presets, string $ratio) => $ratio.' = '.$presets->pluck('label')->implode(', '))
+            ->implode(' · ').'.';
+    }
+
+    /** Nama berkas potongan: nama asli + "-potong-" + ukuran hasil, tidak menimpa berkas lain. */
+    private static function croppedFileName(Media $record, TemporaryUploadedFile $file): string
+    {
+        [$width, $height] = @getimagesize($file->getRealPath()) ?: [0, 0];
+        $extension = strtolower($file->guessExtension() ?: pathinfo($record->path, PATHINFO_EXTENSION) ?: 'jpg');
+        $base = Str::limit(Str::slug(pathinfo($record->path, PATHINFO_FILENAME)), 80, '').'-potong-'.$width.'x'.$height;
+        $folder = MediaLibrary::folderFor($record->path);
+        $disk = Storage::disk(Media::DISK);
+
+        $name = "{$base}.{$extension}";
+        for ($n = 2; $disk->exists("{$folder}/{$name}"); $n++) {
+            $name = "{$base}-{$n}.{$extension}";
+        }
+
+        return $name;
     }
 
     private static function optionLabel(Media $media): string
