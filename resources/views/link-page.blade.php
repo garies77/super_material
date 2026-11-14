@@ -82,7 +82,7 @@
         .lb-shape-burst { clip-path: polygon({{ $burst }}); }
         .lb-shape-flower { -webkit-mask: {!! $flower !!} center / contain no-repeat; mask: {!! $flower !!} center / contain no-repeat; }
         .lb-shape-loop { -webkit-mask: {!! $loop !!} center / contain no-repeat; mask: {!! $loop !!} center / contain no-repeat; }
-        @if($preview) a { pointer-events: none; } @endif
+        @if($preview) a { pointer-events: none; } html { scrollbar-width: none; } ::-webkit-scrollbar { display: none; } @endif
     </style>
 </head>
 <body class="lb lb-style-{{ $design['button_style'] }} min-h-screen antialiased">

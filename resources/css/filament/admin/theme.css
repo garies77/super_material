@@ -1154,5 +1154,4 @@ button.sm-seo-item:hover {
         scrollbar-gutter: stable;
     }
     .sm-lb-preview { height: max(26rem, calc(100dvh - 22rem)); }
-    .sm-lb-preview .sm-lb-phone { height: calc(100% - 2rem); width: auto !important; max-width: none !important; }
 }
