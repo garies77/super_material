@@ -49,6 +49,20 @@ class LinkBioDesign
         'outline' => 'Garis tepi',
     ];
 
+    /** Warna cepat untuk tombol: warna merek marketplace/platform yang sering dipakai, plus warna Jaya Intero. */
+    public const BUTTON_SWATCHES = [
+        '#EE4D2D' => 'Shopee',
+        '#03AC0E' => 'Tokopedia',
+        '#0F146D' => 'Lazada',
+        '#000000' => 'TikTok Shop',
+        '#25D366' => 'WhatsApp',
+        '#1877F2' => 'Facebook',
+        '#E4405F' => 'Instagram',
+        '#FF0000' => 'YouTube',
+        '#0B3D91' => 'Biru Jaya Intero',
+        '#FFC20E' => 'Kuning Jaya Intero',
+    ];
+
     /** Warna ikon media sosial: ikut warna teks, warna asli tiap platform, atau satu warna pilihan. */
     public const SOCIAL_STYLES = ['text' => 'Ikut warna teks', 'brand' => 'Warna asli merek', 'custom' => 'Warna pilihan sendiri'];
 
