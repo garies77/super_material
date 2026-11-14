@@ -79,7 +79,7 @@ class LinkBioPreview
 
         return $rows->map(function (array $row) use ($page, $products) {
             $item = new LinkItem(Arr::only($row, ['type', 'label', 'link_type', 'page_id', 'url', 'new_tab', 'product_id', 'sales_channel_id',
-                'whatsapp_number', 'whatsapp_message', 'is_highlighted', 'is_active']));
+                'whatsapp_number', 'whatsapp_message', 'is_highlighted', 'is_active', 'button_color', 'text_color']));
             $item->thumbnail_path = self::storedPath($row['thumbnail_path'] ?? null);
             $item->previewThumbnailUrl = self::temporaryUrl($row['thumbnail_path'] ?? null);
             $item->setRelation('linkPage', $page);

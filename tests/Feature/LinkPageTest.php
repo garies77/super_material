@@ -177,3 +177,17 @@ it('keeps noindex pages out of Google and the sitemap', function () {
         ->assertDontSee($hidden->url(), false)
         ->assertDontSee('/l/draf', false);
 });
+
+it('gives a button its own colors on top of the theme', function () {
+    $page = LinkPage::factory()->create();
+    LinkItem::factory()->for($page)->create(['label' => 'Shopee', 'button_color' => '#ee4d2d']);
+    LinkItem::factory()->for($page)->create(['label' => 'Tokopedia', 'button_color' => '#03AC0E', 'text_color' => '#111111']);
+    LinkItem::factory()->for($page)->create(['label' => 'Rusak', 'button_color' => 'red;}</style><script>x</script>']);
+
+    $html = $this->get(route('link.show', $page->slug))->assertOk()
+        ->assertSee('style="--lb-btn:#EE4D2D;--lb-accent:#EE4D2D;--lb-btn-text:#111111;--lb-accent-text:#111111"', false)
+        ->assertSee('style="--lb-btn:#03AC0E;--lb-accent:#03AC0E;--lb-btn-text:#111111;--lb-accent-text:#111111"', false)
+        ->getContent();
+
+    expect($html)->not->toContain('<script>x</script>');
+});

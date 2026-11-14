@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\LinkBioDesign;
 use App\Support\LinkTarget;
 use Database\Factories\LinkItemFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -58,6 +59,30 @@ class LinkItem extends Model
     public function scopeVisible(Builder $query): Builder
     {
         return $query->where('is_active', true);
+    }
+
+    /**
+     * Variabel CSS untuk warna sendiri tombol ini (menimpa warna tema, juga saat ditonjolkan).
+     * Warna disaring ulang (hex 6 digit); teks kosong = hitam/putih otomatis agar tetap terbaca.
+     */
+    public function colorStyle(): ?string
+    {
+        $background = LinkBioDesign::color($this->button_color);
+        $text = LinkBioDesign::color($this->text_color);
+
+        if (! $background && ! $text) {
+            return null;
+        }
+
+        $vars = [];
+        if ($background) {
+            $text ??= LinkBioDesign::onColor($background);
+            $vars = ['--lb-btn' => $background, '--lb-accent' => $background];
+        }
+        $vars['--lb-btn-text'] = $text;
+        $vars['--lb-accent-text'] = $text;
+
+        return collect($vars)->map(fn ($v, $k) => "{$k}:{$v}")->implode(';');
     }
 
     public function isClickable(): bool

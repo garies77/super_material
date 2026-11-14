@@ -162,6 +162,18 @@ class LinkPageResource extends Resource
                             self::live(Toggle::make('is_highlighted')->label('Tonjolkan')->inline(false))->visible($type('link', 'product', 'whatsapp')),
                         ])->columns(2),
 
+                        // Warna sendiri per tombol (mis. Shopee oranye); kosong = ikut warna tema di tab Desain
+                        Group::make([
+                            self::live(ColorPicker::make('button_color')->label('Warna tombol')
+                                ->placeholder('Ikut tema')->regex('/^#[0-9a-fA-F]{6}$/')
+                                ->validationMessages(['regex' => 'Pakai kode warna hex 6 digit, mis. #EE4D2D.'])),
+                            self::live(ColorPicker::make('text_color')->label('Warna teks')
+                                ->placeholder('Otomatis')->regex('/^#[0-9a-fA-F]{6}$/')
+                                ->validationMessages(['regex' => 'Pakai kode warna hex 6 digit, mis. #FFFFFF.'])),
+                        ])->columns(2)->columnSpanFull()->visible($type('link', 'product', 'whatsapp')),
+                        Text::make('Kosongkan warna tombol agar mengikuti tema. Warna teks kosong = hitam/putih otomatis supaya tetap terbaca.')
+                            ->columnSpanFull()->visible($type('link', 'product', 'whatsapp')),
+
                     ]),
             ]),
 
