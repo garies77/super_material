@@ -82,3 +82,14 @@ it('rejects colors that are not 6-digit hex', function () {
         ->call('save')
         ->assertHasFormErrors(['design.text_color']);
 });
+
+it('lists a ready-to-copy bio link for every platform', function () {
+    $page = LinkPage::factory()->create(['slug' => 'pembelian']);
+    $this->actingAs(User::factory()->create(['role' => 'editor', 'is_active' => true]));
+
+    $component = Livewire::test(EditLinkPage::class, ['record' => $page->getRouteKey()]);
+
+    foreach (['instagram', 'tiktok', 'facebook', 'threads', 'youtube', 'linkedin'] as $source) {
+        $component->assertFormSet(["bio_link_{$source}" => route('link.show', 'pembelian').'?utm_source='.$source]);
+    }
+});

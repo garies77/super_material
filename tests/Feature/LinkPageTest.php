@@ -22,16 +22,13 @@ it('shows a published page with only visible items in order', function () {
     LinkItem::factory()->for($page)->create(['label' => 'Kedua', 'sort' => 2]);
     LinkItem::factory()->for($page)->create(['label' => 'Pertama', 'sort' => 1]);
     LinkItem::factory()->for($page)->create(['label' => 'Nonaktif', 'is_active' => false]);
-    LinkItem::factory()->for($page)->create(['label' => 'Belum mulai', 'starts_at' => now()->addDay()]);
-    LinkItem::factory()->for($page)->create(['label' => 'Sudah lewat', 'ends_at' => now()->subMinute()]);
 
     $this->get(route('link.show', $page->slug))
         ->assertOk()
         ->assertSee('Jaya Intero Las')
         ->assertSeeInOrder(['Pertama', 'Kedua'])
-        ->assertDontSee('Nonaktif')
-        ->assertDontSee('Belum mulai')
-        ->assertDontSee('Sudah lewat');
+        ->assertDontSee('Nonaktif');
+
 });
 
 it('hides draft pages from visitors but lets reviewers preview them without counting', function () {

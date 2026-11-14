@@ -22,7 +22,6 @@ use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\ColorPicker;
-use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
@@ -73,6 +72,16 @@ class LinkPageResource extends Resource
 
     /** Kunci desain yang diisi ulang saat tema siap pakai dipilih (tata letak header tidak ikut berubah). */
     private const PRESET_KEYS = ['bg_type', 'bg_color', 'bg_color_2', 'text_color', 'button_style', 'button_radius', 'button_color', 'button_text_color', 'accent_color', 'font'];
+
+    /** utm_source => nama platform; tautan bio per platform di tab Pengaturan (dibaca LinkRecorder sebagai sumber kunjungan). */
+    public const BIO_SOURCES = [
+        'instagram' => 'Instagram',
+        'tiktok' => 'TikTok',
+        'facebook' => 'Facebook',
+        'threads' => 'Threads',
+        'youtube' => 'YouTube',
+        'linkedin' => 'LinkedIn',
+    ];
 
     public static function canAccess(): bool
     {
@@ -149,8 +158,6 @@ class LinkPageResource extends Resource
                             self::live(Toggle::make('is_highlighted')->label('Tonjolkan')->inline(false))->visible($type('link', 'product', 'whatsapp')),
                         ])->columns(2),
 
-                        DateTimePicker::make('starts_at')->label('Mulai tampil (WIB)')->seconds(false)->timezone(ClickReport::TIMEZONE),
-                        DateTimePicker::make('ends_at')->label('Berhenti tampil (WIB)')->seconds(false)->timezone(ClickReport::TIMEZONE)->after('starts_at'),
                     ]),
             ]),
 
@@ -269,14 +276,15 @@ class LinkPageResource extends Resource
                     ->validationMessages(['regex' => 'Gunakan huruf kecil, angka, dan tanda hubung.']),
                 Toggle::make('is_published')->label('Terbit')->default(false)
                     ->helperText('Draf hanya bisa dilihat tim lewat tombol Lihat halaman, dan tidak dihitung di laporan.'),
-                Text::make(fn (?LinkPage $record) => $record
-                    ? 'Pasang di bio Instagram: '.$record->url().'?utm_source=instagram'
-                    : 'Alamat tersedia setelah disimpan.'),
-                Text::make(fn (?LinkPage $record) => $record ? 'Pasang di bio TikTok: '.$record->url().'?utm_source=tiktok' : '')
-                    ->visible(fn (?LinkPage $record) => (bool) $record),
-                Text::make('Aplikasi Instagram & TikTok sering tidak mengirim asal kunjungan; tambahan ?utm_source membuat sumbernya tetap terbaca di laporan.')
-                    ->visible(fn (?LinkPage $record) => (bool) $record),
             ]),
+
+            Section::make('Tautan untuk bio')
+                ->description('Pakai tautan yang sesuai di tiap platform agar Laporan Link Bio tahu asal pengunjungnya. Aplikasi media sosial sering tidak mengirim asal kunjungan; tambahan ?utm_source membuatnya tetap terbaca.')
+                ->schema(fn (?LinkPage $record) => $record
+                    ? collect(self::BIO_SOURCES)->map(fn (string $label, string $source) => TextInput::make("bio_link_{$source}")
+                        ->label($label)->readOnly()->copyable(copyMessage: 'Tautan disalin')->dehydrated(false)
+                        ->formatStateUsing(fn () => $record->url().'?utm_source='.$source))->values()->all()
+                    : [Text::make('Tautan tersedia setelah halaman disimpan.')]),
 
             Section::make('SEO')->schema([
                 TextInput::make('meta_title')->label('Judul halaman')->maxLength(70)->placeholder('Kosong = nama tampil'),

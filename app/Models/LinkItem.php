@@ -54,12 +54,10 @@ class LinkItem extends Model
         return $this->belongsTo(SalesChannel::class, 'sales_channel_id');
     }
 
-    /** Aktif dan berada dalam jadwal tayang. */
+    /** Tombol yang aktif (tampil di halaman publik). */
     public function scopeVisible(Builder $query): Builder
     {
-        return $query->where('is_active', true)
-            ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
-            ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>', now()));
+        return $query->where('is_active', true);
     }
 
     public function isClickable(): bool
