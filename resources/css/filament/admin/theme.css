@@ -1144,7 +1144,9 @@ button.sm-seo-item:hover {
         flex-direction: column;
     }
     .sm-lb-editor > .fi-tabs { flex: none; }
+    /* position: relative wajib: elemen sr-only (absolute) di dalam form kalau tidak akan memanjangkan halaman */
     .sm-lb-editor > .fi-sc-tabs-tab {
+        position: relative;
         flex: 1 1 auto;
         min-height: 0;
         overflow-y: auto;
@@ -1152,5 +1154,5 @@ button.sm-seo-item:hover {
         scrollbar-gutter: stable;
     }
     .sm-lb-preview { height: max(26rem, calc(100dvh - 22rem)); }
-    .sm-lb-preview .sm-lb-phone { height: calc(100% - 2.75rem); width: auto !important; max-width: none !important; }
+    .sm-lb-preview .sm-lb-phone { height: calc(100% - 2rem); width: auto !important; max-width: none !important; }
 }
