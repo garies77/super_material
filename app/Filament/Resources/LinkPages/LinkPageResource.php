@@ -188,6 +188,9 @@ class LinkPageResource extends Resource
                                     $fail('URL harus https dan berada di domain resmi platform yang dipilih.');
                                 }
                             }),
+                        self::live(ColorPicker::make('color')->label('Warna ikon (opsional)')->placeholder('Ikut tab Desain')
+                            ->regex('/^#[0-9a-fA-F]{6}$/')->validationMessages(['regex' => 'Pakai kode warna hex 6 digit, mis. #E4405F.']))
+                            ->columnSpanFull(),
                     ]),
             ]),
         ];
@@ -279,6 +282,15 @@ class LinkPageResource extends Resource
                 self::live(Select::make('design.font')->label('Font')->default($defaults['font'])->selectablePlaceholder(false)
                     ->options(array_map(fn (array $font) => $font[0], LinkBioDesign::FONTS))),
             ]),
+
+            Section::make('Ikon media sosial')->description('Warna untuk semua ikon. Tiap ikon juga bisa diberi warna sendiri di tab Konten → Media sosial.')
+                ->columns(2)->schema([
+                    ToggleButtons::make('design.social_style')->label('Warna ikon')->options(LinkBioDesign::SOCIAL_STYLES)->inline()
+                        ->default('text')->live()->columnSpanFull(),
+                    self::live(ColorPicker::make('design.social_color')->label('Warna ikon')->regex('/^#[0-9a-fA-F]{6}$/')
+                        ->validationMessages(['regex' => 'Pakai kode warna hex 6 digit, mis. #FFC20E.']))
+                        ->visible(fn (Get $get) => $get('design.social_style') === 'custom'),
+                ]),
         ];
     }
 

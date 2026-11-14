@@ -191,3 +191,20 @@ it('gives a button its own colors on top of the theme', function () {
 
     expect($html)->not->toContain('<script>x</script>');
 });
+
+it('colors social icons by theme text, brand colors, a chosen color, or per icon', function (array $design, array $expected) {
+    $page = LinkPage::factory()->create(['theme' => 'light', 'design' => $design, 'socials' => [
+        ['platform' => 'instagram', 'url' => 'https://www.instagram.com/jayaintero'],
+        ['platform' => 'youtube', 'url' => 'https://www.youtube.com/@jayaintero', 'color' => '#00aa00'],
+        ['platform' => 'tiktok', 'url' => 'https://www.tiktok.com/@jayaintero', 'color' => 'url(javascript:x)'],
+    ]]);
+
+    $html = $this->get(route('link.show', $page->slug))->assertOk()->getContent();
+    preg_match_all('/lb-social[^"]*"\s+style="color: ([^"]+)"/', $html, $colors);
+
+    expect($colors[1])->toBe($expected)->and($html)->not->toContain('javascript:x');
+})->with([
+    'ikut warna teks' => [['social_style' => 'text'], ['#0B0F19', '#00AA00', '#0B0F19']],
+    'warna asli merek' => [['social_style' => 'brand'], ['#E4405F', '#00AA00', '#FE2C55']],
+    'warna pilihan' => [['social_style' => 'custom', 'social_color' => '#ffc20e'], ['#FFC20E', '#00AA00', '#FFC20E']],
+]);

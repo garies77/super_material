@@ -199,6 +199,7 @@
                 @foreach($socials as $social)
                     <li>
                         <a href="{{ $social['url'] }}" target="_blank" rel="noopener me" class="lb-social flex h-11 w-11 items-center justify-center"
+                           style="color: {{ LinkPage::socialIconColor($social, $design) }}"
                            aria-label="{{ LinkPage::socialOptions()[$social['platform']] ?? $social['platform'] }}">
                             @include('partials.social-icon', ['platform' => $social['platform'], 'class' => 'h-5 w-5'])
                         </a>
