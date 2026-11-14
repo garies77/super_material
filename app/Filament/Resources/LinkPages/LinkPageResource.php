@@ -130,7 +130,7 @@ class LinkPageResource extends Resource
             ]),
 
             Section::make('Tombol & tautan')->description('Seret untuk mengurutkan. Klik setiap tombol tercatat di Laporan Link Bio.')->schema([
-                Repeater::make('items')->relationship()->label('')->orderColumn('sort')->defaultItems(0)
+                Repeater::make('items')->relationship()->hiddenLabel()->orderColumn('sort')->defaultItems(0)
                     ->reorderableWithDragAndDrop()->collapsible()->collapsed(fn (string $operation) => $operation === 'edit')
                     ->cloneable()->addActionLabel('Tambah tombol')
                     ->afterStateUpdated(LinkBioPreview::refresh())
@@ -178,7 +178,7 @@ class LinkPageResource extends Resource
                             self::live(ColorPicker::make('text_color')->label('Warna teks')
                                 ->placeholder('Otomatis')->regex('/^#[0-9a-fA-F]{6}$/')
                                 ->validationMessages(['regex' => 'Pakai kode warna hex 6 digit, mis. #FFFFFF.'])),
-                            self::live(FileUpload::make('thumbnail_path')->label('Gambar kecil (opsional)')->image()->imagePreset('square_small')
+                            self::live(FileUpload::make('thumbnail_path')->label('Ikon / gambar')->image()->imagePreset('square_small')
                                 ->disk('public')->directory('link-bio')->visibility('public'))
                                 ->helperText(fn (Get $get) => $get('type') === 'product' ? 'Kosong = foto produk.' : 'Ikon/logo di kiri tombol.'),
                             self::live(Toggle::make('is_highlighted')->label('Tonjolkan tombol ini'))
@@ -188,7 +188,7 @@ class LinkPageResource extends Resource
             ]),
 
             Section::make('Media sosial')->description('Ikon di bawah bio. URL harus https dan dari domain resmi platform. Warna kosong = ikut pengaturan di tab Desain.')->schema([
-                Repeater::make('socials')->label('')->defaultItems(0)->reorderableWithDragAndDrop()->addActionLabel('Tambah akun')
+                Repeater::make('socials')->hiddenLabel()->defaultItems(0)->reorderableWithDragAndDrop()->addActionLabel('Tambah akun')
                     ->columns(['default' => 1, 'md' => 4])
                     ->afterStateUpdated(LinkBioPreview::refresh())
                     ->itemLabel(fn (array $state) => LinkPage::socialOptions()[$state['platform'] ?? ''] ?? 'Akun baru')
