@@ -2,8 +2,8 @@
     Pratinjau ponsel Link Bio (App\Filament\Support\LinkBioPreview). Halaman dirender di iframe srcdoc agar CSS situs
     terpisah dari CSS admin. wire:key berubah setiap isi berubah supaya iframe dimuat ulang.
 --}}
-<div style="position:sticky;top:5rem;display:flex;flex-direction:column;align-items:center;gap:.75rem">
-    <div style="width:100%;max-width:340px;aspect-ratio:9/18.5;border-radius:2.5rem;padding:10px;background:#111827;box-shadow:0 20px 40px -12px rgba(0,0,0,.35)">
+<div class="sm-lb-preview" style="display:flex;flex-direction:column;align-items:center;gap:.75rem">
+    <div class="sm-lb-phone" style="width:100%;max-width:340px;aspect-ratio:9/18.5;border-radius:2.5rem;padding:10px;background:#111827;box-shadow:0 20px 40px -12px rgba(0,0,0,.35)">
         <iframe
             wire:key="lb-preview-{{ md5($html) }}"
             srcdoc="{{ $html }}"

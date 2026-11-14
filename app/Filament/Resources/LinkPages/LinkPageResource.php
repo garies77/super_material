@@ -82,7 +82,7 @@ class LinkPageResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->columns(['default' => 1, 'lg' => 1, 'xl' => 12])->components([
-            Tabs::make('editor')->columnSpan(['xl' => 7, '2xl' => 8])->persistTabInQueryString()->tabs([
+            Tabs::make('editor')->extraAttributes(['class' => 'sm-lb-editor'])->columnSpan(['xl' => 7, '2xl' => 8])->persistTabInQueryString()->tabs([
                 Tab::make('Konten')->icon(Heroicon::OutlinedSquare3Stack3d)->schema(self::contentTab()),
                 Tab::make('Header')->icon(Heroicon::OutlinedUserCircle)->schema(self::headerTab()),
                 Tab::make('Desain')->icon(Heroicon::OutlinedPaintBrush)->schema(self::designTab()),
