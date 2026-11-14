@@ -194,16 +194,36 @@ it('fills a square section with a centered square copy when a wide library image
         ->and(Storage::disk('public')->exists($wide->path))->toBeTrue();
 });
 
-it('creates a cropped copy for a chosen section size from the media library page', function () {
+it('saves the area cut in the image editor as a new library image and keeps the original', function () {
     $media = libraryImage('products/foto.jpg', UploadedFile::fake()->image('foto.jpg', 2000, 2000));
+    $media->update(['alt_text' => 'Foto semen']);
+
+    // Editor gambar Filament (Cropper.js) di browser mengunggah hasil potongan sebagai berkas baru
+    Livewire::test(ManageMedia::class)
+        ->mountTableAction('crop', $media)
+        ->setTableActionData(['image' => []])
+        ->setTableActionData(['image' => ['hasil-editor' => UploadedFile::fake()->image('hasil-editor.jpg', 1200, 675)]])
+        ->callMountedTableAction()
+        ->assertHasNoTableActionErrors()
+        ->assertNotified();
+
+    $copy = Media::firstWhere('path', 'products/foto-potong-1200x675.jpg');
+
+    expect($copy)->not->toBeNull()
+        ->and([$copy->width, $copy->height])->toBe([1200, 675])
+        ->and($copy->alt_text)->toBe('Foto semen')
+        ->and(Storage::disk('public')->exists('products/foto.jpg'))->toBeTrue()
+        ->and(AuditLog::where('action', 'media.cropped')->exists())->toBeTrue();
+});
+
+it('does not create a copy when the image was not cut in the editor', function () {
+    $media = libraryImage('products/foto.jpg', UploadedFile::fake()->image('foto.jpg', 800, 800));
 
     Livewire::test(ManageMedia::class)
-        ->callTableAction('crop', $media, ['preset' => 'article'])
-        ->assertHasNoTableActionErrors();
+        ->callTableAction('crop', $media)
+        ->assertNotified('Gambar belum dipotong');
 
-    $copy = Media::firstWhere('path', 'products/foto-1200x675.webp');
-
-    expect($copy)->not->toBeNull()->and([$copy->width, $copy->height])->toBe([1200, 675]);
+    expect(Media::count())->toBe(1);
 });
 
 it('filters the media library by aspect ratio', function () {
