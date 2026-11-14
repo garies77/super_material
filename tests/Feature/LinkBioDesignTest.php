@@ -93,3 +93,36 @@ it('lists a ready-to-copy bio link for every platform', function () {
         $component->assertFormSet(["bio_link_{$source}" => route('link.show', 'pembelian').'?utm_source='.$source]);
     }
 });
+
+it('saves a custom color per button from the editor', function () {
+    $page = LinkPage::factory()->create();
+    $item = LinkItem::factory()->for($page)->create(['label' => 'Shopee']);
+    $this->actingAs(User::factory()->create(['role' => 'editor', 'is_active' => true]));
+
+    $component = Livewire::test(EditLinkPage::class, ['record' => $page->getRouteKey()]);
+    $key = array_key_first($component->get('data.items'));
+
+    $component->set("data.items.{$key}.button_color", '#EE4D2D')
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($item->refresh()->button_color)->toBe('#EE4D2D');
+
+    $component->set("data.items.{$key}.button_color", 'oranye')->call('save')
+        ->assertHasFormErrors(["items.{$key}.button_color"]);
+});
+
+it('fills the button color from a quick brand swatch and clears it again', function () {
+    $page = LinkPage::factory()->create();
+    LinkItem::factory()->for($page)->create(['label' => 'Shopee', 'text_color' => '#123456']);
+    $this->actingAs(User::factory()->create(['role' => 'editor', 'is_active' => true]));
+
+    $component = Livewire::test(EditLinkPage::class, ['record' => $page->getRouteKey()]);
+    $key = array_key_first($component->get('data.items'));
+
+    $component->set("data.items.{$key}.quick_color", '#EE4D2D')
+        ->assertSet("data.items.{$key}.button_color", '#EE4D2D')
+        ->assertSet("data.items.{$key}.text_color", null)
+        ->set("data.items.{$key}.quick_color", 'theme')
+        ->assertSet("data.items.{$key}.button_color", null);
+});

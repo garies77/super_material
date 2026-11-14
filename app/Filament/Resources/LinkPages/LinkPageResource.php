@@ -34,6 +34,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
@@ -129,53 +130,79 @@ class LinkPageResource extends Resource
             ]),
 
             Section::make('Tombol & tautan')->description('Seret untuk mengurutkan. Klik setiap tombol tercatat di Laporan Link Bio.')->schema([
-                Repeater::make('items')->relationship()->label('')->orderColumn('sort')->defaultItems(0)
-                    ->reorderableWithDragAndDrop()->collapsible()->cloneable()->addActionLabel('Tambah tombol')->columns(2)
+                Repeater::make('items')->relationship()->hiddenLabel()->orderColumn('sort')->defaultItems(0)
+                    ->reorderableWithDragAndDrop()->collapsible()->collapsed(fn (string $operation) => $operation === 'edit')
+                    ->cloneable()->addActionLabel('Tambah tombol')
                     ->afterStateUpdated(LinkBioPreview::refresh())
-                    ->itemLabel(fn (array $state) => ($state['label'] ?? null)
-                        ? ($state['label'].(($state['is_active'] ?? true) ? '' : ' (nonaktif)'))
-                        : 'Tombol baru')
+                    ->itemLabel(fn (array $state) => self::itemLabel($state))
                     ->schema([
-                        Select::make('type')->label('Jenis')->options(LinkItem::TYPES)->default('link')->required()->live()->selectablePlaceholder(false),
-                        self::live(TextInput::make('label')->label(fn (Get $get) => $get('type') === 'heading' ? 'Teks judul' : 'Teks tombol')->required()->maxLength(120), typing: true),
+                        Fieldset::make('Isi tombol')->columns(2)->schema([
+                            Select::make('type')->label('Jenis')->options(LinkItem::TYPES)->default('link')->required()->live()->selectablePlaceholder(false),
+                            self::live(TextInput::make('label')->label(fn (Get $get) => $get('type') === 'heading' ? 'Teks judul' : 'Teks tombol')->required()->maxLength(120), typing: true),
 
-                        Group::make(LinkTarget::fields())->columns(2)->columnSpanFull()->visible($type('link')),
+                            Group::make(LinkTarget::fields())->columns(2)->columnSpanFull()->visible($type('link')),
 
-                        self::live(Select::make('product_id')->label('Produk')->searchable()->required($type('product'))
-                            ->options(fn () => Product::published()->orderBy('name')->pluck('name', 'id')))->visible($type('product')),
-                        Select::make('sales_channel_id')->label('Beli lewat')->visible($type('product'))
-                            ->options(fn () => SalesChannel::where('is_active', true)->orderBy('name')->pluck('name', 'id'))
-                            ->placeholder('Halaman produk di situs')
-                            ->helperText('Kosong: menuju halaman produk. Marketplace: lewat /go agar klik masuk laporan produk.'),
+                            self::live(Select::make('product_id')->label('Produk')->searchable()->required($type('product'))
+                                ->options(fn () => Product::published()->orderBy('name')->pluck('name', 'id')))->visible($type('product')),
+                            Select::make('sales_channel_id')->label('Beli lewat')->visible($type('product'))
+                                ->options(fn () => SalesChannel::where('is_active', true)->orderBy('name')->pluck('name', 'id'))
+                                ->placeholder('Halaman produk di situs')
+                                ->helperText('Marketplace: klik juga masuk laporan produk.'),
 
-                        TextInput::make('whatsapp_number')->label('Nomor WhatsApp')->tel()->maxLength(30)->visible($type('whatsapp'))
-                            ->regex('/^[0-9+()\-\s.]{6,25}$/')->placeholder('Kosong = nomor di Pengaturan situs'),
-                        TextInput::make('whatsapp_message')->label('Pesan awal')->maxLength(500)->visible($type('whatsapp')),
+                            TextInput::make('whatsapp_number')->label('Nomor WhatsApp')->tel()->maxLength(30)->visible($type('whatsapp'))
+                                ->regex('/^[0-9+()\-\s.]{6,25}$/')->placeholder('Kosong = nomor di Pengaturan situs'),
+                            TextInput::make('whatsapp_message')->label('Pesan awal')->maxLength(500)->visible($type('whatsapp')),
 
-                        self::live(FileUpload::make('thumbnail_path')->label('Gambar kecil (opsional)')->image()->imagePreset('square_small')
-                            ->disk('public')->directory('link-bio')->visibility('public'))
-                            ->visible($type('link', 'product', 'whatsapp'))
-                            ->helperText(fn (Get $get) => $get('type') === 'product' ? 'Kosong = foto produk.' : null),
+                            self::live(Toggle::make('is_active')->label('Tampilkan di halaman')->default(true))->columnSpanFull(),
+                        ]),
 
-                        Group::make([
-                            self::live(Toggle::make('is_active')->label('Aktif')->default(true)->inline(false)),
-                            self::live(Toggle::make('is_highlighted')->label('Tonjolkan')->inline(false))->visible($type('link', 'product', 'whatsapp')),
-                        ])->columns(2),
-
+                        // Tampilan per tombol: gambar kecil, sorotan, dan warna sendiri (kosong = ikut tema di tab Desain)
+                        Fieldset::make('Tampilan')->columns(2)->visible($type('link', 'product', 'whatsapp'))->schema([
+                            Select::make('quick_color')->label('Warna cepat')->dehydrated(false)->native(false)->allowHtml()->live()
+                                ->placeholder('Pilih warna merek…')
+                                ->options(['theme' => self::swatch(null, 'Ikut tema (hapus warna sendiri)')]
+                                    + collect(LinkBioDesign::BUTTON_SWATCHES)->mapWithKeys(fn (string $label, string $hex) => [$hex => self::swatch($hex, $label)])->all())
+                                ->afterStateUpdated(function (Set $set, ?string $state) {
+                                    if ($state === null) {
+                                        return;
+                                    }
+                                    $set('button_color', $state === 'theme' ? null : $state);
+                                    $set('text_color', null);
+                                    $set('quick_color', null);
+                                })
+                                ->helperText('Mengisi warna tombol; warna teks otomatis hitam/putih yang paling terbaca.')
+                                ->columnSpanFull(),
+                            self::live(ColorPicker::make('button_color')->label('Warna tombol')
+                                ->placeholder('Ikut tema')->regex('/^#[0-9a-fA-F]{6}$/')
+                                ->validationMessages(['regex' => 'Pakai kode warna hex 6 digit, mis. #EE4D2D.'])),
+                            self::live(ColorPicker::make('text_color')->label('Warna teks')
+                                ->placeholder('Otomatis')->regex('/^#[0-9a-fA-F]{6}$/')
+                                ->validationMessages(['regex' => 'Pakai kode warna hex 6 digit, mis. #FFFFFF.'])),
+                            self::live(FileUpload::make('thumbnail_path')->label('Ikon / gambar')->image()->imagePreset('square_small')
+                                ->disk('public')->directory('link-bio')->visibility('public'))
+                                ->helperText(fn (Get $get) => $get('type') === 'product' ? 'Kosong = foto produk.' : 'Ikon/logo di kiri tombol.'),
+                            self::live(Toggle::make('is_highlighted')->label('Tonjolkan tombol ini'))
+                                ->helperText('Memakai warna sorotan dari tab Desain bila warna tombol kosong.'),
+                        ]),
                     ]),
             ]),
 
-            Section::make('Media sosial')->description('Ikon di bawah bio. URL harus https dan dari domain resmi platform.')->schema([
-                Repeater::make('socials')->label('')->defaultItems(0)->reorderableWithDragAndDrop()->addActionLabel('Tambah akun')->columns(2)
+            Section::make('Media sosial')->description('Ikon di bawah bio. URL harus https dan dari domain resmi platform. Warna kosong = ikut pengaturan di tab Desain.')->schema([
+                Repeater::make('socials')->hiddenLabel()->defaultItems(0)->reorderableWithDragAndDrop()->addActionLabel('Tambah akun')
+                    ->columns(['default' => 1, 'md' => 4])
                     ->afterStateUpdated(LinkBioPreview::refresh())
+                    ->itemLabel(fn (array $state) => LinkPage::socialOptions()[$state['platform'] ?? ''] ?? 'Akun baru')
                     ->schema([
                         self::live(Select::make('platform')->label('Platform')->options(LinkPage::socialOptions())->required()),
-                        self::live(TextInput::make('url')->label('URL profil')->required()->maxLength(500), typing: true)
+                        self::live(TextInput::make('url')->label('URL profil')->required()->maxLength(500)->placeholder('https://…'), typing: true)
+                            ->columnSpan(['md' => 2])
                             ->rule(fn (Get $get) => function (string $attribute, mixed $value, Closure $fail) use ($get) {
                                 if (! LinkPage::isValidSocialUrl($get('platform'), $value)) {
                                     $fail('URL harus https dan berada di domain resmi platform yang dipilih.');
                                 }
                             }),
+                        self::live(ColorPicker::make('color')->label('Warna ikon')->placeholder('Ikut Desain')
+                            ->regex('/^#[0-9a-fA-F]{6}$/')->validationMessages(['regex' => 'Pakai kode warna hex 6 digit, mis. #E4405F.'])),
                     ]),
             ]),
         ];
@@ -267,6 +294,15 @@ class LinkPageResource extends Resource
                 self::live(Select::make('design.font')->label('Font')->default($defaults['font'])->selectablePlaceholder(false)
                     ->options(array_map(fn (array $font) => $font[0], LinkBioDesign::FONTS))),
             ]),
+
+            Section::make('Ikon media sosial')->description('Warna untuk semua ikon. Tiap ikon juga bisa diberi warna sendiri di tab Konten → Media sosial.')
+                ->columns(2)->schema([
+                    ToggleButtons::make('design.social_style')->label('Warna ikon')->options(LinkBioDesign::SOCIAL_STYLES)->inline()
+                        ->default('text')->live()->columnSpanFull(),
+                    self::live(ColorPicker::make('design.social_color')->label('Warna ikon')->regex('/^#[0-9a-fA-F]{6}$/')
+                        ->validationMessages(['regex' => 'Pakai kode warna hex 6 digit, mis. #FFC20E.']))
+                        ->visible(fn (Get $get) => $get('design.social_style') === 'custom'),
+                ]),
         ];
     }
 
@@ -310,6 +346,29 @@ class LinkPageResource extends Resource
                         ->helperText('Halaman tetap bisa dibuka lewat tautan, tapi tidak muncul di hasil pencarian dan sitemap.'),
                 ]),
         ];
+    }
+
+    /** Judul baris tombol saat terlipat: "Teks · Jenis", plus penanda nonaktif. */
+    private static function itemLabel(array $state): string
+    {
+        if (blank($state['label'] ?? null)) {
+            return 'Tombol baru';
+        }
+
+        return $state['label'].' · '.(LinkItem::TYPES[$state['type'] ?? 'link'] ?? 'Tautan')
+            .(($state['is_active'] ?? true) ? '' : ' · disembunyikan');
+    }
+
+    /** Opsi warna cepat: bulatan warna + nama (Select allowHtml; nilai hex sudah tetap dari konstanta). */
+    private static function swatch(?string $hex, string $label): string
+    {
+        $dot = $hex
+            ? 'background:'.$hex
+            : 'background:repeating-linear-gradient(45deg,#e5e7eb 0 3px,#fff 3px 6px)';
+
+        return '<span style="display:inline-flex;align-items:center;gap:.5rem">'
+            .'<span style="width:.875rem;height:.875rem;border-radius:999px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15);'.$dot.'"></span>'
+            .e($label).'</span>';
     }
 
     /** Perkiraan tampilan di hasil pencarian Google dari isi form saat ini. */

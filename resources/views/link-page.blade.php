@@ -116,6 +116,7 @@
         .lb-style-hard .lb-btn:hover { box-shadow: 2px 2px 0 var(--lb-btn-text); transform: translate(2px, 2px); }
         .lb-style-outline .lb-btn { background: transparent; border-color: var(--lb-btn); }
         .lb .lb-btn.lb-highlight { background: var(--lb-accent); color: var(--lb-accent-text); border-color: var(--lb-accent); }
+        .lb-style-outline .lb-btn.lb-custom { background: var(--lb-btn); }
         .lb-social { color: var(--lb-text); border-radius: 999px; }
         .lb-social:hover { background: color-mix(in srgb, var(--lb-text) 12%, transparent); }
         .lb-avatar-fallback { background: var(--lb-accent); color: var(--lb-accent-text); }
@@ -198,6 +199,7 @@
                 @foreach($socials as $social)
                     <li>
                         <a href="{{ $social['url'] }}" target="_blank" rel="noopener me" class="lb-social flex h-11 w-11 items-center justify-center"
+                           style="color: {{ LinkPage::socialIconColor($social, $design) }}"
                            aria-label="{{ LinkPage::socialOptions()[$social['platform']] ?? $social['platform'] }}">
                             @include('partials.social-icon', ['platform' => $social['platform'], 'class' => 'h-5 w-5'])
                         </a>
@@ -214,11 +216,12 @@
                     @php($thumb = $item->thumbnailUrl())
                     <a href="{{ $preview ? '#' : route('link.click', [$page->slug, $item->id]) }}"
                        @if($item->opensInNewTab() && ! $preview) target="_blank" rel="noopener" @endif
-                       class="lb-btn {{ $item->is_highlighted ? 'lb-highlight' : '' }} relative flex min-h-14 w-full items-center px-4 py-3 text-[15px] font-semibold">
+                       @if($itemColors = $item->colorStyle()) style="{{ $itemColors }}" @endif
+                       class="lb-btn {{ $item->is_highlighted ? 'lb-highlight' : '' }} {{ $item->button_color ? 'lb-custom' : '' }} relative flex min-h-14 w-full items-center px-4 py-3 text-[15px] font-semibold">
                         @if($thumb)
                             <img src="{{ $thumb }}" alt="" width="40" height="40" loading="lazy" class="absolute left-2 h-10 w-10 rounded-[calc(var(--lb-radius)*.6)] object-cover">
                         @elseif($item->type === 'whatsapp')
-                            <span class="absolute left-3 {{ $item->is_highlighted ? '' : 'text-[#25D366]' }}">@include('partials.social-icon', ['platform' => 'whatsapp', 'class' => 'h-6 w-6'])</span>
+                            <span class="absolute left-3 {{ $item->is_highlighted || $item->button_color ? '' : 'text-[#25D366]' }}">@include('partials.social-icon', ['platform' => 'whatsapp', 'class' => 'h-6 w-6'])</span>
                         @endif
                         <span class="w-full px-10 text-center">{{ $item->label }}</span>
                     </a>

@@ -49,6 +49,23 @@ class LinkBioDesign
         'outline' => 'Garis tepi',
     ];
 
+    /** Warna cepat untuk tombol: warna merek marketplace/platform yang sering dipakai, plus warna Jaya Intero. */
+    public const BUTTON_SWATCHES = [
+        '#EE4D2D' => 'Shopee',
+        '#03AC0E' => 'Tokopedia',
+        '#0F146D' => 'Lazada',
+        '#000000' => 'TikTok Shop',
+        '#25D366' => 'WhatsApp',
+        '#1877F2' => 'Facebook',
+        '#E4405F' => 'Instagram',
+        '#FF0000' => 'YouTube',
+        '#0B3D91' => 'Biru Jaya Intero',
+        '#FFC20E' => 'Kuning Jaya Intero',
+    ];
+
+    /** Warna ikon media sosial: ikut warna teks, warna asli tiap platform, atau satu warna pilihan. */
+    public const SOCIAL_STYLES = ['text' => 'Ikut warna teks', 'brand' => 'Warna asli merek', 'custom' => 'Warna pilihan sendiri'];
+
     public const BUTTON_RADII = ['square' => 'Kotak', 'rounded' => 'Tumpul', 'pill' => 'Kapsul'];
 
     /** Kunci => [label, nama keluarga Google Fonts]. */
@@ -130,6 +147,8 @@ class LinkBioDesign
             'layout' => 'classic',
             'shape' => 'circle',
             'title_size' => 'normal',
+            'social_style' => 'text',
+            'social_color' => null,
             'bg_image_path' => null,
         ] + $preset;
     }
@@ -155,12 +174,16 @@ class LinkBioDesign
             'button_style' => $pick('button_style', self::BUTTON_STYLES),
             'button_radius' => $pick('button_radius', self::BUTTON_RADII),
             'font' => $pick('font', self::FONTS),
+            'social_style' => $pick('social_style', self::SOCIAL_STYLES),
             'bg_image_path' => self::safePath($merged['bg_image_path'] ?? null),
         ];
 
         foreach (self::COLOR_KEYS as $key) {
             $clean[$key] = self::color($merged[$key] ?? null) ?? self::color($base[$key]) ?? '#FFFFFF';
         }
+
+        // Warna ikon pilihan sendiri; kosong = warna teks
+        $clean['social_color'] = self::color($merged['social_color'] ?? null) ?? $clean['text_color'];
 
         return $clean;
     }

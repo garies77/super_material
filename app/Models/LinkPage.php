@@ -24,9 +24,30 @@ class LinkPage extends Model
 
     /** Platform ikon sosial: yang ada di SocialPlatforms plus TikTok & YouTube (ikonnya sudah ada di partials/social-icon). */
     public const SOCIAL_HOSTS = [
-        'tiktok' => ['label' => 'TikTok', 'hosts' => ['tiktok.com']],
-        'youtube' => ['label' => 'YouTube', 'hosts' => ['youtube.com', 'youtu.be']],
+        'tiktok' => ['label' => 'TikTok', 'color' => '#FE2C55', 'hosts' => ['tiktok.com']],
+        'youtube' => ['label' => 'YouTube', 'color' => '#FF0000', 'hosts' => ['youtube.com', 'youtu.be']],
     ];
+
+    /** Warna asli merek tiap platform (pilihan "Warna asli merek" untuk ikon). */
+    public static function brandColor(string $platform): ?string
+    {
+        return self::SOCIAL_HOSTS[$platform]['color'] ?? SocialPlatforms::ALL[$platform]['color'] ?? null;
+    }
+
+    /**
+     * Warna tiap ikon: warna sendiri ikon itu, lalu pengaturan umum di tab Desain.
+     *
+     * @param  array{platform: string, color: ?string}  $social
+     * @param  array<string, string|null>  $design  hasil LinkBioDesign::resolve()
+     */
+    public static function socialIconColor(array $social, array $design): string
+    {
+        return $social['color'] ?? match ($design['social_style']) {
+            'brand' => self::brandColor($social['platform']) ?? $design['text_color'],
+            'custom' => $design['social_color'],
+            default => $design['text_color'],
+        };
+    }
 
     protected $guarded = [];
 
@@ -138,7 +159,7 @@ class LinkPage extends Model
     {
         return collect($this->socials ?? [])
             ->filter(fn ($s) => self::isValidSocialUrl($s['platform'] ?? null, $s['url'] ?? null))
-            ->map(fn ($s) => ['platform' => $s['platform'], 'url' => trim($s['url'])])
+            ->map(fn ($s) => ['platform' => $s['platform'], 'url' => trim($s['url']), 'color' => LinkBioDesign::color($s['color'] ?? null)])
             ->values()->all();
     }
 }
