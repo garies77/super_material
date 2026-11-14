@@ -6,6 +6,7 @@ use App\Filament\Reports\Concerns\HasReportPeriodFilter;
 use App\Filament\Reports\Widgets\LinkDevicesTable;
 use App\Filament\Reports\Widgets\LinkItemsTable;
 use App\Filament\Reports\Widgets\LinkKpis;
+use App\Filament\Reports\Widgets\LinkSourcesChart;
 use App\Filament\Reports\Widgets\LinkSourcesTable;
 use App\Filament\Reports\Widgets\LinkTrendChart;
 use App\Models\LinkPage;
@@ -62,8 +63,9 @@ class LinkReport extends Dashboard
         return [
             LinkKpis::class,
             LinkTrendChart::class,
-            LinkDevicesTable::class,
+            LinkSourcesChart::class,
             LinkItemsTable::class,
+            LinkDevicesTable::class,
             LinkSourcesTable::class,
         ];
     }

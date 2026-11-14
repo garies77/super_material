@@ -7,7 +7,7 @@ use App\Support\Reports\LinkReportMetrics;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
-/** Tayangan, klik, dan CTR Link Bio dibanding periode sebelumnya. */
+/** Angka utama Link Bio: tayangan, klik, CTR (dibanding periode sebelumnya), dan sumber kunjungan teratas. */
 class LinkKpis extends StatsOverviewWidget
 {
     use FiltersLinkPage;
@@ -18,7 +18,7 @@ class LinkKpis extends StatsOverviewWidget
 
     protected function getColumns(): int
     {
-        return 3;
+        return 4;
     }
 
     protected function getStats(): array
@@ -31,13 +31,19 @@ class LinkKpis extends StatsOverviewWidget
         $previousClicks = LinkReportMetrics::clicks($period->previous(), $page);
         $ctr = LinkReportMetrics::ctr($clicks, $views);
         $previousCtr = LinkReportMetrics::ctr($previousClicks, $previousViews);
+        $top = LinkReportMetrics::topSource($period, $page);
 
         return [
             ReportKpis::comparisonStat('Tayangan halaman', $views, $previousViews, 'heroicon-o-eye'),
             ReportKpis::comparisonStat('Klik tombol', $clicks, $previousClicks, 'heroicon-o-cursor-arrow-rays'),
-            Stat::make('CTR', LinkReportMetrics::formatCtr($ctr))
-                ->description($previousCtr === null ? 'Klik ÷ tayangan' : 'Periode sebelumnya '.LinkReportMetrics::formatCtr($previousCtr))
+            Stat::make('CTR (klik ÷ tayangan)', LinkReportMetrics::formatCtr($ctr))
+                ->description($previousCtr === null ? 'Belum ada pembanding' : 'Periode sebelumnya '.LinkReportMetrics::formatCtr($previousCtr))
                 ->descriptionIcon('heroicon-o-chart-bar')
+                ->color('gray'),
+            Stat::make('Sumber teratas', $top['source'] ?? '—')
+                ->description($top ? number_format($top['views'], 0, ',', '.').' tayangan · '
+                    .number_format($top['views'] / max(1, $views) * 100, 0, ',', '.').'% dari total' : 'Belum ada kunjungan')
+                ->descriptionIcon('heroicon-o-globe-alt')
                 ->color('gray'),
         ];
     }

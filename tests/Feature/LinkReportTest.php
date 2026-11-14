@@ -55,8 +55,8 @@ it('computes views, clicks, ctr and per-button share for the selected page and p
     ]);
 
     expect(LinkReportMetrics::bySource($period, $this->page->id)->all())->toBe([
-        ['source' => 'instagram', 'views' => 80, 'clicks' => 30, 'ctr' => '37,5%'],
-        ['source' => 'tiktok', 'views' => 20, 'clicks' => 10, 'ctr' => '50,0%'],
+        ['source' => 'Instagram', 'views' => 80, 'clicks' => 30, 'ctr' => '37,5%', 'share' => '80,0%'],
+        ['source' => 'TikTok', 'views' => 20, 'clicks' => 10, 'ctr' => '50,0%', 'share' => '20,0%'],
     ]);
 });
 
@@ -70,7 +70,7 @@ it('opens the report and link bio menu for editors only', function () {
     $this->actingAs(User::factory()->create(['role' => 'editor', 'is_active' => true]));
     $this->get(LinkPageResource::getUrl())->assertOk()->assertSee('Bio Utama');
     $this->get(LinkReport::getUrl())->assertOk()
-        ->assertSee('Tayangan halaman')->assertSee('Performa per tombol')->assertSee('Sumber kunjungan')->assertSee('Konsultasi via WhatsApp');
+        ->assertSee('Tayangan halaman')->assertSee('Performa per tombol')->assertSee('Rincian sumber kunjungan')->assertSee('Dari mana pengunjung datang')->assertSee('Sumber teratas')->assertSee('Konsultasi via WhatsApp');
 });
 
 it('exports per-button clicks to CSV', function () {

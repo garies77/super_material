@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Http\Controllers\SeoController;
 use App\Support\LinkBioDesign;
 use App\Support\SocialPlatforms;
 use Database\Factories\LinkPageFactory;
@@ -10,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * Halaman link-in-bio (seperti Linktree) di /l/{slug}: profil, deretan tombol tautan, dan ikon media sosial.
@@ -30,7 +32,49 @@ class LinkPage extends Model
 
     protected function casts(): array
     {
-        return ['socials' => 'array', 'design' => 'array', 'is_published' => 'boolean'];
+        return ['socials' => 'array', 'design' => 'array', 'is_published' => 'boolean', 'noindex' => 'boolean'];
+    }
+
+    protected static function booted(): void
+    {
+        // Halaman terbit masuk sitemap-links.xml
+        static::saved(fn () => SeoController::flushSitemaps());
+        static::deleted(fn () => SeoController::flushSitemaps());
+    }
+
+    /** Layak diindeks Google: terbit dan tidak ditandai noindex. */
+    public function isIndexable(): bool
+    {
+        return $this->is_published && ! $this->noindex;
+    }
+
+    public function metaTitle(): string
+    {
+        return $this->meta_title ?: $this->title.' | '.Setting::brandName();
+    }
+
+    public function metaDescription(): string
+    {
+        $text = $this->meta_description ?: $this->bio;
+
+        return Str::limit(trim(preg_replace('/\s+/', ' ', (string) $text)), 160)
+            ?: 'Kumpulan tautan resmi '.$this->title.': produk, katalog, dan kontak WhatsApp.';
+    }
+
+    /**
+     * Gambar untuk kartu bagikan (Facebook, WhatsApp, X, LinkedIn) dan Google.
+     *
+     * @return array{url: string, large: bool}|null large = gambar OG 1200×630 (kartu besar); selain itu foto profil (kartu kecil)
+     */
+    public function shareImage(): ?array
+    {
+        if ($this->og_image_path) {
+            return ['url' => Storage::disk('public')->url($this->og_image_path), 'large' => true];
+        }
+
+        $fallback = $this->avatarUrl() ?: Setting::defaultOgImage();
+
+        return $fallback ? ['url' => $fallback, 'large' => ! $this->avatarUrl()] : null;
     }
 
     public function items(): HasMany

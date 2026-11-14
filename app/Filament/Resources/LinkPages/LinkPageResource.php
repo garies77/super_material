@@ -8,11 +8,14 @@ use App\Filament\Resources\LinkPages\Pages\EditLinkPage;
 use App\Filament\Resources\LinkPages\Pages\ListLinkPages;
 use App\Filament\Support\DescriptiveFileName;
 use App\Filament\Support\LinkBioPreview;
+use App\Filament\Support\StrictFileUpload;
 use App\Models\LinkItem;
 use App\Models\LinkPage;
 use App\Models\LinkStat;
 use App\Models\Product;
 use App\Models\SalesChannel;
+use App\Models\Setting;
+use App\Rules\OpenGraphImage;
 use App\Support\LinkBioDesign;
 use App\Support\LinkTarget;
 use App\Support\Reports\ClickReport;
@@ -44,6 +47,7 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 
 /**
@@ -286,11 +290,47 @@ class LinkPageResource extends Resource
                         ->formatStateUsing(fn () => $record->url().'?utm_source='.$source))->values()->all()
                     : [Text::make('Tautan tersedia setelah halaman disimpan.')]),
 
-            Section::make('SEO')->schema([
-                TextInput::make('meta_title')->label('Judul halaman')->maxLength(70)->placeholder('Kosong = nama tampil'),
-                Textarea::make('meta_description')->label('Deskripsi')->rows(2)->maxLength(160)->placeholder('Kosong = bio'),
-            ]),
+            Section::make('SEO & bagikan')
+                ->description('Cara halaman tampil di Google dan saat tautannya dibagikan di WhatsApp, Facebook, X, atau LinkedIn.')
+                ->schema([
+                    Text::make(fn (Get $get, ?LinkPage $record) => self::googleSnippet($get, $record)),
+                    TextInput::make('meta_title')->label('Judul di Google')->maxLength(60)->live(onBlur: true)
+                        ->placeholder(fn (Get $get) => ($get('title') ?: 'Nama tampil').' | '.Setting::brandName())
+                        ->helperText(fn (?string $state) => mb_strlen((string) $state).'/60 karakter. Kosong = nama tampil + nama situs.'),
+                    Textarea::make('meta_description')->label('Deskripsi di Google')->rows(2)->maxLength(160)->live(onBlur: true)
+                        ->placeholder('Kosong = bio')
+                        ->helperText(fn (?string $state) => mb_strlen((string) $state).'/160 karakter. Ceritakan siapa Anda dan apa yang bisa ditemukan di halaman ini.'),
+                    StrictFileUpload::make('og_image_path')->label('Gambar saat dibagikan (Open Graph)')
+                        ->image()->imagePreset('og')->disk('public')->directory('og')->visibility('public')
+                        ->getUploadedFileNameForStorageUsing(DescriptiveFileName::from('slug', 'og', 'og'))
+                        ->acceptedFileTypes(OpenGraphImage::MIME_TYPES)
+                        ->rule(new OpenGraphImage)->storedFileRule(new OpenGraphImage)
+                        ->helperText('1200×630 px (rasio 1.91:1), JPG/PNG/WebP. Kosong = foto profil (kartu kecil) atau gambar bawaan situs.'),
+                    Toggle::make('noindex')->label('Sembunyikan dari Google (noindex)')
+                        ->helperText('Halaman tetap bisa dibuka lewat tautan, tapi tidak muncul di hasil pencarian dan sitemap.'),
+                ]),
         ];
+    }
+
+    /** Perkiraan tampilan di hasil pencarian Google dari isi form saat ini. */
+    private static function googleSnippet(Get $get, ?LinkPage $record): HtmlString
+    {
+        $preview = new LinkPage([
+            'title' => $get('title') ?: 'Nama tampil',
+            'bio' => $get('bio'),
+            'meta_title' => $get('meta_title'),
+            'meta_description' => $get('meta_description'),
+        ]);
+        $url = preg_replace('#^https?://#', '', route('link.show', $get('slug') ?: 'alamat'));
+
+        return new HtmlString(
+            '<div style="border:1px solid rgba(127,127,127,.25);border-radius:.75rem;padding:.875rem 1rem;font-family:arial,sans-serif;max-width:600px">'
+            .'<div style="font-size:.75rem;opacity:.7;margin-bottom:.25rem">Pratinjau di Google</div>'
+            .'<div style="font-size:.8125rem;color:#4d5156">'.e(str_replace('/', ' › ', $url)).'</div>'
+            .'<div style="font-size:1.125rem;line-height:1.4;color:#1a0dab;margin:.125rem 0">'.e(Str::limit($preview->metaTitle(), 60)).'</div>'
+            .'<div style="font-size:.875rem;line-height:1.5;color:#4d5156">'.e($preview->metaDescription()).'</div>'
+            .'</div>'
+        );
     }
 
     public static function table(Table $table): Table

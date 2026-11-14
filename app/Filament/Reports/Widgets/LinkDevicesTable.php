@@ -13,7 +13,7 @@ class LinkDevicesTable extends TableWidget
 {
     use FiltersLinkPage;
 
-    protected int|string|array $columnSpan = 1;
+    protected int|string|array $columnSpan = ['default' => 'full', 'lg' => 1];
 
     protected static bool $isLazy = false;
 
@@ -21,6 +21,7 @@ class LinkDevicesTable extends TableWidget
     {
         return $table
             ->heading('Perangkat')
+            ->description('Porsi dari total tayangan.')
             ->records(fn () => LinkReportMetrics::byDevice($this->period(), $this->linkPageId())->all())
             ->paginated(false)
             ->emptyStateHeading('Belum ada kunjungan')
@@ -28,7 +29,7 @@ class LinkDevicesTable extends TableWidget
             ->columns([
                 TextColumn::make('device')->label('Perangkat')->weight('medium'),
                 TextColumn::make('views')->label('Tayangan')->numeric()->alignEnd(),
-                TextColumn::make('clicks')->label('Klik')->numeric()->alignEnd(),
+                TextColumn::make('share')->label('Porsi')->alignEnd()->color('gray'),
             ]);
     }
 }

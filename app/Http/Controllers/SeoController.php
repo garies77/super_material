@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Article;
 use App\Models\Author;
 use App\Models\Category;
+use App\Models\LinkPage;
 use App\Models\Page;
 use App\Models\Product;
 use App\Models\ProductMedia;
@@ -23,7 +24,7 @@ use Illuminate\Support\Str;
  */
 class SeoController extends Controller
 {
-    public const TYPES = ['products', 'categories', 'articles', 'pages', 'authors', 'images', 'videos'];
+    public const TYPES = ['products', 'categories', 'articles', 'pages', 'authors', 'links', 'images', 'videos'];
 
     public const PER_FILE = 5000;
 
@@ -121,6 +122,8 @@ class SeoController extends Controller
             'pages' => $this->pages(),
             'authors' => Author::active()->whereHas('publishedArticles')->get()
                 ->map(fn (Author $a) => $this->entry($a->url(), $a->updated_at)),
+            'links' => LinkPage::published()->where('noindex', false)->get()
+                ->map(fn (LinkPage $l) => $this->entry($l->url(), $l->updated_at)),
             'images' => $this->images(),
             'videos' => $this->videos(),
         })->values()->all()));

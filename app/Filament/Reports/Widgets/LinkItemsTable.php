@@ -23,6 +23,7 @@ class LinkItemsTable extends TableWidget
 
         return $table
             ->heading('Performa per tombol')
+            ->description('Porsi = bagian dari semua klik; CTR = klik ÷ tayangan halaman.')
             ->records(fn () => LinkReportMetrics::byItem($this->period(), $this->linkPageId())->all())
             ->paginated(false)
             ->emptyStateHeading('Belum ada klik')

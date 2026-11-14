@@ -16,8 +16,34 @@
     $backgroundImage = $urls['background'] ?? LinkBioDesign::storageUrl($design['bg_image_path']);
     $layout = $design['layout'];
 
-    $metaTitle = $page->meta_title ?: $page->title;
-    $metaDescription = $page->meta_description ?: \Illuminate\Support\Str::limit((string) $page->bio, 155);
+    $metaTitle = $page->metaTitle();
+    $metaDescription = $page->metaDescription();
+    $shareImage = $preview ? null : $page->shareImage();
+
+    // Data terstruktur Google: halaman profil yang mewakili organisasi; sameAs = akun media sosial resmi
+    $structuredData = $preview ? null : [
+        '@context' => 'https://schema.org',
+        '@type' => 'ProfilePage',
+        '@id' => $page->url().'#profilepage',
+        'url' => $page->url(),
+        'name' => $metaTitle,
+        'description' => $metaDescription,
+        'inLanguage' => 'id-ID',
+        'dateCreated' => $page->created_at?->toAtomString(),
+        'dateModified' => $page->updated_at?->toAtomString(),
+        'isPartOf' => ['@type' => 'WebSite', '@id' => url('/').'#website', 'name' => Setting::brandName(), 'url' => url('/')],
+        'mainEntity' => array_filter([
+            '@type' => 'Organization',
+            '@id' => $page->url().'#organization',
+            'name' => $page->title,
+            'description' => $page->bio ?: null,
+            'url' => url('/'),
+            'image' => $page->avatarUrl() ?: $shareImage['url'] ?? null,
+            'logo' => $page->avatarUrl(),
+            'sameAs' => array_column($page->validSocials(), 'url') ?: null,
+        ]),
+    ];
+    $structuredData = $structuredData ? array_filter($structuredData) : null;
     $initial = mb_strtoupper(mb_substr((string) $page->title, 0, 1)) ?: '•';
 
     // Bentuk burst: bintang 24 titik sebagai clip-path
@@ -38,19 +64,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $metaTitle }}</title>
     <meta name="description" content="{{ $metaDescription }}">
+    @if($preview || ! $page->isIndexable())
+        <meta name="robots" content="noindex, nofollow">
+    @else
+        <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
+    @endif
     @unless($preview)
         <link rel="canonical" href="{{ $page->url() }}">
+        {{-- Open Graph (Facebook, WhatsApp, LinkedIn, Threads) & kartu X --}}
+        <meta property="og:type" content="profile">
+        <meta property="og:site_name" content="{{ Setting::brandName() }}">
+        <meta property="og:locale" content="id_ID">
         <meta property="og:url" content="{{ $page->url() }}">
+        <meta property="og:title" content="{{ $metaTitle }}">
+        <meta property="og:description" content="{{ $metaDescription }}">
+        @if($shareImage)
+            <meta property="og:image" content="{{ $shareImage['url'] }}">
+            <meta property="og:image:secure_url" content="{{ $shareImage['url'] }}">
+            <meta property="og:image:alt" content="{{ $page->title }}">
+            @if($page->og_image_path)
+                <meta property="og:image:width" content="1200">
+                <meta property="og:image:height" content="630">
+            @endif
+        @endif
+        <meta name="twitter:card" content="{{ $shareImage['large'] ?? false ? 'summary_large_image' : 'summary' }}">
+        <meta name="twitter:title" content="{{ $metaTitle }}">
+        <meta name="twitter:description" content="{{ $metaDescription }}">
+        @if($shareImage)
+            <meta name="twitter:image" content="{{ $shareImage['url'] }}">
+            <meta name="twitter:image:alt" content="{{ $page->title }}">
+        @endif
+        <x-jsonld :data="$structuredData" />
     @endunless
-    @if(! $page->is_published || $preview)
-        <meta name="robots" content="noindex, nofollow">
-    @endif
-    <meta property="og:type" content="website">
-    <meta property="og:title" content="{{ $metaTitle }}">
-    <meta property="og:description" content="{{ $metaDescription }}">
-    @if($avatar && ! $preview)
-        <meta property="og:image" content="{{ $avatar }}">
-    @endif
     <meta name="theme-color" content="{{ $design['bg_color'] }}">
     <link rel="icon" href="{{ \App\Support\Favicon::url() }}" type="{{ \App\Support\Favicon::type() }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">

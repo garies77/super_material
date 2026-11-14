@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Support\Reports\LinkRecorder;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
 
@@ -132,3 +133,47 @@ it('maps referers to readable sources', function (string $referer, string $sourc
     ['https://blog.contoh.com/a', 'blog.contoh.com'],
     ['', 'langsung'],
 ]);
+
+it('ships complete SEO and share tags for published pages', function () {
+    $page = LinkPage::factory()->create([
+        'title' => 'Jaya Intero', 'bio' => 'Bengkel las pagar.', 'og_image_path' => 'og/jaya-intero-og.jpg',
+        'socials' => [['platform' => 'instagram', 'url' => 'https://www.instagram.com/jayaintero'], ['platform' => 'tiktok', 'url' => 'https://www.tiktok.com/@jayaintero']],
+    ]);
+
+    $html = $this->get(route('link.show', $page->slug))->assertOk()
+        ->assertSee('<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">', false)
+        ->assertSee('<link rel="canonical" href="'.$page->url().'">', false)
+        ->assertSee('<meta property="og:image" content="'.Storage::disk('public')->url('og/jaya-intero-og.jpg').'">', false)
+        ->assertSee('<meta property="og:image:width" content="1200">', false)
+        ->assertSee('<meta name="twitter:card" content="summary_large_image">', false)
+        ->assertSee('<meta property="og:description" content="Bengkel las pagar.">', false)
+        ->getContent();
+
+    preg_match('#<script type="application/ld\+json">(.*?)</script>#s', $html, $match);
+    $data = json_decode($match[1], true);
+    expect($data['@type'])->toBe('ProfilePage')
+        ->and($data['mainEntity']['name'])->toBe('Jaya Intero')
+        ->and($data['mainEntity']['sameAs'])->toBe(['https://www.instagram.com/jayaintero', 'https://www.tiktok.com/@jayaintero']);
+});
+
+it('uses a small card when only the profile photo is available', function () {
+    $page = LinkPage::factory()->create(['avatar_path' => 'link-bio/logo.png']);
+
+    $this->get(route('link.show', $page->slug))
+        ->assertSee('<meta name="twitter:card" content="summary">', false)
+        ->assertSee('<meta property="og:image" content="'.Storage::disk('public')->url('link-bio/logo.png').'">', false);
+});
+
+it('keeps noindex pages out of Google and the sitemap', function () {
+    $listed = LinkPage::factory()->create(['slug' => 'tampil']);
+    $hidden = LinkPage::factory()->create(['slug' => 'rahasia', 'noindex' => true]);
+    LinkPage::factory()->draft()->create(['slug' => 'draf']);
+
+    $this->get(route('link.show', 'rahasia'))->assertSee('<meta name="robots" content="noindex, nofollow">', false);
+
+    $this->get('/sitemap.xml')->assertSee('sitemap-links.xml', false);
+    $this->get('/sitemap-links.xml')->assertOk()
+        ->assertSee('<loc>'.$listed->url().'</loc>', false)
+        ->assertDontSee($hidden->url(), false)
+        ->assertDontSee('/l/draf', false);
+});

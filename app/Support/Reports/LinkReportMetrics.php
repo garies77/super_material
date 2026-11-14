@@ -15,6 +15,27 @@ class LinkReportMetrics
 {
     public const DEVICES = ['mobile' => 'Ponsel', 'desktop' => 'Desktop', 'tablet' => 'Tablet'];
 
+    /** Nama tampil sumber kunjungan; sumber lain (domain perujuk, utm bebas) ditampilkan apa adanya. */
+    public const SOURCE_LABELS = [
+        'instagram' => 'Instagram', 'tiktok' => 'TikTok', 'facebook' => 'Facebook', 'threads' => 'Threads',
+        'youtube' => 'YouTube', 'linkedin' => 'LinkedIn', 'x' => 'X (Twitter)', 'whatsapp' => 'WhatsApp',
+        'telegram' => 'Telegram', 'pinterest' => 'Pinterest', 'google' => 'Google', 'shopee' => 'Shopee',
+        'tokopedia' => 'Tokopedia', 'langsung' => 'Langsung / tidak diketahui',
+    ];
+
+    public static function sourceLabel(string $source): string
+    {
+        return self::SOURCE_LABELS[$source] ?? $source;
+    }
+
+    /** @return array{source: string, views: int}|null sumber dengan tayangan terbanyak */
+    public static function topSource(ReportPeriod $period, ?int $pageId = null): ?array
+    {
+        $top = self::bySource($period, $pageId)->first();
+
+        return $top && $top['views'] > 0 ? ['source' => $top['source'], 'views' => $top['views']] : null;
+    }
+
     public static function views(ReportPeriod $period, ?int $pageId = null): int
     {
         return (int) self::base($period, $pageId)->where('link_item_id', LinkStat::PAGE_VIEW)->sum('count');
@@ -74,20 +95,27 @@ class LinkReportMetrics
         ])->sortByDesc('clicks')->values();
     }
 
-    /** @return Collection<int, array{source: string, views: int, clicks: int, ctr: string}> */
+    /** @return Collection<int, array{source: string, views: int, clicks: int, ctr: string, share: string}> */
     public static function bySource(ReportPeriod $period, ?int $pageId = null): Collection
     {
-        return self::grouped($period, $pageId, 'source')
-            ->map(fn ($r) => ['source' => $r->source] + self::row($r))
-            ->sortByDesc('views')->values();
+        return self::withShare(self::grouped($period, $pageId, 'source')
+            ->map(fn ($r) => ['source' => self::sourceLabel($r->source)] + self::row($r)));
     }
 
-    /** @return Collection<int, array{device: string, views: int, clicks: int, ctr: string}> */
+    /** @return Collection<int, array{device: string, views: int, clicks: int, ctr: string, share: string}> */
     public static function byDevice(ReportPeriod $period, ?int $pageId = null): Collection
     {
-        return self::grouped($period, $pageId, 'device')
-            ->map(fn ($r) => ['device' => self::DEVICES[$r->device] ?? $r->device] + self::row($r))
-            ->sortByDesc('views')->values();
+        return self::withShare(self::grouped($period, $pageId, 'device')
+            ->map(fn ($r) => ['device' => self::DEVICES[$r->device] ?? $r->device] + self::row($r)));
+    }
+
+    /** Urutkan menurut tayangan dan tambahkan porsi tayangan (%). */
+    private static function withShare(Collection $rows): Collection
+    {
+        $total = max(1, $rows->sum('views'));
+
+        return $rows->sortByDesc('views')->values()
+            ->map(fn (array $row) => $row + ['share' => number_format($row['views'] / $total * 100, 1, ',', '.').'%']);
     }
 
     private static function grouped(ReportPeriod $period, ?int $pageId, string $column): Collection
