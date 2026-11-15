@@ -64,6 +64,68 @@
                 </div>
             @endif
 
+        @elseif($type === 'products')
+            {{-- Grid produk marketplace (App\Support\PageProductGrid). Lebih lebar dari kolom teks halaman. --}}
+            @php
+                $channel = \App\Support\PageProductGrid::channel($d);
+                $gridProducts = $channel ? \App\Support\PageProductGrid::products($d, $channel) : collect();
+                $gridCols = ['2' => 'sm:grid-cols-2', '3' => 'sm:grid-cols-2 lg:grid-cols-3', '4' => 'sm:grid-cols-3 lg:grid-cols-4'][(string) ($d['columns'] ?? 4)] ?? 'sm:grid-cols-3 lg:grid-cols-4';
+                $buyLabel = filled($d['button_label'] ?? null) ? $d['button_label'] : 'Beli di '.($channel?->name ?? 'marketplace');
+                $gridHeading = filled($d['heading'] ?? null) ? $d['heading'] : null;
+                $campaign = request()->route('slug') ?: null;
+            @endphp
+            @if($gridProducts->isNotEmpty())
+                <section class="not-prose relative left-1/2 w-[min(72rem,calc(100vw-2rem))] -translate-x-1/2" aria-label="{{ $gridHeading ?? 'Daftar produk' }}">
+                    @if($gridHeading)
+                        <h2 class="font-display text-2xl font-extrabold text-ink-950 sm:text-3xl">{{ $gridHeading }}</h2>
+                    @endif
+                    @if(filled($d['intro'] ?? null))
+                        <p class="mt-2 max-w-3xl leading-relaxed text-ink-600">{{ $d['intro'] }}</p>
+                    @endif
+                    <ul class="mt-6 grid grid-cols-2 gap-3 sm:gap-4 {{ $gridCols }}">
+                        @foreach($gridProducts as $product)
+                            <li class="card flex flex-col overflow-hidden">
+                                <a href="{{ $product->url() }}" class="group block">
+                                    <div class="relative aspect-square overflow-hidden bg-ink-100">
+                                        @if($product->imageUrl())
+                                            <img src="{{ \App\Support\ImageDerivatives::resized($product->imageUrl(), 480) }}" alt="{{ $product->name }}" width="480" height="480" loading="lazy" decoding="async"
+                                                 class="h-full w-full object-contain p-2 transition duration-500 group-hover:scale-105">
+                                        @else
+                                            <div class="placeholder-art grid h-full w-full place-items-center">
+                                                <span class="font-display text-5xl font-bold text-brand-500/60">{{ mb_strtoupper(mb_substr($product->name, 0, 1)) }}</span>
+                                            </div>
+                                        @endif
+                                        @if($discount = $product->maxDiscountPercentage())
+                                            <span class="absolute right-2.5 top-2.5 rounded bg-rose-500 px-1.5 py-0.5 text-[11px] font-bold text-white shadow-sm">-{{ $discount }}%</span>
+                                        @endif
+                                    </div>
+                                    <div class="px-3 pt-3 sm:px-3.5">
+                                        @if($product->category)<span class="line-clamp-1 text-xs font-medium text-brand-700">{{ $product->category->name }}</span>@endif
+                                        <h3 class="mt-1 line-clamp-2 font-display text-sm font-semibold leading-snug text-ink-900 group-hover:text-brand-700">{{ $product->name }}</h3>
+                                    </div>
+                                </a>
+                                <div class="mt-auto px-3 pb-3 pt-2 sm:px-3.5 sm:pb-3.5">
+                                    @if($d['show_price'] ?? true)
+                                        <p class="text-sm font-bold text-brand-600">{{ $product->priceLabel() ?? 'Lihat harga di toko' }}</p>
+                                    @endif
+                                    {{-- Sama dengan tombol beli di halaman produk: warna kanal, lewat /go, data-buy untuk event analitik --}}
+                                    <a href="{{ \App\Support\PageProductGrid::buyUrl($product, $channel, $campaign) }}" target="_blank" rel="nofollow sponsored noopener"
+                                       data-buy data-product="{{ $product->slug }}" data-channel="{{ $channel->slug }}"
+                                       style="background-color: {{ $channel->color ?: '#121826' }}"
+                                       class="mt-2.5 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2">
+                                        <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-white/20"><x-channel-logo :channel="$channel->slug" class="h-4 w-4" /></span>
+                                        <span class="truncate">{{ $buyLabel }}</span>
+                                    </a>
+                                </div>
+                            </li>
+                        @endforeach
+                    </ul>
+                </section>
+                @push('jsonld')
+                    <x-jsonld :data="\App\Support\PageProductGrid::itemList($gridProducts, $gridHeading ?? 'Produk di '.$channel->name)" />
+                @endpush
+            @endif
+
         @elseif($type === 'list')
             @php $items = collect((array) ($d['items'] ?? []))->map(fn ($i) => is_array($i) ? ($i['text'] ?? '') : $i)->filter(fn ($i) => filled($i))->all(); @endphp
             <div class="content">
