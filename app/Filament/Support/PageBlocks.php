@@ -105,6 +105,21 @@ class PageBlocks
                     Toggle::make('show_price')->label('Tampilkan harga')->default(true),
                 ]),
 
+                Block::make('highlights')->label('Poin unggulan')->icon('heroicon-o-check-badge')->schema([
+                    Repeater::make('items')->label('Poin (maks. 4, singkat)')->schema([TextInput::make('text')->hiddenLabel()->required()->maxLength(80)])
+                        ->reorderableWithDragAndDrop()->defaultItems(3)->maxItems(4)->addActionLabel('Tambah poin'),
+                ]),
+
+                // Tanya-jawab yang bisa dibuka-tutup; teks jawaban tetap ada di HTML sehingga terbaca mesin pencari
+                Block::make('faq')->label('FAQ (tanya-jawab)')->icon('heroicon-o-question-mark-circle')->schema([
+                    TextInput::make('heading')->label('Judul bagian (H2)')->maxLength(120)->default('Pertanyaan yang sering diajukan'),
+                    Repeater::make('items')->label('Pertanyaan')->schema([
+                        TextInput::make('question')->label('Pertanyaan (H3)')->required()->maxLength(200),
+                        Textarea::make('answer')->label('Jawaban')->required()->rows(3)->maxLength(1000),
+                    ])->reorderableWithDragAndDrop()->collapsible()->defaultItems(1)->addActionLabel('Tambah pertanyaan')
+                        ->itemLabel(fn (array $state) => $state['question'] ?? null),
+                ]),
+
                 Block::make('list')->label('Daftar')->icon('heroicon-o-list-bullet')->schema([
                     Select::make('style')->label('Jenis')->options(['bullet' => 'Berpoin', 'number' => 'Bernomor'])->default('bullet'),
                     Repeater::make('items')->label('Butir')->schema([TextInput::make('text')->hiddenLabel()->required()->maxLength(500)])

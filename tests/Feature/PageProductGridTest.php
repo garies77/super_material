@@ -112,7 +112,46 @@ it('creates draft marketplace landing pages that work once published', function 
     $shopeePage->publish();
 
     $this->get('/jual-peralatan-proyek-di-shopee')->assertOk()
-        ->assertSee('Supermaterial Jual Peralatan &amp; Bahan Proyek di Shopee', false)
+        ->assertSee('Bahan Bangunan &amp; Finishing Supermaterial di Shopee', false)
         ->assertSee('Bor Listrik')->assertSee('Beli di Shopee')
         ->assertSee('Pertanyaan yang sering diajukan');
+});
+
+it('fills the example pages with category grids when the categories exist, without overlap between marketplaces', function () {
+    SalesChannel::create(['name' => 'Lazada', 'slug' => 'lazada', 'type' => 'marketplace', 'is_active' => true]);
+    $semen = Category::create(['name' => 'Semen & Perekat', 'slug' => 'semen-perekat', 'is_active' => true]);
+    $kompresor = Category::create(['name' => 'Pneumatik', 'slug' => 'pneumatik-kompresor', 'is_active' => true]);
+    Category::create(['name' => 'Keramik', 'slug' => 'keramik-lantai', 'is_active' => true]);
+    gridProduct('Semen Serba Guna 40 kg', [$this->shopee, $this->tokopedia], ['category_id' => $semen->id]);
+    gridProduct('Kompresor Angin 24L', [$this->shopee, $this->tokopedia], ['category_id' => $kompresor->id]);
+
+    (require database_path('migrations/2026_11_15_152535_create_marketplace_landing_pages.php'))->up();
+    Page::where('slug', 'like', 'jual-peralatan-proyek-di-%')->get()->each->publish();
+
+    $this->get('/jual-peralatan-proyek-di-shopee')->assertOk()
+        ->assertSee('Semen, mortar &amp; perekat', false)->assertSee('Semen Serba Guna 40 kg')->assertDontSee('Kompresor Angin 24L')
+        ->assertSee('Harga acuan')
+        ->assertSee('Tombol beli membuka Shopee, tempat transaksi, pembayaran, dan pengiriman diproses.')
+        ->assertSee('Belum ada produk di bagian ini untuk Shopee.')
+        ->assertSee('<details', false)
+        ->assertSee('href="/jual-peralatan-proyek-di-tokopedia"', false);
+
+    $this->get('/jual-peralatan-proyek-di-tokopedia')->assertOk()
+        ->assertSee('Kompresor Angin 24L')->assertDontSee('Semen Serba Guna 40 kg');
+});
+
+it('renders highlight chips and a collapsible FAQ whose answers stay in the HTML', function () {
+    Page::create(['title' => 'Uji blok', 'slug' => 'uji-blok', 'is_published' => true, 'blocks' => [
+        ['type' => 'highlights', 'data' => ['items' => [['text' => 'Harga acuan'], ['text' => 'Tanya via WhatsApp']]]],
+        ['type' => 'faq', 'data' => ['heading' => 'Pertanyaan umum', 'items' => [
+            ['question' => 'Apakah harga sama?', 'answer' => 'Harga final mengikuti marketplace.'],
+            ['question' => 'Kosong', 'answer' => ''],
+        ]]],
+    ]]);
+
+    $this->get('/uji-blok')->assertOk()
+        ->assertSeeInOrder(['Harga acuan', 'Tanya via WhatsApp'])
+        ->assertSee('<h2 class="font-display text-2xl font-extrabold text-ink-950">Pertanyaan umum</h2>', false)
+        ->assertSee('Apakah harga sama?')->assertSee('Harga final mengikuti marketplace.')
+        ->assertDontSee('>Kosong<', false);
 });
