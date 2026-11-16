@@ -42,7 +42,7 @@ it('lists only published products sold on the chosen marketplace, with tracked b
     gridPage(['heading' => 'Peralatan Proyek di Shopee', 'channel_id' => $this->shopee->id, 'source' => 'channel', 'sort' => 'name', 'limit' => 12]);
 
     $this->get('/peralatan-proyek-shopee')->assertOk()
-        ->assertSee('<h2 class="font-display text-2xl font-extrabold text-ink-950 sm:text-3xl">Peralatan Proyek di Shopee</h2>', false)
+        ->assertSee('text-xl sm:text-2xl">Peralatan Proyek di Shopee</h2>', false)
         ->assertSeeInOrder(['Bor Listrik', 'Gerinda Tangan'])
         ->assertDontSee('Palu Godam')
         ->assertDontSee('Draf Rahasia')

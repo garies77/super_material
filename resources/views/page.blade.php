@@ -12,6 +12,9 @@
         $first = min($productIndexes);
         $last = max($productIndexes);
         $leadBlocks = array_slice($blockList, 0, $first);
+        // Poin unggulan tampil di kolom kanan hero, teks lainnya di kolom kiri
+        $leadHighlights = array_values(array_filter($leadBlocks, fn ($b) => ($b['type'] ?? null) === 'highlights'));
+        $leadText = array_values(array_filter($leadBlocks, fn ($b) => ($b['type'] ?? null) !== 'highlights'));
         $gridBlocks = array_slice($blockList, $first, $last - $first + 1);
         $tailBlocks = array_slice($blockList, $last + 1);
         $channelName = \App\Support\PageProductGrid::channel($blockList[$first]['data'] ?? [])?->name;
@@ -35,21 +38,36 @@
 
             <header class="relative mt-2 overflow-hidden rounded-3xl border border-ink-100 bg-white px-5 py-5 shadow-sm sm:px-8 sm:py-6">
                 <div aria-hidden="true" class="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-brand-100/70 blur-3xl"></div>
-                <div class="relative max-w-4xl">
-                    @if($channelName)
-                        <p class="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-brand-700">Belanja di {{ $channelName }}</p>
-                    @endif
-                    <h1 class="mt-2 font-display text-2xl font-extrabold leading-tight text-ink-950 sm:text-3xl lg:text-4xl">{{ $page->title }}</h1>
-                    @if($leadBlocks)
-                        <div class="page-lead mt-3">
-                            @include('partials.page-blocks', ['blocks' => $leadBlocks, 'wide' => true])
-                        </div>
-                    @endif
-                    <div class="mt-4 flex flex-wrap gap-3">
-                        <a href="#produk" class="btn btn-primary">Lihat produk</a>
-                        @if($whatsappUrl)
-                            <a href="{{ $whatsappUrl }}" target="_blank" rel="noopener" class="btn btn-ghost">Tanya via WhatsApp</a>
+                {{-- Laptop: dua kolom (teks | poin & tombol) agar hero pendek dan grid produk terlihat di layar pertama --}}
+                <div class="relative grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-center lg:gap-10">
+                    <div class="min-w-0">
+                        @if($channelName)
+                            <p class="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-brand-700">Belanja di {{ $channelName }}</p>
                         @endif
+                        <h1 class="mt-2 font-display text-2xl font-extrabold leading-tight text-ink-950 sm:text-3xl lg:text-4xl">{{ $page->title }}</h1>
+                        @if($leadText)
+                            {{-- Ponsel: pembuka dipotong 3 baris dengan "Baca selengkapnya" (tanpa JS); teks tetap utuh di HTML --}}
+                            <div class="page-lead mt-3">
+                                <input type="checkbox" id="lead-more" class="peer sr-only">
+                                <div class="line-clamp-3 peer-checked:line-clamp-none sm:line-clamp-none">
+                                    @include('partials.page-blocks', ['blocks' => $leadText, 'wide' => true])
+                                </div>
+                                <label for="lead-more" class="mt-1 inline-block cursor-pointer text-sm font-semibold text-brand-700 peer-checked:hidden sm:hidden">Baca selengkapnya</label>
+                            </div>
+                        @endif
+                    </div>
+                    <div class="flex min-w-0 flex-col gap-4">
+                        @if($leadHighlights)
+                            <div class="page-lead">
+                                @include('partials.page-blocks', ['blocks' => $leadHighlights, 'wide' => true])
+                            </div>
+                        @endif
+                        <div class="grid grid-cols-2 gap-2 lg:grid-cols-1 lg:gap-3">
+                            <a href="#produk" class="btn btn-primary justify-center px-3 text-sm sm:text-base">Lihat produk</a>
+                            @if($whatsappUrl)
+                                <a href="{{ $whatsappUrl }}" target="_blank" rel="noopener" class="btn btn-ghost justify-center px-3 text-sm sm:text-base">Tanya via WhatsApp</a>
+                            @endif
+                        </div>
                     </div>
                 </div>
             </header>

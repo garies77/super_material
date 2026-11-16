@@ -80,12 +80,12 @@
                 <section @if($firstGrid) id="produk" @endif class="page-products not-prose scroll-mt-24 {{ $wide ? '' : 'relative left-1/2 w-[min(72rem,calc(100vw-2rem))] -translate-x-1/2' }}" aria-label="{{ $gridHeading ?? 'Daftar produk' }}">
                 @php $firstGrid = false; @endphp
                     @if($gridHeading)
-                        <h2 class="font-display text-2xl font-extrabold text-ink-950 sm:text-3xl">{{ $gridHeading }}</h2>
+                        <h2 class="font-display font-extrabold text-ink-950 {{ $wide ? 'text-xl sm:text-2xl' : 'text-2xl sm:text-3xl' }}">{{ $gridHeading }}</h2>
                     @endif
                     @if(filled($d['intro'] ?? null))
-                        <p class="mt-2 max-w-3xl text-sm leading-relaxed text-ink-600 sm:text-base">{{ $d['intro'] }}</p>
+                        <p class="mt-1.5 {{ $wide ? '' : 'max-w-3xl' }} text-sm leading-relaxed text-ink-600 sm:text-base">{{ $d['intro'] }}</p>
                     @endif
-                    <ul class="mt-6 grid grid-cols-2 gap-3 sm:gap-4 {{ $gridCols }}">
+                    <ul class="{{ $wide ? 'mt-4' : 'mt-6' }} grid grid-cols-2 gap-3 sm:gap-4 {{ $gridCols }}">
                         @foreach($gridProducts as $product)
                             <li class="card flex flex-col overflow-hidden">
                                 <a href="{{ $product->url() }}" class="group block">
