@@ -48,3 +48,15 @@ it('rejects expired tokens and tokens of deactivated users', function () {
     $this->withToken($expired)->postJson('/mcp', mcpInitializeMessage())->assertUnauthorized();
     $this->withToken($inactiveToken)->postJson('/mcp', mcpInitializeMessage())->assertUnauthorized();
 });
+
+it('lists over HTTP only the tools the token may use', function () {
+    $user = User::factory()->create(['role' => 'admin']);
+    $token = $user->createToken('claude', ['catalog:read'], now()->addDays(90))->plainTextToken;
+
+    $tools = $this->withToken($token)->postJson('/mcp', ['jsonrpc' => '2.0', 'id' => 2, 'method' => 'tools/list', 'params' => []])
+        ->assertOk()
+        ->json('result.tools.*.name');
+
+    expect($tools)->toContain('search-products', 'get-product')
+        ->not->toContain('get-report-summary', 'search-articles');
+});

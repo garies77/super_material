@@ -3,6 +3,7 @@
 namespace App\Support\Reports;
 
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Rentang tanggal Pusat Laporan (WIB) beserta periode pembanding dengan panjang sama tepat sebelumnya.
@@ -18,7 +19,28 @@ class ReportPeriod
         'custom' => 'Rentang tanggal sendiri',
     ];
 
+    /** Rentang terpanjang yang boleh diminta lewat API dan MCP. */
+    public const MAX_RANGE_DAYS = 366;
+
     public function __construct(public Carbon $from, public Carbon $to) {}
+
+    /**
+     * Rentang dari tanggal Y-m-d (WIB) untuk API dan MCP; bawaan 30 hari terakhir sampai hari ini.
+     *
+     * @throws ValidationException bila rentang melebihi MAX_RANGE_DAYS
+     */
+    public static function between(?string $dateFrom, ?string $dateTo, string $errorKey = 'date_from'): self
+    {
+        $tz = ClickReport::TIMEZONE;
+        $to = $dateTo !== null ? Carbon::parse($dateTo, $tz)->endOfDay() : now($tz)->endOfDay();
+        $from = $dateFrom !== null ? Carbon::parse($dateFrom, $tz)->startOfDay() : $to->copy()->subDays(29)->startOfDay();
+
+        if ($from->diffInDays($to) > self::MAX_RANGE_DAYS) {
+            throw ValidationException::withMessages([$errorKey => ['Rentang tanggal maksimal '.self::MAX_RANGE_DAYS.' hari.']]);
+        }
+
+        return new self($from, $to);
+    }
 
     /** @param  array<string, mixed>|null  $filters */
     public static function fromFilters(?array $filters): self

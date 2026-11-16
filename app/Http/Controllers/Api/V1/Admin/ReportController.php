@@ -3,14 +3,11 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Http\Controllers\Api\V1\ApiController;
-use App\Support\Reports\ClickReport;
 use App\Support\Reports\ReportMetrics;
 use App\Support\Reports\ReportPeriod;
 use App\Support\Reports\ReportSummary;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
-use Illuminate\Validation\ValidationException;
 
 /**
  * Angka Pusat Laporan lewat API (sumber sama dengan panel dan email mingguan). Semua agregat tanpa data pribadi,
@@ -21,8 +18,6 @@ use Illuminate\Validation\ValidationException;
 class ReportController extends ApiController
 {
     protected bool $admin = true;
-
-    private const MAX_RANGE_DAYS = 366;
 
     /**
      * Ringkasan kinerja
@@ -97,15 +92,7 @@ class ReportController extends ApiController
             'filter.date_to' => ['sometimes', 'date_format:Y-m-d', 'after_or_equal:filter.date_from'],
         ])['filter'] ?? [];
 
-        $tz = ClickReport::TIMEZONE;
-        $to = isset($filters['date_to']) ? Carbon::parse($filters['date_to'], $tz)->endOfDay() : now($tz)->endOfDay();
-        $from = isset($filters['date_from']) ? Carbon::parse($filters['date_from'], $tz)->startOfDay() : $to->copy()->subDays(29)->startOfDay();
-
-        if ($from->diffInDays($to) > self::MAX_RANGE_DAYS) {
-            throw ValidationException::withMessages(['filter.date_from' => ['Rentang tanggal maksimal '.self::MAX_RANGE_DAYS.' hari.']]);
-        }
-
-        return new ReportPeriod($from, $to);
+        return ReportPeriod::between($filters['date_from'] ?? null, $filters['date_to'] ?? null, 'filter.date_from');
     }
 
     private function limit(Request $request): int
