@@ -33,19 +33,19 @@
         <div class="container-x pb-16 pt-6 sm:pt-8">
             <x-breadcrumb :items="[[$page->title, null]]" />
 
-            <header class="relative mt-2 overflow-hidden rounded-3xl border border-ink-100 bg-white px-5 py-7 shadow-sm sm:px-10 sm:py-10">
+            <header class="relative mt-2 overflow-hidden rounded-3xl border border-ink-100 bg-white px-5 py-5 shadow-sm sm:px-8 sm:py-6">
                 <div aria-hidden="true" class="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-brand-100/70 blur-3xl"></div>
-                <div class="relative max-w-3xl">
+                <div class="relative max-w-4xl">
                     @if($channelName)
                         <p class="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-brand-700">Belanja di {{ $channelName }}</p>
                     @endif
-                    <h1 class="mt-3 font-display text-3xl font-extrabold leading-tight text-ink-950 sm:text-4xl lg:text-[2.75rem]">{{ $page->title }}</h1>
+                    <h1 class="mt-2 font-display text-2xl font-extrabold leading-tight text-ink-950 sm:text-3xl lg:text-4xl">{{ $page->title }}</h1>
                     @if($leadBlocks)
-                        <div class="page-lead mt-4">
+                        <div class="page-lead mt-3">
                             @include('partials.page-blocks', ['blocks' => $leadBlocks, 'wide' => true])
                         </div>
                     @endif
-                    <div class="mt-6 flex flex-wrap gap-3">
+                    <div class="mt-4 flex flex-wrap gap-3">
                         <a href="#produk" class="btn btn-primary">Lihat produk</a>
                         @if($whatsappUrl)
                             <a href="{{ $whatsappUrl }}" target="_blank" rel="noopener" class="btn btn-ghost">Tanya via WhatsApp</a>
@@ -54,7 +54,7 @@
                 </div>
             </header>
 
-            <div class="mt-10 sm:mt-12">
+            <div class="mt-6 sm:mt-8">
                 @include('partials.page-blocks', ['blocks' => $gridBlocks, 'wide' => true])
             </div>
 

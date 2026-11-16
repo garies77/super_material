@@ -87,7 +87,8 @@
     .page-blocks--wide > *:not(.page-products) { @apply max-w-3xl; }
     .page-blocks--wide > h2:not(:first-child) { @apply mt-12; }
     .page-blocks--wide > .page-products + .page-products { @apply mt-14; }
-    .page-lead .content { @apply text-base leading-relaxed text-ink-600 sm:text-lg sm:leading-relaxed; }
+    .page-lead .content { @apply text-[15px] leading-relaxed text-ink-600 sm:text-base sm:leading-relaxed; }
+    .page-lead .page-blocks { @apply space-y-4; }
     .page-lead .content p { @apply my-0; }
     .content .sm-feature a { @apply font-normal no-underline; color: inherit; }
     .content .sm-feature img { @apply m-0 rounded-none; }
