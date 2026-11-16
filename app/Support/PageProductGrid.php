@@ -46,7 +46,7 @@ class PageProductGrid
         $limit = max(1, min(self::MAX_ITEMS, (int) ($data['limit'] ?? 12)));
         $query = Product::published()
             ->with(['media', 'variants', 'category', 'brand'])
-            ->when(! $channel->isWhatsapp(), fn (Builder $q) => $q->whereHas('links', fn (Builder $l) => $l->where('sales_channel_id', $channel->id)));
+            ->when(! $channel->isWhatsapp(), fn (Builder $q) => $q->whereHas('links', fn (Builder $l) => $l->where('sales_channel_id', $channel->id)->where('is_active', true)));
 
         $source = $data['source'] ?? 'channel';
 

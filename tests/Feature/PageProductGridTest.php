@@ -154,3 +154,11 @@ it('renders highlight chips and a collapsible FAQ whose answers stay in the HTML
         ->assertSee('Apakah harga sama?')->assertSee('Harga final mengikuti marketplace.')
         ->assertDontSee('>Kosong<', false);
 });
+
+it('skips products whose link on the marketplace is switched off', function () {
+    gridProduct('Bor Aktif', [$this->shopee]);
+    gridProduct('Bor Nonaktif', [$this->shopee])->links()->update(['is_active' => false]);
+    gridPage(['channel_id' => $this->shopee->id, 'source' => 'channel', 'limit' => 12]);
+
+    $this->get('/peralatan-proyek-shopee')->assertOk()->assertSee('Bor Aktif')->assertDontSee('Bor Nonaktif');
+});
