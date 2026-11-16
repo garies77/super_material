@@ -64,11 +64,11 @@ return new class extends Migration
             ["Apakah harga di Supermaterial sama dengan di {$name}?", "Belum tentu. Harga di situs ini adalah harga acuan untuk membantu Anda memperkirakan anggaran. Harga final, promo, dan ongkos kirim mengikuti halaman toko di {$name} saat Anda membeli."],
             ...$page['faq'],
             ['Bagaimana kalau produk yang saya cari tidak ada?', 'Gunakan pencarian di situs ini atau hubungi kami lewat WhatsApp. Kami bantu carikan produk yang sesuai kebutuhan proyek Anda.'],
-            ['Bisa beli dalam jumlah banyak untuk proyek?', "Bisa. Untuk kebutuhan dalam jumlah banyak, hubungi kami lewat WhatsApp terlebih dahulu agar ketersediaan stok dan pengiriman bisa dipastikan sebelum checkout di {$name}."],
+            ['Bisa beli dalam jumlah banyak untuk proyek?', "Bisa. Untuk kebutuhan proyek, kami melayani penawaran harga grosir dan membantu menghitung kebutuhan barang. Hubungi kami lewat WhatsApp terlebih dahulu agar stok dan pengiriman bisa dipastikan sebelum checkout di {$name}."],
         ];
 
         return array_values(array_filter([
-            $text("<p>Butuh peralatan untuk proyek konstruksi, renovasi rumah, atau pekerjaan bengkel? Supermaterial mengumpulkan peralatan kerja, perkakas, dan bahan bangunan pilihan yang bisa Anda beli langsung di <strong>{$name}</strong>. Cek spesifikasi dan harga acuan di halaman produk kami, lalu selesaikan pembelian di toko {$name} dengan satu klik. Harga final, ongkir, dan promo mengikuti {$name}.</p>"),
+            $text("<p>Butuh perlengkapan tukang untuk proyek konstruksi, renovasi rumah, atau pekerjaan finishing? Supermaterial menyediakan perkakas dan perlengkapan proyek pilihan yang bisa Anda beli langsung di <strong>{$name}</strong>. Cek spesifikasi dan harga acuan di halaman produk kami, lalu selesaikan pembelian di toko {$name} dengan satu klik. Harga final, ongkir, dan promo mengikuti {$name}.</p>"),
 
             ['type' => 'highlights', 'data' => ['items' => array_map(fn ($t) => ['text' => $t], [
                 "Harga acuan, harga final di {$name}",
@@ -92,7 +92,7 @@ return new class extends Migration
                 'Informasi produk lengkap di satu tempat: spesifikasi, ukuran, dan kegunaan untuk tiap jenis pekerjaan.',
                 'Harga acuan ditampilkan apa adanya, jadi Anda bisa memperkirakan anggaran sebelum membuka '.$name.'.',
                 "Pembayaran, pengiriman, dan perlindungan pembeli mengikuti ketentuan {$name} yang sudah Anda kenal.",
-                'Pilihan untuk berbagai tahap proyek: perkakas tangan, alat listrik, alat ukur, perlengkapan kerja, dan material.',
+                'Pilihan untuk berbagai pekerjaan tukang: perkakas tangan, alat ukur dan penanda, perlengkapan plester dan finishing, sampai baut angkur.',
                 'Bingung memilih? Tim kami siap membantu lewat WhatsApp sebelum Anda membeli.',
             ]),
 
@@ -106,6 +106,7 @@ return new class extends Migration
             $list('bullet', [
                 'Baca spesifikasi dan ukuran di halaman produk sebelum membeli, agar barang sesuai pekerjaan.',
                 'Hitung kebutuhan dulu, lalu lebihkan sedikit untuk cadangan bila barangnya habis pakai.',
+                'Perhatikan satuan penjualan (per buah, per kotak, atau per gulung) sebelum checkout, agar jumlah yang dipesan sesuai.',
                 'Untuk barang berat atau panjang, cek pilihan kurir dan area pengiriman toko sebelum checkout.',
                 "Bandingkan harga acuan di sini dengan harga final di {$name}, termasuk ongkir dan voucher yang berlaku.",
                 'Periksa dan uji barang begitu paket tiba, sebelum mengonfirmasi pesanan diterima.',
