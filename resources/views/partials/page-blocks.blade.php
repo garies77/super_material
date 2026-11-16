@@ -7,7 +7,8 @@
     $alignFlex = ['left' => 'justify-start', 'center' => 'justify-center', 'right' => 'justify-end'];
     $clean = fn ($html) => \App\Support\Api\HtmlSanitizer::clean($html);
 @endphp
-<div class="page-blocks space-y-6">
+@php $wide ??= false; $firstGrid = true; @endphp
+<div class="page-blocks space-y-6 {{ $wide ? 'page-blocks--wide' : '' }}">
 @foreach($blocks as $block)
     @php $d = $block['data'] ?? []; @endphp
     @php $type = $block['type'] ?? null; @endphp
@@ -75,7 +76,9 @@
                 $campaign = request()->route('slug') ?: null;
             @endphp
             @if($gridProducts->isNotEmpty())
-                <section class="not-prose relative left-1/2 w-[min(72rem,calc(100vw-2rem))] -translate-x-1/2" aria-label="{{ $gridHeading ?? 'Daftar produk' }}">
+                {{-- Tata letak landing: grid selebar kontainer; halaman biasa: melebar keluar kolom teks yang sempit --}}
+                <section @if($firstGrid) id="produk" @endif class="page-products not-prose scroll-mt-24 {{ $wide ? '' : 'relative left-1/2 w-[min(72rem,calc(100vw-2rem))] -translate-x-1/2' }}" aria-label="{{ $gridHeading ?? 'Daftar produk' }}">
+                @php $firstGrid = false; @endphp
                     @if($gridHeading)
                         <h2 class="font-display text-2xl font-extrabold text-ink-950 sm:text-3xl">{{ $gridHeading }}</h2>
                     @endif
