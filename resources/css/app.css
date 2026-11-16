@@ -83,6 +83,12 @@
     .page-blocks h3 { @apply text-xl font-semibold; }
     .page-blocks h4 { @apply text-lg font-semibold; }
     .page-blocks h5, .page-blocks h6 { @apply text-base font-semibold; }
+    /* Tata letak landing page (halaman dengan grid produk): teks selebar kolom baca, grid selebar kontainer, jarak antarbagian lega */
+    .page-blocks--wide > *:not(.page-products) { @apply max-w-3xl; }
+    .page-blocks--wide > h2:not(:first-child) { @apply mt-12; }
+    .page-blocks--wide > .page-products + .page-products { @apply mt-14; }
+    .page-lead .content { @apply text-base leading-relaxed text-ink-600 sm:text-lg sm:leading-relaxed; }
+    .page-lead .content p { @apply my-0; }
     .content .sm-feature a { @apply font-normal no-underline; color: inherit; }
     .content .sm-feature img { @apply m-0 rounded-none; }
     .content .sm-feature p { @apply m-0; }

@@ -2,8 +2,12 @@
 
 namespace App\Filament\Support;
 
+use App\Models\Category;
 use App\Models\CustomForm;
+use App\Models\Product;
+use App\Models\SalesChannel;
 use App\Support\LinkTarget;
+use App\Support\PageProductGrid;
 use Filament\Forms\Components\Builder;
 use Filament\Forms\Components\Builder\Block;
 use Filament\Forms\Components\CodeEditor;
@@ -12,9 +16,11 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Utilities\Get;
 
 /**
  * Blok konten halaman statis (page builder). Blok ditambah, disunting, dihapus, dan diurutkan
@@ -66,6 +72,52 @@ class PageBlocks
                     Select::make('style')->label('Gaya')->options(['primary' => 'Utama', 'dark' => 'Gelap', 'outline' => 'Garis'])->default('primary'),
                     Select::make('align')->label('Rata')->options(self::ALIGN)->default('left'),
                     ...LinkTarget::fields(),
+                ]),
+
+                // Kumpulan produk + tombol beli di satu marketplace (landing page Shopee/Tokopedia/Lazada/TikTok Shop)
+                Block::make('products')->label('Grid produk marketplace')->icon('heroicon-o-shopping-bag')->columns(2)->schema([
+                    TextInput::make('heading')->label('Judul bagian (H2)')->maxLength(120)
+                        ->placeholder('mis. Peralatan Proyek Pilihan di Shopee'),
+                    Select::make('channel_id')->label('Tombol beli di')->required()->live()
+                        ->options(fn () => SalesChannel::where('is_active', true)->orderBy('name')->pluck('name', 'id'))
+                        ->helperText('Hanya produk yang punya tautan di kanal ini yang tampil.'),
+                    Textarea::make('intro')->label('Teks pengantar (opsional)')->rows(2)->maxLength(500)->columnSpanFull(),
+                    Select::make('source')->label('Produk yang ditampilkan')->options(PageProductGrid::SOURCES)->default('channel')
+                        ->required()->live()->selectablePlaceholder(false)->columnSpanFull(),
+                    Select::make('category_id')->label('Kategori (termasuk subkategori)')->searchable()
+                        ->options(fn () => Category::orderBy('name')->pluck('name', 'id'))
+                        ->visible(fn (Get $get) => $get('source') === 'category')
+                        ->required(fn (Get $get) => $get('source') === 'category'),
+                    Select::make('product_ids')->label('Produk (urutan sesuai pilihan)')->multiple()->searchable()->columnSpanFull()
+                        ->getSearchResultsUsing(fn (string $search, Get $get) => Product::published()
+                            ->where('name', 'like', "%{$search}%")
+                            ->when($get('channel_id'), fn ($q, $channel) => $q->whereHas('links', fn ($l) => $l->where('sales_channel_id', $channel)))
+                            ->orderBy('name')->limit(30)->pluck('name', 'id'))
+                        ->getOptionLabelsUsing(fn (array $values) => Product::whereIn('id', $values)->pluck('name', 'id')->all())
+                        ->visible(fn (Get $get) => $get('source') === 'manual')
+                        ->required(fn (Get $get) => $get('source') === 'manual'),
+                    Select::make('sort')->label('Urutan')->options(PageProductGrid::SORTS)->default('featured')->selectablePlaceholder(false)
+                        ->visible(fn (Get $get) => $get('source') !== 'manual'),
+                    TextInput::make('limit')->label('Jumlah maksimal')->numeric()->minValue(1)->maxValue(PageProductGrid::MAX_ITEMS)->default(12)->required(),
+                    Select::make('columns')->label('Kolom di desktop')->options(['2' => '2', '3' => '3', '4' => '4'])->default('4')->selectablePlaceholder(false),
+                    TextInput::make('button_label')->label('Teks tombol')->maxLength(40)
+                        ->placeholder(fn (Get $get) => 'Beli di '.(SalesChannel::find($get('channel_id'))?->name ?? 'marketplace')),
+                    Toggle::make('show_price')->label('Tampilkan harga')->default(true),
+                ]),
+
+                Block::make('highlights')->label('Poin unggulan')->icon('heroicon-o-check-badge')->schema([
+                    Repeater::make('items')->label('Poin (maks. 4, singkat)')->schema([TextInput::make('text')->hiddenLabel()->required()->maxLength(80)])
+                        ->reorderableWithDragAndDrop()->defaultItems(3)->maxItems(4)->addActionLabel('Tambah poin'),
+                ]),
+
+                // Tanya-jawab yang bisa dibuka-tutup; teks jawaban tetap ada di HTML sehingga terbaca mesin pencari
+                Block::make('faq')->label('FAQ (tanya-jawab)')->icon('heroicon-o-question-mark-circle')->schema([
+                    TextInput::make('heading')->label('Judul bagian (H2)')->maxLength(120)->default('Pertanyaan yang sering diajukan'),
+                    Repeater::make('items')->label('Pertanyaan')->schema([
+                        TextInput::make('question')->label('Pertanyaan (H3)')->required()->maxLength(200),
+                        Textarea::make('answer')->label('Jawaban')->required()->rows(3)->maxLength(1000),
+                    ])->reorderableWithDragAndDrop()->collapsible()->defaultItems(1)->addActionLabel('Tambah pertanyaan')
+                        ->itemLabel(fn (array $state) => $state['question'] ?? null),
                 ]),
 
                 Block::make('list')->label('Daftar')->icon('heroicon-o-list-bullet')->schema([
