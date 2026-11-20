@@ -139,6 +139,47 @@ it('gives each example page the marketplace-specific notes, steps and FAQ around
         ->assertSee('Tokopedia PLUS')->assertDontSee('SPayLater');
 });
 
+it('creates Mbiz and e-Katalog LKPP channels with draft procurement landing pages', function () {
+    (require database_path('migrations/2026_11_15_152535_create_marketplace_landing_pages.php'))->up();
+    (require database_path('migrations/2026_11_20_105416_create_procurement_landing_pages.php'))->up();
+
+    $mbiz = SalesChannel::where('slug', 'mbiz')->sole();
+    $lkpp = SalesChannel::where('slug', 'lkpp')->sole();
+    expect($mbiz->allowed_hosts)->toContain('mbizmarket.co.id')
+        ->and($lkpp->name)->toBe('e-Katalog LKPP')
+        ->and($lkpp->allowed_hosts)->toContain('katalog.inaproc.id');
+
+    gridProduct('Meteran Laser', [$mbiz]);
+    gridProduct('Waterpass Aluminium', [$lkpp]);
+    gridProduct('Bor Listrik', [$this->shopee]);
+
+    $this->get('/jual-peralatan-proyek-di-mbiz')->assertNotFound();
+    Page::whereIn('slug', ['jual-peralatan-proyek-di-mbiz', 'jual-peralatan-proyek-di-e-katalog-lkpp'])->get()->each->publish();
+
+    $this->get('/jual-peralatan-proyek-di-mbiz')->assertOk()
+        ->assertSee('Meteran Laser')->assertSee('Beli di Mbiz')
+        ->assertDontSee('Waterpass Aluminium')->assertDontSee('Bor Listrik')
+        ->assertSee('Pengadaan di Mbiz: yang perlu Anda tahu')
+        ->assertSee('href="/jual-peralatan-proyek-di-e-katalog-lkpp"', false)
+        ->assertSee('href="/jual-peralatan-proyek-di-shopee"', false);
+
+    $this->get('/jual-peralatan-proyek-di-e-katalog-lkpp')->assertOk()
+        ->assertSee('Waterpass Aluminium')->assertSee('Beli di e-Katalog LKPP')
+        ->assertDontSee('Meteran Laser')
+        ->assertSee('e-purchasing')->assertSee('TKDN');
+});
+
+it('keeps existing procurement channels and pages when the migration runs', function () {
+    $mbiz = SalesChannel::create(['name' => 'Mbizmarket', 'slug' => 'mbiz', 'type' => 'marketplace', 'is_active' => true]);
+    Page::create(['title' => 'Sudah ada', 'slug' => 'jual-peralatan-proyek-di-mbiz', 'is_published' => true]);
+
+    (require database_path('migrations/2026_11_20_105416_create_procurement_landing_pages.php'))->up();
+
+    expect(SalesChannel::where('slug', 'mbiz')->sole()->name)->toBe('Mbizmarket')
+        ->and(Page::where('slug', 'jual-peralatan-proyek-di-mbiz')->sole()->title)->toBe('Sudah ada')
+        ->and(Page::where('slug', 'jual-peralatan-proyek-di-e-katalog-lkpp')->sole()->is_published)->toBeFalse();
+});
+
 it('renders highlight chips and a collapsible FAQ whose answers stay in the HTML', function () {
     Page::create(['title' => 'Uji blok', 'slug' => 'uji-blok', 'is_published' => true, 'blocks' => [
         ['type' => 'highlights', 'data' => ['items' => [['text' => 'Harga acuan'], ['text' => 'Tanya via WhatsApp']]]],
