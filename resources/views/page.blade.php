@@ -39,7 +39,7 @@
             <header class="relative mt-2 overflow-hidden rounded-3xl border border-ink-100 bg-white px-5 py-5 shadow-sm sm:px-8 sm:py-6">
                 <div aria-hidden="true" class="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-brand-100/70 blur-3xl"></div>
                 {{-- Laptop: dua kolom (teks | poin & tombol) agar hero pendek dan grid produk terlihat di layar pertama --}}
-                <div class="relative grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-center lg:gap-10">
+                <div class="relative grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-center lg:gap-10">
                     <div class="min-w-0">
                         @if($channelName)
                             <p class="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-brand-700">Belanja di {{ $channelName }}</p>
@@ -58,7 +58,8 @@
                     </div>
                     <div class="flex min-w-0 flex-col gap-4">
                         @if($leadHighlights)
-                            <div class="page-lead">
+                            {{-- Laptop: kolom sempit, jadi poin panjang boleh turun baris agar tidak keluar dari kolom --}}
+                            <div class="page-lead lg:[&_li]:shrink lg:[&_li]:whitespace-normal lg:[&_li]:rounded-2xl">
                                 @include('partials.page-blocks', ['blocks' => $leadHighlights, 'wide' => true])
                             </div>
                         @endif
