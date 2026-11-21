@@ -23,7 +23,7 @@ class SearchProducts extends AbilityTool
 
     public function handle(Request $request): ResponseFactory
     {
-        $validated = $request->validate([
+        $validated = $this->validated($request, [
             'query' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', 'in:published,draft'],
             'category' => ['nullable', 'string'],
@@ -31,7 +31,10 @@ class SearchProducts extends AbilityTool
             'price_min' => ['nullable', 'integer', 'min:0'],
             'price_max' => ['nullable', 'integer', 'min:0'],
             'limit' => ['nullable', 'integer', 'between:1,50'],
+            'page' => ['nullable', 'integer', 'min:1'],
         ]);
+        $limit = $validated['limit'] ?? 20;
+        $page = $validated['page'] ?? 1;
 
         $query = Product::query()->with(['category', 'brand']);
         ProductController::applyFilters($query, array_filter($validated, fn ($value) => $value !== null), hidePrices: false);
@@ -45,10 +48,12 @@ class SearchProducts extends AbilityTool
         }
 
         $total = (clone $query)->count();
-        $products = $query->latest('updated_at')->orderByDesc('id')->limit($validated['limit'] ?? 20)->get();
+        $products = $query->latest('updated_at')->orderByDesc('id')->forPage($page, $limit)->get();
 
         return Response::structured([
             'total' => $total,
+            'page' => $page,
+            'has_more' => $page * $limit < $total,
             'products' => $products->map(fn (Product $product) => [
                 'id' => $product->id,
                 'slug' => $product->slug,
@@ -78,7 +83,8 @@ class SearchProducts extends AbilityTool
             'brand' => $schema->string()->description('Slug merek; beberapa dipisah koma. Lihat list-brands.'),
             'price_min' => $schema->integer()->min(0)->description('Harga minimum dalam rupiah.'),
             'price_max' => $schema->integer()->min(0)->description('Harga maksimum dalam rupiah.'),
-            'limit' => $schema->integer()->min(1)->max(50)->default(20)->description('Jumlah produk, 1–50.'),
+            'limit' => $schema->integer()->min(1)->max(50)->default(20)->description('Jumlah produk per halaman, 1–50.'),
+            'page' => $schema->integer()->min(1)->default(1)->description('Halaman hasil; lanjutkan bila has_more bernilai true.'),
         ];
     }
 }

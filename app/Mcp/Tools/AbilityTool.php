@@ -3,6 +3,8 @@
 namespace App\Mcp\Tools;
 
 use App\Models\User;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Server\Tool;
 
@@ -21,5 +23,21 @@ abstract class AbilityTool extends Tool
         $user = $request->user();
 
         return $user instanceof User && $user->canUseApiAbility($this->ability);
+    }
+
+    /**
+     * Validasi argumen tool. Argumen kosong ("" atau null) dianggap tidak dikirim: aturan validasi Laravel
+     * melewati string kosong, sehingga tanpa ini filter seperti status="" diam-diam ikut terpakai.
+     *
+     * @param  array<string, array<int, mixed>>  $rules
+     * @return array<string, mixed>
+     *
+     * @throws ValidationException
+     */
+    protected function validated(Request $request, array $rules): array
+    {
+        $arguments = array_filter($request->all(), fn (mixed $value) => $value !== null && $value !== '');
+
+        return Validator::validate($arguments, $rules);
     }
 }

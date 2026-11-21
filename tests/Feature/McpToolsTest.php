@@ -145,3 +145,18 @@ it('reports aggregated clicks without bots and validates the date range', functi
         ->assertOk()
         ->assertStructuredContentPath('top_clicked.0.product_id', $product->id);
 });
+
+it('treats blank arguments as not sent and pages through results', function () {
+    $user = mcpUser('admin', ['catalog:read']);
+    $all = Product::count();
+
+    SupermaterialServer::actingAs($user)->tool(SearchProducts::class, ['status' => '', 'category' => '', 'query' => ''])
+        ->assertOk()
+        ->assertStructuredContentPath('total', $all);
+
+    SupermaterialServer::actingAs($user)->tool(SearchProducts::class, ['limit' => 1, 'page' => 2])
+        ->assertOk()
+        ->assertStructuredContentPath('page', 2)
+        ->assertStructuredContentPath('has_more', $all > 2)
+        ->assertStructuredContentCount(1, 'products');
+});

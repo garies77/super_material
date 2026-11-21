@@ -24,7 +24,7 @@ class GetProduct extends AbilityTool
 
     public function handle(Request $request): Response|ResponseFactory
     {
-        $validated = $request->validate([
+        $validated = $this->validated($request, [
             'slug' => ['required_without:id', 'nullable', 'string'],
             'id' => ['required_without:slug', 'nullable', 'integer'],
         ]);

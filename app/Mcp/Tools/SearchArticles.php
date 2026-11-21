@@ -26,12 +26,15 @@ class SearchArticles extends AbilityTool
 
     public function handle(Request $request): ResponseFactory
     {
-        $validated = $request->validate([
+        $validated = $this->validated($request, [
             'query' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', 'in:published,scheduled,draft'],
             'category' => ['nullable', 'string'],
             'limit' => ['nullable', 'integer', 'between:1,50'],
+            'page' => ['nullable', 'integer', 'min:1'],
         ]);
+        $limit = $validated['limit'] ?? 20;
+        $page = $validated['page'] ?? 1;
 
         $query = $this->visibleArticles($request->user())->with(['author', 'categories']);
 
@@ -52,10 +55,12 @@ class SearchArticles extends AbilityTool
         }
 
         $total = (clone $query)->count();
-        $articles = $query->latest('updated_at')->orderByDesc('id')->limit($validated['limit'] ?? 20)->get();
+        $articles = $query->latest('updated_at')->orderByDesc('id')->forPage($page, $limit)->get();
 
         return Response::structured([
             'total' => $total,
+            'page' => $page,
+            'has_more' => $page * $limit < $total,
             'articles' => $articles->map(fn (Article $article) => [
                 'id' => $article->id,
                 'slug' => $article->slug,
@@ -80,7 +85,8 @@ class SearchArticles extends AbilityTool
             'query' => $schema->string()->description('Potongan judul artikel.'),
             'status' => $schema->string()->enum(['published', 'scheduled', 'draft'])->description('Kosongkan untuk semua status.'),
             'category' => $schema->string()->description('Slug kategori (termasuk subkategorinya).'),
-            'limit' => $schema->integer()->min(1)->max(50)->default(20)->description('Jumlah artikel, 1–50.'),
+            'limit' => $schema->integer()->min(1)->max(50)->default(20)->description('Jumlah artikel per halaman, 1–50.'),
+            'page' => $schema->integer()->min(1)->default(1)->description('Halaman hasil; lanjutkan bila has_more bernilai true.'),
         ];
     }
 }

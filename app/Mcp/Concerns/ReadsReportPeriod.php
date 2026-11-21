@@ -10,6 +10,12 @@ use Laravel\Mcp\Request;
 /** Argumen rentang tanggal laporan (WIB) yang sama untuk semua tool laporan. */
 trait ReadsReportPeriod
 {
+    /**
+     * @param  array<string, array<int, mixed>>  $rules
+     * @return array<string, mixed>
+     */
+    abstract protected function validated(Request $request, array $rules): array;
+
     /** @return array<string, Type> */
     protected function periodSchema(JsonSchema $schema): array
     {
@@ -42,7 +48,7 @@ trait ReadsReportPeriod
      */
     protected function validatedPeriodArguments(Request $request, array $extraRules = []): array
     {
-        return $request->validate([
+        return $this->validated($request, [
             'date_from' => ['nullable', 'date_format:Y-m-d'],
             'date_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:date_from'],
             ...$extraRules,

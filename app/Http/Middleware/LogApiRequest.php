@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
-/** Pemantauan per endpoint: jumlah permintaan, status 4xx/5xx, latensi (PRD 8.12.8). */
+/** Pemantauan per endpoint: jumlah permintaan, status 4xx/5xx, latensi (PRD 8.12.8). Untuk MCP juga method dan tool yang dipanggil. */
 class LogApiRequest
 {
     public function handle(Request $request, Closure $next): Response
@@ -30,6 +30,20 @@ class LogApiRequest
             'cache' => $response->headers->get('X-Cache'),
             'token_id' => $request->user()?->currentAccessToken()?->id,
             'client' => substr((string) ClientHash::forRequest($request), 0, 16),
+            ...$this->mcpContext($request),
         ]);
+    }
+
+    /** @return array{mcp_method?: string, mcp_tool?: string} */
+    private function mcpContext(Request $request): array
+    {
+        if (! $request->routeIs('mcp')) {
+            return [];
+        }
+
+        return array_filter([
+            'mcp_method' => $request->json('method'),
+            'mcp_tool' => $request->json('params.name'),
+        ], is_string(...));
     }
 }
