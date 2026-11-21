@@ -37,7 +37,8 @@ class AuditLog extends Model
         return $this->morphTo();
     }
 
-    public static function record(Request $request, string $action, ?Model $subject = null, array $changes = [], string $status = 'success', ?User $actor = null): self
+    /** @param  string|null  $source  api | admin | mcp; bawaan ditebak dari jalur request */
+    public static function record(Request $request, string $action, ?Model $subject = null, array $changes = [], string $status = 'success', ?User $actor = null, ?string $source = null): self
     {
         $user = $actor ?? $request->user(); // actor eksplisit: event Login terjadi sebelum pengguna terpasang di request
         $token = $user?->currentAccessToken();
@@ -45,7 +46,7 @@ class AuditLog extends Model
         return static::create([
             'user_id' => $user?->id,
             'token_id' => $token instanceof ApiToken ? $token->id : null,
-            'source' => $request->is('api/*') ? 'api' : 'admin',
+            'source' => $source ?? ($request->is('api/*') ? 'api' : 'admin'),
             'action' => $action,
             'status' => $status,
             'subject_type' => $subject?->getMorphClass(),
