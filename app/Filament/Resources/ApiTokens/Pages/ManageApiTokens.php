@@ -28,7 +28,7 @@ class ManageApiTokens extends ManageRecords
         return [
             Action::make('create')->label('Buat token')->icon('heroicon-o-plus')
                 ->modalHeading('Buat token API')
-                ->modalDescription(fn () => 'Token hanya ditampilkan sekali setelah dibuat. Hak efektif adalah irisan ability token dan peran pengguna. Token yang sama dipakai untuk REST API dan untuk Claude lewat MCP di '.route('mcp').'; untuk Claude cukup ability baca.')
+                ->modalDescription(fn () => 'Token hanya ditampilkan sekali setelah dibuat. Hak efektif adalah irisan ability token dan peran pengguna. Token yang sama dipakai untuk REST API dan untuk Claude lewat MCP di '.route('mcp').'. Untuk Claude, beri ability tulis (catalog:write) hanya bila Claude memang perlu mengubah produk.')
                 ->schema([
                     Select::make('user_id')->label('Pengguna')->required()->live()
                         ->options(fn () => User::where('is_active', true)->orderBy('name')->get()
