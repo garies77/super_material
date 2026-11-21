@@ -7,6 +7,7 @@ use App\Models\CustomForm;
 use App\Models\Product;
 use App\Models\SalesChannel;
 use App\Support\LinkTarget;
+use App\Support\PagePriceTable;
 use App\Support\PageProductGrid;
 use Filament\Forms\Components\Builder;
 use Filament\Forms\Components\Builder\Block;
@@ -103,6 +104,19 @@ class PageBlocks
                     TextInput::make('button_label')->label('Teks tombol')->maxLength(40)
                         ->placeholder(fn (Get $get) => 'Beli di '.(SalesChannel::find($get('channel_id'))?->name ?? 'marketplace')),
                     Toggle::make('show_price')->label('Tampilkan harga')->default(true),
+                ]),
+
+                // Daftar harga acuan per varian (gaya halaman "daftar harga"), terisi otomatis dari data produk
+                Block::make('price_table')->label('Tabel harga')->icon('heroicon-o-table-cells')->columns(2)->schema([
+                    TextInput::make('heading')->label('Judul bagian (H2)')->maxLength(120)
+                        ->placeholder('mis. Daftar Harga Peralatan Proyek di Shopee'),
+                    Select::make('channel_id')->label('Tombol beli di')->required()
+                        ->options(fn () => SalesChannel::where('is_active', true)->orderBy('name')->pluck('name', 'id'))
+                        ->helperText('Hanya produk yang punya tautan di kanal ini yang masuk tabel.'),
+                    Textarea::make('intro')->label('Teks pengantar (opsional)')->rows(2)->maxLength(500)->columnSpanFull(),
+                    Select::make('group_by')->label('Kelompokkan')->options(PagePriceTable::GROUPS)->default('category')->selectablePlaceholder(false),
+                    TextInput::make('limit')->label('Jumlah produk maksimal')->numeric()->minValue(1)->maxValue(PageProductGrid::MAX_ITEMS)->default(PageProductGrid::MAX_ITEMS)->required()
+                        ->helperText('Tiap varian tampil sebagai satu baris.'),
                 ]),
 
                 Block::make('highlights')->label('Poin unggulan')->icon('heroicon-o-check-badge')->schema([

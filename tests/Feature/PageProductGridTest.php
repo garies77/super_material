@@ -139,6 +139,113 @@ it('gives each example page the marketplace-specific notes, steps and FAQ around
         ->assertSee('Tokopedia PLUS')->assertDontSee('SPayLater');
 });
 
+it('creates Mbiz and e-Katalog LKPP channels with draft procurement landing pages', function () {
+    (require database_path('migrations/2026_11_15_152535_create_marketplace_landing_pages.php'))->up();
+    (require database_path('migrations/2026_11_20_105416_create_procurement_landing_pages.php'))->up();
+
+    $mbiz = SalesChannel::where('slug', 'mbiz')->sole();
+    $lkpp = SalesChannel::where('slug', 'lkpp')->sole();
+    expect($mbiz->allowed_hosts)->toContain('mbizmarket.co.id')
+        ->and($lkpp->name)->toBe('e-Katalog LKPP')
+        ->and($lkpp->allowed_hosts)->toContain('katalog.inaproc.id');
+
+    gridProduct('Meteran Laser', [$mbiz]);
+    gridProduct('Waterpass Aluminium', [$lkpp]);
+    gridProduct('Bor Listrik', [$this->shopee]);
+
+    $this->get('/jual-peralatan-proyek-di-mbiz')->assertNotFound();
+    Page::whereIn('slug', ['jual-peralatan-proyek-di-mbiz', 'jual-peralatan-proyek-di-e-katalog-lkpp'])->get()->each->publish();
+
+    $this->get('/jual-peralatan-proyek-di-mbiz')->assertOk()
+        ->assertSee('Meteran Laser')->assertSee('Beli di Mbiz')
+        ->assertDontSee('Waterpass Aluminium')->assertDontSee('Bor Listrik')
+        ->assertSee('Pengadaan di Mbiz: yang perlu Anda tahu')
+        ->assertSee('href="/jual-peralatan-proyek-di-e-katalog-lkpp"', false)
+        ->assertSee('href="/jual-peralatan-proyek-di-shopee"', false);
+
+    $this->get('/jual-peralatan-proyek-di-e-katalog-lkpp')->assertOk()
+        ->assertSee('Waterpass Aluminium')->assertSee('Beli di e-Katalog LKPP')
+        ->assertDontSee('Meteran Laser')
+        ->assertSee('e-purchasing')->assertSee('TKDN');
+});
+
+it('keeps existing procurement channels and pages when the migration runs', function () {
+    $mbiz = SalesChannel::create(['name' => 'Mbizmarket', 'slug' => 'mbiz', 'type' => 'marketplace', 'is_active' => true]);
+    Page::create(['title' => 'Sudah ada', 'slug' => 'jual-peralatan-proyek-di-mbiz', 'is_published' => true]);
+
+    (require database_path('migrations/2026_11_20_105416_create_procurement_landing_pages.php'))->up();
+
+    expect(SalesChannel::where('slug', 'mbiz')->sole()->name)->toBe('Mbizmarket')
+        ->and(Page::where('slug', 'jual-peralatan-proyek-di-mbiz')->sole()->title)->toBe('Sudah ada')
+        ->and(Page::where('slug', 'jual-peralatan-proyek-di-e-katalog-lkpp')->sole()->is_published)->toBeFalse();
+});
+
+it('renders a numbered price table with one row per variant and a tracked buy link per variant', function () {
+    $semen = Category::create(['name' => 'Semen', 'slug' => 'semen', 'is_active' => true]);
+    $bor = gridProduct('Bor Listrik', [$this->shopee], ['category_id' => $this->alat->id, 'price_min' => 450000]);
+    $mortar = gridProduct('Mortar Instan', [$this->shopee], ['category_id' => $semen->id, 'unit' => 'sak']);
+    $mortar->variants()->create(['name' => 'Sak 40 kg', 'slug' => 'sak-40-kg', 'price' => 62000, 'compare_at_price' => 70000, 'is_active' => true, 'sort_order' => 1]);
+    $mortar->variants()->create(['name' => 'Sak 25 kg', 'slug' => 'sak-25-kg', 'price' => 45000, 'is_active' => true, 'sort_order' => 0]);
+    $mortar->variants()->create(['name' => 'Ukuran lama', 'slug' => 'lama', 'price' => 1000, 'is_active' => false]);
+    gridProduct('Gerinda Tangan', [$this->shopee], ['category_id' => $this->alat->id, 'price_min' => 380000]);
+    gridProduct('Kunci Inggris', [$this->shopee], ['category_id' => $this->alat->id, 'price_min' => 75000]);
+    gridProduct('Semen Putih', [$this->shopee], ['category_id' => $semen->id, 'price_min' => 30000]);
+    gridProduct('Palu Godam', [$this->tokopedia], ['category_id' => $this->alat->id]);
+
+    Page::create(['title' => 'Daftar harga', 'slug' => 'daftar-harga-shopee', 'is_published' => true, 'blocks' => [
+        ['type' => 'price_table', 'data' => ['channel_id' => $this->shopee->id, 'group_by' => 'category']],
+    ]]);
+
+    $this->get('/daftar-harga-shopee')->assertOk()
+        ->assertSee('Daftar harga di Shopee')
+        ->assertSeeInOrder(['1. Alat Proyek', '2. Semen', '1. Harga Alat Proyek', 'Bor Listrik', 'Rp450.000', '2. Harga Semen', 'Sak 25 kg', 'Rp45.000', '/ sak', 'Sak 40 kg', 'Rp70.000', 'Rp62.000', '/ sak'])
+        ->assertSee('/go/mortar-instan/shopee?utm_source=landing-page&amp;utm_medium=page&amp;utm_campaign=daftar-harga-shopee&amp;variant=sak-40-kg', false)
+        ->assertSee('href="#harga-semen"', false)
+        ->assertDontSee('Ukuran lama')->assertDontSee('Palu Godam');
+});
+
+it('merges thin category groups into one table with category labels, as in a small real catalog', function () {
+    $cetok = Category::create(['name' => 'Cetok', 'slug' => 'cetok', 'is_active' => true]);
+    $dynabolt = Category::create(['name' => 'Dynabolt', 'slug' => 'dynabolt', 'is_active' => true]);
+    gridProduct('Dynabolt Baut Tanam Beton M8 M10 M12', [$this->shopee], ['category_id' => $dynabolt->id, 'price_min' => 206200, 'unit' => '1 kotak']);
+    gridProduct('Cetok Stainless Gagang Kayu Jati', [$this->shopee], ['category_id' => $cetok->id, 'price_min' => 13100, 'unit' => '12 pcs']);
+    gridProduct('Pahat Beton 8 Inch', [$this->shopee], ['category_id' => $this->alat->id, 'price_min' => 21000]);
+
+    Page::create(['title' => 'Daftar harga', 'slug' => 'daftar-harga-shopee', 'is_published' => true, 'blocks' => [
+        ['type' => 'price_table', 'data' => ['channel_id' => $this->shopee->id, 'group_by' => 'category']],
+    ]]);
+
+    $this->get('/daftar-harga-shopee')->assertOk()
+        ->assertSeeInOrder(['Alat Proyek', 'Pahat Beton 8 Inch', 'Rp21.000', 'Cetok', 'Cetok Stainless Gagang Kayu Jati', 'Rp13.100', '/ 12 pcs', 'Dynabolt', 'Dynabolt Baut Tanam Beton M8 M10 M12', 'Rp206.200', '/ 1 kotak'])
+        ->assertDontSee('1. Harga')->assertDontSee('aria-label="Isi daftar harga"', false);
+});
+
+it('adds a price table to landing page drafts without changing the published version', function () {
+    gridProduct('Bor Listrik', [$this->shopee], ['price_min' => 450000]);
+    (require database_path('migrations/2026_11_15_152535_create_marketplace_landing_pages.php'))->up();
+    $page = Page::where('slug', 'jual-peralatan-proyek-di-shopee')->sole();
+    $page->publish();
+
+    $migration = require database_path('migrations/2026_11_21_021637_add_price_table_to_landing_pages.php');
+    $migration->up();
+    $migration->up();
+
+    $page->refresh();
+    $types = array_column($page->draft_blocks, 'type');
+    expect(array_count_values($types)['price_table'])->toBe(1)
+        ->and($types[array_search('products', $types, true) + 1])->toBe('price_table')
+        ->and(array_column($page->blocks, 'type'))->not->toContain('price_table');
+
+    $this->get('/jual-peralatan-proyek-di-shopee')->assertOk()
+        ->assertSee('Diperbarui')->assertDontSee('Daftar Harga Peralatan &amp; Bahan Proyek di Shopee', false);
+
+    $page->publish();
+
+    $this->get('/jual-peralatan-proyek-di-shopee')->assertOk()
+        ->assertSee('Daftar Harga Peralatan &amp; Bahan Proyek di Shopee', false)
+        ->assertSee('Rp450.000');
+});
+
 it('renders highlight chips and a collapsible FAQ whose answers stay in the HTML', function () {
     Page::create(['title' => 'Uji blok', 'slug' => 'uji-blok', 'is_published' => true, 'blocks' => [
         ['type' => 'highlights', 'data' => ['items' => [['text' => 'Harga acuan'], ['text' => 'Tanya via WhatsApp']]]],
