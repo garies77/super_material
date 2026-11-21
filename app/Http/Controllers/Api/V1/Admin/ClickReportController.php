@@ -4,19 +4,16 @@ namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Http\Controllers\Api\V1\ApiController;
 use App\Support\Reports\ClickReport;
+use App\Support\Reports\ReportPeriod;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /** @tags Admin: Laporan */
 class ClickReportController extends ApiController
 {
     protected bool $admin = true;
-
-    private const MAX_RANGE_DAYS = 366;
 
     /**
      * Ringkasan klik
@@ -77,17 +74,11 @@ class ClickReportController extends ApiController
         ]);
         $filters = $validated['filter'] ?? [];
 
-        $tz = ClickReport::TIMEZONE;
-        $to = isset($filters['date_to']) ? Carbon::parse($filters['date_to'], $tz)->endOfDay() : now($tz)->endOfDay();
-        $from = isset($filters['date_from']) ? Carbon::parse($filters['date_from'], $tz)->startOfDay() : $to->copy()->subDays(29)->startOfDay();
-
-        if ($from->diffInDays($to) > self::MAX_RANGE_DAYS) {
-            throw ValidationException::withMessages(['filter.date_from' => ['Rentang tanggal maksimal '.self::MAX_RANGE_DAYS.' hari.']]);
-        }
+        $period = ReportPeriod::between($filters['date_from'] ?? null, $filters['date_to'] ?? null, 'filter.date_from');
 
         return new ClickReport(
-            from: $from,
-            to: $to,
+            from: $period->from,
+            to: $period->to,
             groupBy: $validated['group_by'] ?? 'product',
             channel: $filters['channel'] ?? null,
             category: $filters['category'] ?? null,
