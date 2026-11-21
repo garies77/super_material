@@ -17,7 +17,10 @@
         $leadText = array_values(array_filter($leadBlocks, fn ($b) => ($b['type'] ?? null) !== 'highlights'));
         $gridBlocks = array_slice($blockList, $first, $last - $first + 1);
         $tailBlocks = array_slice($blockList, $last + 1);
-        $channelName = \App\Support\PageProductGrid::channel($blockList[$first]['data'] ?? [])?->name;
+        $heroChannel = \App\Support\PageProductGrid::channel($blockList[$first]['data'] ?? []);
+        $channelName = $heroChannel?->name;
+        // Tanggal perubahan produk terbaru di grid pertama: "Diperbarui ..." di hero (kesegaran harga acuan)
+        $heroUpdatedAt = $heroChannel ? \App\Support\PageProductGrid::products($blockList[$first]['data'], $heroChannel)->max('updated_at') : null;
         $whatsappNumber = preg_replace('/\D+/', '', (string) \App\Models\Setting::get('whatsapp_number'));
         $whatsappNumber = str_starts_with($whatsappNumber, '0') ? '62'.substr($whatsappNumber, 1) : $whatsappNumber;
         $whatsappUrl = $whatsappNumber !== ''
@@ -41,8 +44,15 @@
                 {{-- Laptop: dua kolom (teks | poin & tombol) agar hero pendek dan grid produk terlihat di layar pertama --}}
                 <div class="relative grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-center lg:gap-10">
                     <div class="min-w-0">
-                        @if($channelName)
-                            <p class="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-brand-700">Belanja di {{ $channelName }}</p>
+                        @if($channelName || $heroUpdatedAt)
+                            <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                                @if($channelName)
+                                    <p class="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-brand-700">Belanja di {{ $channelName }}</p>
+                                @endif
+                                @if($heroUpdatedAt)
+                                    <p class="text-xs font-medium text-ink-500">Diperbarui <time datetime="{{ $heroUpdatedAt->toDateString() }}">{{ $heroUpdatedAt->timezone('Asia/Jakarta')->translatedFormat('j F Y') }}</time></p>
+                                @endif
+                            </div>
                         @endif
                         <h1 class="mt-2 font-display text-2xl font-extrabold leading-tight text-ink-950 sm:text-3xl lg:text-4xl">{{ $page->title }}</h1>
                         @if($leadText)

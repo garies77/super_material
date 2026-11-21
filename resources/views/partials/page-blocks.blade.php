@@ -140,6 +140,113 @@
                 </section>
             @endif
 
+        @elseif($type === 'price_table')
+            {{-- Tabel harga acuan per varian (App\Support\PagePriceTable), dikelompokkan dan bernomor --}}
+            @php
+                $priceChannel = \App\Support\PageProductGrid::channel($d);
+                $priceGroups = $priceChannel ? \App\Support\PagePriceTable::groups($d, $priceChannel) : collect();
+                $priceHeading = filled($d['heading'] ?? null) ? $d['heading'] : 'Daftar harga'.($priceChannel ? ' di '.$priceChannel->name : '');
+                $priceCampaign = request()->route('slug') ?: null;
+                $numbered = $priceGroups->count() > 1;
+            @endphp
+            @if($priceGroups->isNotEmpty())
+                <section id="daftar-harga" class="not-prose scroll-mt-24" aria-label="{{ $priceHeading }}">
+                    <h2 class="font-display text-2xl font-extrabold text-ink-950">{{ $priceHeading }}</h2>
+                    @if(filled($d['intro'] ?? null))
+                        <p class="mt-1.5 leading-relaxed text-ink-600">{{ $d['intro'] }}</p>
+                    @endif
+                    <p class="mt-2 inline-flex items-center gap-1.5 rounded-full bg-ink-50 px-3 py-1 text-xs font-medium text-ink-600">
+                        <svg viewBox="0 0 20 20" class="h-3.5 w-3.5 text-brand-600" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-12.5a.75.75 0 0 0-1.5 0V10c0 .2.08.39.22.53l2.5 2.5a.75.75 0 1 0 1.06-1.06l-2.28-2.28V5.5Z" clip-rule="evenodd"/></svg>
+                        Harga acuan per {{ \App\Support\PagePriceTable::updatedAt($priceGroups)?->timezone('Asia/Jakarta')->translatedFormat('j F Y') }}
+                    </p>
+
+                    @if($numbered)
+                        <nav aria-label="Isi daftar harga" class="mt-4 flex flex-wrap gap-2">
+                            @foreach($priceGroups as $group)
+                                <a href="#{{ $group['anchor'] }}" class="rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-sm font-medium text-ink-700 transition hover:border-brand-400 hover:text-brand-700">{{ $loop->iteration }}. {{ $group['name'] }}</a>
+                            @endforeach
+                        </nav>
+                    @endif
+
+                    @foreach($priceGroups as $group)
+                        <div @if($numbered) id="{{ $group['anchor'] }}" @endif class="mt-6 scroll-mt-24">
+                            @if($group['name'] !== '')
+                                <h3 class="font-display text-lg font-bold text-ink-900">{{ $numbered ? $loop->iteration.'. ' : '' }}Harga {{ $group['name'] }}</h3>
+                            @endif
+                            <div class="mt-3 overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-sm">
+                                <table class="w-full text-left text-sm">
+                                    <caption class="sr-only">Harga {{ $group['name'] ?: 'produk' }} di {{ $priceChannel->name }}</caption>
+                                    <thead class="bg-ink-950 text-xs font-semibold uppercase tracking-wide text-white">
+                                        <tr>
+                                            <th scope="col" class="px-3 py-3 sm:px-4">Produk</th>
+                                            <th scope="col" class="px-2 py-3 text-right sm:px-4"><span class="sm:hidden">Harga</span><span class="hidden sm:inline">Harga acuan</span></th>
+                                            <th scope="col" class="w-px py-3 pl-1 pr-3 text-right sm:px-3"><span class="sr-only sm:not-sr-only">Beli</span></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-ink-100">
+                                        @foreach($group['rows']->groupBy(fn ($r) => $r['product']->id) as $productRows)
+                                            {{-- Produk dengan beberapa varian: nama produk sekali sebagai subjudul, lalu satu baris per varian --}}
+                                            @php $multi = $productRows->count() > 1; @endphp
+                                            @if($multi)
+                                                <tr class="bg-ink-50">
+                                                    <th scope="rowgroup" colspan="3" class="px-3 pb-1.5 pt-3 text-left sm:px-4">
+                                                        @if($group['name'] === '' && $productRows->first()['label'])
+                                                            <span class="block text-xs font-medium text-brand-700">{{ $productRows->first()['label'] }}</span>
+                                                        @endif
+                                                        <a href="{{ $productRows->first()['product']->url() }}" class="font-semibold text-ink-900 hover:text-brand-700">{{ $productRows->first()['product']->name }}</a>
+                                                    </th>
+                                                </tr>
+                                            @endif
+                                            @foreach($productRows as $row)
+                                            <tr class="bg-white transition hover:bg-brand-50/60">
+                                                <td class="py-3 align-middle {{ $multi ? 'pl-5 pr-2 sm:pl-7 sm:pr-4' : 'px-3 sm:px-4' }}">
+                                                    @if($multi)
+                                                        <span class="text-ink-800">{{ $row['variant']->name }}</span>
+                                                    @else
+                                                        @if($group['name'] === '' && $row['label'])
+                                                            <span class="block text-xs font-medium text-brand-700">{{ $row['label'] }}</span>
+                                                        @endif
+                                                        <a href="{{ $row['product']->url() }}" class="font-semibold text-ink-900 hover:text-brand-700">{{ $row['product']->name }}</a>
+                                                        @if($row['variant'])
+                                                            <span class="mt-0.5 block text-xs text-ink-500">{{ $row['variant']->name }}</span>
+                                                        @endif
+                                                    @endif
+                                                </td>
+                                                <td class="px-2 py-3 text-right align-middle tabular-nums sm:whitespace-nowrap sm:px-4">
+                                                    @if($row['compare'])
+                                                        <s class="block text-xs text-ink-400">{{ $row['compare'] }}</s>
+                                                    @endif
+                                                    <span class="font-bold text-ink-950">{{ $row['price'] ?? 'Cek di '.$priceChannel->name }}</span>
+                                                    @if($row['unit'])
+                                                        <span class="block text-xs text-ink-500 sm:ml-1 sm:inline">{{ $row['unit'] }}</span>
+                                                    @endif
+                                                </td>
+                                                <td class="py-3 pl-1 pr-3 text-right align-middle sm:px-3">
+                                                    <a href="{{ \App\Support\PageProductGrid::buyUrl($row['product'], $priceChannel, $priceCampaign) }}{{ $row['variant'] ? '&variant='.urlencode($row['variant']->slug) : '' }}"
+                                                       target="_blank" rel="nofollow sponsored noopener"
+                                                       data-buy data-product="{{ $row['product']->slug }}" data-channel="{{ $priceChannel->slug }}"
+                                                       style="background-color: {{ $priceChannel->color ?: '#121826' }}"
+                                                       aria-label="Beli {{ $row['product']->name }}{{ $row['variant'] ? ' '.$row['variant']->name : '' }} di {{ $priceChannel->name }}"
+                                                       class="inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-xs font-semibold text-white shadow-sm transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 sm:px-3">
+                                                        <x-channel-logo :channel="$priceChannel->slug" class="h-4 w-4" />
+                                                        <span class="hidden sm:inline">Beli</span>
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                            @endforeach
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    @endforeach
+
+                    <p class="mt-3 text-xs leading-relaxed text-ink-500">
+                        Harga di tabel adalah harga acuan. Harga final, stok, ongkos kirim, dan promo mengikuti {{ $priceChannel->name }} saat checkout.
+                    </p>
+                </section>
+            @endif
+
         @elseif($type === 'highlights')
             @php $points = collect((array) ($d['items'] ?? []))->map(fn ($i) => is_array($i) ? ($i['text'] ?? '') : $i)->filter(fn ($i) => filled($i)); @endphp
             @if($points->isNotEmpty())
