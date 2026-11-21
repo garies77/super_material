@@ -106,8 +106,9 @@ it('keeps working from the route cache that deploy:finish builds in production',
     $user = User::factory()->create(['role' => 'admin']);
     $token = $user->createToken('claude', ['catalog:read'], now()->addDays(90))->plainTextToken;
 
+    // Tanpa token dulu: header dari withToken() terbawa ke permintaan berikutnya dalam tes yang sama
+    $this->postJson('/mcp', mcpInitializeMessage())->assertUnauthorized();
     $this->withToken($token)->postJson('/mcp', mcpInitializeMessage())
         ->assertOk()
         ->assertJsonPath('result.serverInfo.name', 'Supermaterial');
-    $this->postJson('/mcp', mcpInitializeMessage())->assertUnauthorized();
 });
