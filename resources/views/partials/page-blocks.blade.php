@@ -299,10 +299,16 @@
             <div aria-hidden="true" style="height:{{ max(4, min(400, (int) ($d['height'] ?? 40))) }}px"></div>
 
         @elseif($type === 'embed')
-            @if($youtubeId = \App\Support\YouTube::videoId($d['url'] ?? null))
-                <div class="aspect-video overflow-hidden rounded-xl bg-ink-100">
-                    <iframe src="{{ \App\Support\YouTube::embedUrl($youtubeId) }}" title="{{ $d['title'] ?? 'Video' }}" loading="lazy"
-                            class="h-full w-full border-0" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowfullscreen
+            @if($video = \App\Support\VideoEmbed::fromUrl($d['url'] ?? null))
+                {{-- Instagram menambah header dan keterangan di dalam iframe, jadi butuh tinggi tetap, bukan rasio --}}
+                <div @class([
+                    'overflow-hidden rounded-xl bg-ink-100',
+                    'aspect-video' => ! $video['portrait'],
+                    'mx-auto w-full max-w-[400px] h-[680px]' => $video['provider'] === 'instagram',
+                    'mx-auto w-full max-w-[340px] aspect-[9/16]' => $video['portrait'] && $video['provider'] !== 'instagram',
+                ])>
+                    <iframe src="{{ $video['src'] }}" title="{{ $d['title'] ?? 'Video' }}" loading="lazy"
+                            class="h-full w-full border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen
                             referrerpolicy="strict-origin-when-cross-origin"></iframe>
                 </div>
             @endif

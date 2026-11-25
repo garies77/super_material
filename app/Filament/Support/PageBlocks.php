@@ -9,6 +9,8 @@ use App\Models\SalesChannel;
 use App\Support\LinkTarget;
 use App\Support\PagePriceTable;
 use App\Support\PageProductGrid;
+use App\Support\VideoEmbed;
+use Closure;
 use Filament\Forms\Components\Builder;
 use Filament\Forms\Components\Builder\Block;
 use Filament\Forms\Components\CodeEditor;
@@ -156,9 +158,13 @@ class PageBlocks
                 ]),
 
                 Block::make('embed')->label('Embed video')->icon('heroicon-o-play')->columns(2)->schema([
-                    TextInput::make('url')->label('URL YouTube')->required()->maxLength(500)
-                        ->regex('#^https://(www\.|m\.)?(youtube\.com/(watch\?v=|shorts/|embed/)|youtu\.be/)[\w-]{11}#i')
-                        ->validationMessages(['regex' => 'Masukkan URL video YouTube yang valid.']),
+                    TextInput::make('url')->label('URL video')->required()->maxLength(500)
+                        ->helperText('YouTube, Instagram (post/reel), TikTok, atau Facebook (video/reel). Salin tautan lengkap dari browser, bukan tautan pendek vt.tiktok.com.')
+                        ->rule(fn (): Closure => function (string $attribute, mixed $value, Closure $fail): void {
+                            if (! VideoEmbed::isSupported(is_string($value) ? $value : null)) {
+                                $fail('Masukkan URL video YouTube, Instagram, TikTok, atau Facebook yang valid.');
+                            }
+                        }),
                     TextInput::make('title')->label('Judul video')->maxLength(255),
                 ]),
 

@@ -26,7 +26,7 @@ return [
         'enabled' => (bool) env('SECURITY_CSP_ENABLED', true),
         'script_src' => ['https://www.googletagmanager.com', 'https://www.google-analytics.com', 'https://connect.facebook.net'],
         'connect_src' => ['https://www.google-analytics.com', 'https://*.google-analytics.com', 'https://region1.google-analytics.com', 'https://www.facebook.com'],
-        'frame_src' => ['https://www.youtube.com', 'https://www.youtube-nocookie.com', 'https://www.instagram.com'],
+        'frame_src' => ['https://www.youtube.com', 'https://www.youtube-nocookie.com', 'https://www.instagram.com', 'https://www.tiktok.com', 'https://www.facebook.com'],
         'img_src' => ['https:', 'data:', 'blob:'],
     ],
 

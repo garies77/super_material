@@ -42,6 +42,7 @@ function sampleBlocks(array $override = []): array
         ['type' => 'divider', 'data' => ['spacing' => 'md']],
         ['type' => 'spacer', 'data' => ['height' => 48]],
         ['type' => 'embed', 'data' => ['url' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'title' => 'Video']],
+        ['type' => 'embed', 'data' => ['url' => 'https://www.tiktok.com/@jayaintero/video/7312345678901234567', 'title' => 'Video TikTok']],
         ['type' => 'html', 'data' => ['html' => '<div class="kalkulator">Hitung</div><script>alert(1)</script>']],
         ...$override,
     ];
@@ -64,7 +65,7 @@ it('saves a new page as draft without publishing it', function () {
         ->assertHasNoFormErrors();
 
     $page = Page::where('slug', 'tentang-kami-baru')->first();
-    expect($page->is_published)->toBeFalse()->and($page->draft_blocks)->toHaveCount(9);
+    expect($page->is_published)->toBeFalse()->and($page->draft_blocks)->toHaveCount(10);
     $this->get('/tentang-kami-baru')->assertNotFound();
 });
 
@@ -89,6 +90,7 @@ it('publishes all block types to the public page with sanitized output', functio
         ->toContain('<ol><li>Satu</li><li>Dua</li></ol>')
         ->toContain('style="height:48px"')
         ->toContain('youtube-nocookie.com/embed/dQw4w9WgXcQ')
+        ->toContain('https://www.tiktok.com/player/v1/7312345678901234567')
         ->toContain('<div class="kalkulator">Hitung</div>')
         ->not->toContain('alert(1)');
 });
