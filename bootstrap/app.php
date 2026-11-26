@@ -40,6 +40,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(ApplySecurityHeaders::class);
         // Setelah TrustProxies (bawaan, paling awal) agar X-Forwarded-Proto dari proxy tepercaya sudah terbaca
         $middleware->append(ForceHttps::class);
+        // Tidak ada rute "login": API dan MCP menjawab 401 JSON, halaman lain diarahkan ke login panel admin
+        $middleware->redirectGuestsTo(
+            fn (Request $request) => $request->is('mcp', 'api/*') ? null : route('filament.admin.auth.login'),
+        );
         $middleware->alias([
             'api.ability' => EnsureApiAbility::class,
             'api.cache' => ApiPublicCache::class,
@@ -57,7 +61,7 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
+            fn (Request $request) => $request->is('api/*', 'mcp') || $request->expectsJson(),
         );
 
         // Bentuk galat API seragam {"error": {...}} (PRD 8.12.4)
