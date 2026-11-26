@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Support\StrictFileUpload;
 use App\Models\Ad;
 use App\Models\Article;
 use App\Models\AuditLog;
@@ -10,11 +11,14 @@ use App\Models\CustomForm;
 use App\Models\HomeSection;
 use App\Models\Product;
 use App\Models\Setting;
+use App\Rules\OpenGraphImage;
 use App\Services\HomepageService;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Builder;
 use Filament\Forms\Components\Builder\Block;
+use Filament\Forms\Components\CodeEditor;
+use Filament\Forms\Components\CodeEditor\Enums\Language;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
@@ -26,6 +30,9 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Tabs;
+use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
@@ -62,6 +69,11 @@ class ManageHomepage extends Page implements HasSchemas
         'cta_text' => 'hero_banner_cta_text', 'cta_url' => 'hero_banner_cta_url',
     ];
 
+    /** Field form SEO beranda => kunci Setting. Kosong = judul/deskripsi situs dan gambar banner hero. */
+    private const SEO_KEYS = [
+        'meta_title' => 'home_meta_title', 'meta_description' => 'home_meta_description', 'og_image' => 'home_og_image',
+    ];
+
     public ?array $data = [];
 
     public static function canAccess(): bool
@@ -83,7 +95,7 @@ class ManageHomepage extends Page implements HasSchemas
         $banner['active'] = Setting::getBool('hero_banner_active', true);
         $banner['style'] ??= 'card';
 
-        $this->form->fill(['sections' => HomeSection::ordered()->get()->map(fn (HomeSection $s) => [
+        $this->form->fill(['seo' => collect(self::SEO_KEYS)->map(fn ($key) => Setting::get($key))->all(), 'sections' => HomeSection::ordered()->get()->map(fn (HomeSection $s) => [
             'type' => $s->type,
             'data' => [
                 'key' => $s->key,
@@ -97,6 +109,7 @@ class ManageHomepage extends Page implements HasSchemas
     public function form(Schema $schema): Schema
     {
         return $schema->statePath('data')->components([
+            $this->seoSection(),
             Builder::make('sections')->hiddenLabel()
                 ->blocks([
                     $this->heroBlock(),
@@ -106,10 +119,29 @@ class ManageHomepage extends Page implements HasSchemas
                     $this->bannerBlock(),
                     $this->ctaBlock(),
                     $this->formBlock(),
+                    $this->htmlBlock(),
                 ])
                 ->reorderableWithDragAndDrop()->collapsible()->collapsed()->blockNumbers(false)
                 ->addActionLabel('Tambah seksi')->blockPickerColumns(3),
         ]);
+    }
+
+    private function seoSection(): Section
+    {
+        return Section::make('SEO beranda')->icon(Heroicon::OutlinedMagnifyingGlass)->collapsible()
+            ->description('Judul dan deskripsi yang tampil di hasil pencarian Google serta saat tautan beranda dibagikan. Kosongkan untuk memakai tagline & deskripsi di Pengaturan situs.')
+            ->columns(2)->schema([
+                TextInput::make('seo.meta_title')->label('Judul SEO (meta title)')->maxLength(70)->columnSpanFull()
+                    ->placeholder(config('app.name').' — '.Setting::get('site_tagline', 'Katalog Bahan Bangunan'))
+                    ->helperText('Ideal 50–60 karakter. Tampil apa adanya, tanpa tambahan nama situs.'),
+                Textarea::make('seo.meta_description')->label('Deskripsi SEO (meta description)')->rows(3)->maxLength(170)->columnSpanFull()
+                    ->placeholder(Setting::get('site_description'))
+                    ->helperText('Ideal 140–160 karakter: sebut produk utama dan ajakan, misalnya cek harga atau konsultasi.'),
+                StrictFileUpload::make('seo.og_image')->label('Gambar saat dibagikan (Open Graph)')->image()->imagePreset('og')
+                    ->disk('public')->directory('seo')->visibility('public')->imagePreviewHeight('100')
+                    ->acceptedFileTypes(OpenGraphImage::MIME_TYPES)->rule(new OpenGraphImage)->columnSpanFull()
+                    ->helperText('1200×630 px. Kosong = gambar banner kampanye hero, lalu gambar default di Pengaturan situs.'),
+            ]);
     }
 
     /** Toggle tampil + kunci internal, dipakai semua jenis seksi. */
@@ -295,6 +327,30 @@ class ManageHomepage extends Page implements HasSchemas
         ]);
     }
 
+    /** Kode dirender langsung tanpa sanitasi (seperti Custom HTML produk); halaman ini khusus Admin. */
+    private function htmlBlock(): Block
+    {
+        return Block::make('html')->label($this->label('html'))->icon('heroicon-o-code-bracket')->schema([
+            ...$this->base('Nama blok (tidak tampil di situs)', false),
+            Toggle::make('settings.full_width')->label('Lebar penuh layar')
+                ->helperText('Mati = mengikuti lebar konten beranda.'),
+            Tabs::make('code')->tabs([
+                Tab::make('HTML')->schema([
+                    CodeEditor::make('settings.html')->label('HTML')->language(Language::Html)
+                        ->helperText('Boleh berisi <script>, termasuk JSON-LD. Nonce CSP ditambahkan otomatis; atribut onclick= diblokir.'),
+                ]),
+                Tab::make('CSS')->schema([
+                    CodeEditor::make('settings.css')->label('CSS')->language(Language::Css)
+                        ->helperText('Hanya berlaku di dalam blok ini.'),
+                ]),
+                Tab::make('JavaScript')->schema([
+                    CodeEditor::make('settings.js')->label('JavaScript')->language(Language::JavaScript)
+                        ->helperText('Dijalankan setelah blok HTML.'),
+                ]),
+            ]),
+        ]);
+    }
+
     private function ctaBlock(): Block
     {
         return Block::make('cta')->label($this->label('cta'))->icon('heroicon-o-chat-bubble-left-right')->schema([
@@ -321,8 +377,13 @@ class ManageHomepage extends Page implements HasSchemas
 
     public function save(): void
     {
-        $items = array_values($this->form->getState()['sections'] ?? []);
+        $state = $this->form->getState();
+        $items = array_values($state['sections'] ?? []);
         $keep = [];
+
+        foreach (self::SEO_KEYS as $field => $key) {
+            Setting::put($key, $state['seo'][$field] ?? null);
+        }
 
         foreach ($items as $i => $item) {
             $d = $item['data'];

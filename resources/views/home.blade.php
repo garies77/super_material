@@ -2,11 +2,14 @@
 @php
     use App\Models\Setting;
     $siteBrand = Setting::brandName();
-    $homeImage = $heroBanner['image'] ?? Setting::defaultOgImage();
+    // SEO dari Kustomisasi Beranda; kosong = perilaku bawaan (tagline/deskripsi situs, gambar banner hero)
+    $homeImage = Setting::imageUrl('home_og_image') ?: ($heroBanner['image'] ?? Setting::defaultOgImage());
     $hasHero = $sections->contains(fn ($s) => $s['section']->type === 'hero');
     $prevType = null;
 @endphp
 <x-layouts.app :canonical="url('/')"
+               :title="Setting::get('home_meta_title')"
+               :description="Setting::get('home_meta_description')"
                :image="$homeImage"
                :image-alt="$siteBrand . ' — ' . Setting::get('site_tagline', 'Katalog Bahan Bangunan')"
                :image-width="1200"
