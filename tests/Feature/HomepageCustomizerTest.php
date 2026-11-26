@@ -214,6 +214,8 @@ it('saves homepage SEO and renders a custom HTML block with the CSP nonce', func
 
     $page = Livewire::test(ManageHomepage::class)->assertOk();
     $sections = $page->get('data.sections');
+    $hero = collect($sections)->search(fn ($s) => $s['data']['key'] === 'hero');
+    $sections[$hero]['data']['banner']['active'] = false;
     $sections['html-block'] = ['type' => 'html', 'data' => ['key' => null, 'title' => 'Widget', 'is_active' => true, 'settings' => [
         'html' => '<div class="w">Halo beranda</div><script nonce="palsu">window.home=1</script>',
         'css' => '.w{color:red}',
