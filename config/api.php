@@ -49,16 +49,17 @@ return [
         'import:write' => 'Menjalankan impor CSV atau Excel',
         'reports:read' => 'Membaca laporan (klik, ringkasan, produk, trafik)',
         'articles:read' => 'Membaca artikel termasuk draf',
+        'articles:write' => 'Membuat dan mengubah artikel (Penulis hanya artikel miliknya)',
     ],
 
     // Ability tulis meminta konfirmasi password saat token dibuat
-    'write_abilities' => ['catalog:write', 'import:write'],
+    'write_abilities' => ['catalog:write', 'import:write', 'articles:write'],
 
     // Peran pengguna → ability yang boleh dipakai, mengikuti hak akses panel Filament
     'role_abilities' => [
-        'admin' => ['catalog:read', 'catalog:write', 'import:write', 'reports:read', 'articles:read'],
-        'editor' => ['catalog:read', 'catalog:write', 'import:write', 'articles:read'],
-        'author' => ['articles:read'],
+        'admin' => ['catalog:read', 'catalog:write', 'import:write', 'reports:read', 'articles:read', 'articles:write'],
+        'editor' => ['catalog:read', 'catalog:write', 'import:write', 'articles:read', 'articles:write'],
+        'author' => ['articles:read', 'articles:write'],
     ],
 
 ];

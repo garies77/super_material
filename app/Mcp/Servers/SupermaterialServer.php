@@ -2,6 +2,7 @@
 
 namespace App\Mcp\Servers;
 
+use App\Mcp\Tools\CreateArticle;
 use App\Mcp\Tools\CreateProduct;
 use App\Mcp\Tools\GetArticle;
 use App\Mcp\Tools\GetClickReport;
@@ -15,6 +16,7 @@ use App\Mcp\Tools\ReplaceProductVariants;
 use App\Mcp\Tools\SearchArticles;
 use App\Mcp\Tools\SearchProducts;
 use App\Mcp\Tools\SetProductLinks;
+use App\Mcp\Tools\UpdateArticle;
 use App\Mcp\Tools\UpdateProduct;
 use Laravel\Mcp\Server;
 use Laravel\Mcp\Server\Attributes\Instructions;
@@ -27,8 +29,8 @@ use Laravel\Mcp\Server\Attributes\Version;
  * Memakai token API Sanctum yang sama dengan REST API admin; hak efektif = ability token ∩ peran pengguna.
  */
 #[Name('Supermaterial')]
-#[Version('0.3.0')]
-#[Instructions('Server MCP untuk situs katalog bahan bangunan Supermaterial (supermaterial.id). Tool yang muncul mengikuti izin token. Baca: katalog (search-products, get-product, list-categories, list-brands), artikel (search-articles, get-article), laporan (get-report-summary, get-product-report, get-traffic-report, get-click-report). Tulis (butuh catalog:write): create-product, update-product, replace-product-variants, set-product-links. Sebelum menulis: cari produk dulu, ambil detailnya dengan get-product, jelaskan perubahan yang akan dibuat ke pengguna, lalu minta persetujuan. Produk baru dibuat sebagai draf kecuali pengguna meminta langsung terbit. replace-product-variants dan set-product-links MENGGANTI seluruh daftar, jadi sertakan juga item lama yang ingin dipertahankan. Tanggal laporan memakai zona WIB (Asia/Jakarta), bawaan 30 hari terakhir. Harga dalam rupiah tanpa titik. Jawab dalam bahasa Indonesia.')]
+#[Version('0.4.0')]
+#[Instructions('Server MCP untuk situs katalog bahan bangunan Supermaterial (supermaterial.id). Tool yang muncul mengikuti izin token. Baca: katalog (search-products, get-product, list-categories, list-brands), artikel (search-articles, get-article), laporan (get-report-summary, get-product-report, get-traffic-report, get-click-report). Tulis produk (butuh catalog:write): create-product, update-product, replace-product-variants, set-product-links. Tulis artikel (butuh articles:write): create-article, update-article. Sebelum menulis: cari dulu, ambil detailnya, jelaskan perubahan yang akan dibuat ke pengguna, lalu minta persetujuan. Produk dan artikel baru dibuat sebagai draf kecuali pengguna meminta langsung terbit. Saat menulis artikel: cek search-articles agar topik tidak dobel, pakai slug kategori dari list-categories, tautkan produk yang relevan dari search-products, tulis isi HTML dengan subjudul <h2>/<h3>, dan isi meta_title (maks. 70 karakter) serta meta_description. replace-product-variants dan set-product-links MENGGANTI seluruh daftar, begitu juga categories/tags/products/faqs di update-article, jadi sertakan juga item lama yang ingin dipertahankan. Tanggal laporan memakai zona WIB (Asia/Jakarta), bawaan 30 hari terakhir. Harga dalam rupiah tanpa titik. Jawab dalam bahasa Indonesia.')]
 class SupermaterialServer extends Server
 {
     /** Hanya tool yang ability-nya dimiliki token yang terdaftar (lihat AbilityTool). */
@@ -47,6 +49,8 @@ class SupermaterialServer extends Server
         UpdateProduct::class,
         ReplaceProductVariants::class,
         SetProductLinks::class,
+        CreateArticle::class,
+        UpdateArticle::class,
     ];
 
     protected array $resources = [
