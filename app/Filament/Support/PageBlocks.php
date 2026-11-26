@@ -9,19 +9,28 @@ use App\Models\SalesChannel;
 use App\Support\LinkTarget;
 use App\Support\PagePriceTable;
 use App\Support\PageProductGrid;
+use App\Support\VideoEmbed;
+use Closure;
+use Filament\Actions\Action;
 use Filament\Forms\Components\Builder;
 use Filament\Forms\Components\Builder\Block;
 use Filament\Forms\Components\CodeEditor;
 use Filament\Forms\Components\CodeEditor\Enums\Language;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\ToggleButtons;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Support\Enums\Width;
+use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Str;
 
 /**
  * Blok konten halaman statis (page builder). Blok ditambah, disunting, dihapus, dan diurutkan
@@ -31,22 +40,65 @@ class PageBlocks
 {
     public const ALIGN = ['left' => 'Kiri', 'center' => 'Tengah', 'right' => 'Kanan'];
 
+    /** Tata letak blok video; render di partials/page-blocks (maks. 2 kolom di HP). */
+    public const VIDEO_LAYOUTS = ['1' => '1 kolom', '2' => '2 kolom', '3' => '3 kolom', '4' => '4 kolom', 'scroll' => 'Geser samping'];
+
     public static function make(string $field = 'draft_blocks'): Builder
     {
         return Builder::make($field)->label('Konten halaman')
+            // Sisipkan beberapa blok sekaligus (pembuka, FAQ, dll.) di akhir daftar, alih-alih menambah satu per satu
+            ->hintAction(
+                Action::make('addSectionTemplate')
+                    ->label('Tambah bagian siap pakai')
+                    ->icon(Heroicon::OutlinedSquaresPlus)
+                    ->modalHeading('Tambah bagian siap pakai')
+                    ->modalDescription('Beberapa blok ditambahkan sekaligus di akhir halaman. Isi teks yang masih kosong, lalu simpan.')
+                    ->modalSubmitActionLabel('Tambahkan bagian')
+                    ->modalWidth(Width::Large)
+                    ->schema([
+                        Radio::make('template')->hiddenLabel()->required()
+                            ->options(array_map(fn (array $option) => $option['label'], PageSectionTemplates::options()))
+                            ->descriptions(array_map(fn (array $option) => $option['description'], PageSectionTemplates::options())),
+                    ])
+                    ->action(function (array $data, Builder $component): void {
+                        $component->state([...(array) $component->getRawState(), ...PageSectionTemplates::blocks($data['template'])]);
+                        $component->callAfterStateUpdated();
+                    }),
+            )
             ->blocks([
-                Block::make('heading')->label('Judul (H1–H6)')->icon('heroicon-o-h1')->columns(4)->schema([
+                Block::make('heading')->label(self::summaryLabel('Judul (H1–H6)', 'Judul', fn (array $s) => trim(strtoupper((string) ($s['level'] ?? '')).' · '.($s['text'] ?? ''), ' ·')))->icon('heroicon-o-h1')->columns(4)->schema([
                     Select::make('level')->label('Level')->options(array_combine($h = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'], array_map('strtoupper', $h)))->default('h2')->required(),
                     TextInput::make('text')->label('Teks')->required()->maxLength(255)->columnSpan(2),
                     Select::make('align')->label('Rata')->options(self::ALIGN)->default('left'),
                 ]),
 
-                Block::make('text')->label('Paragraf / teks')->icon('heroicon-o-bars-3-bottom-left')->schema([
+                Block::make('text')->label(self::summaryLabel('Paragraf / teks', 'Paragraf', fn (array $s) => self::plainText($s['content'] ?? null)))->icon('heroicon-o-bars-3-bottom-left')->schema([
                     self::richEditor('content')->label('Teks')
                         ->helperText('Bisa berisi paragraf, daftar, tautan, dan gambar. Gambar dapat diubah ukurannya dengan menarik sudutnya.'),
                 ]),
 
-                Block::make('image')->label('Gambar')->icon('heroicon-o-photo')->schema([
+                Block::make('list')->label(self::summaryLabel('Daftar', 'Daftar', fn (array $s) => self::countFilled($s['items'] ?? []).' butir · '.(($s['style'] ?? 'bullet') === 'number' ? 'bernomor' : 'berpoin')))->icon('heroicon-o-list-bullet')->schema([
+                    Select::make('style')->label('Jenis')->options(['bullet' => 'Berpoin', 'number' => 'Bernomor'])->default('bullet'),
+                    Repeater::make('items')->label('Butir')->schema([TextInput::make('text')->hiddenLabel()->required()->maxLength(500)])
+                        ->reorderableWithDragAndDrop()->defaultItems(2)->addActionLabel('Tambah butir'),
+                ]),
+
+                Block::make('highlights')->label(self::summaryLabel('Poin unggulan', 'Poin unggulan', fn (array $s) => self::countFilled($s['items'] ?? []).' poin'))->icon('heroicon-o-check-badge')->schema([
+                    Repeater::make('items')->label('Poin (maks. 4, singkat)')->schema([TextInput::make('text')->hiddenLabel()->required()->maxLength(80)])
+                        ->reorderableWithDragAndDrop()->defaultItems(3)->maxItems(4)->addActionLabel('Tambah poin'),
+                ]),
+
+                // Tanya-jawab yang bisa dibuka-tutup; teks jawaban tetap ada di HTML sehingga terbaca mesin pencari
+                Block::make('faq')->label(self::summaryLabel('FAQ (tanya-jawab)', 'FAQ', fn (array $s) => trim(($s['heading'] ?? '').' · '.self::countFilled($s['items'] ?? []).' pertanyaan', ' ·')))->icon('heroicon-o-question-mark-circle')->schema([
+                    TextInput::make('heading')->label('Judul bagian (H2)')->maxLength(120)->default('Pertanyaan yang sering diajukan'),
+                    Repeater::make('items')->label('Pertanyaan')->schema([
+                        TextInput::make('question')->label('Pertanyaan (H3)')->required()->maxLength(200),
+                        Textarea::make('answer')->label('Jawaban')->required()->rows(3)->maxLength(1000),
+                    ])->reorderableWithDragAndDrop()->collapsible()->defaultItems(1)->addActionLabel('Tambah pertanyaan')
+                        ->itemLabel(fn (array $state) => $state['question'] ?? null),
+                ]),
+
+                Block::make('image')->label(self::summaryLabel('Gambar', 'Gambar', fn (array $s) => ($s['alt'] ?? null) ?: ($s['caption'] ?? null) ?: basename((string) (is_array($s['path'] ?? null) ? (array_values($s['path'])[0] ?? '') : ($s['path'] ?? '')))))->icon('heroicon-o-photo')->schema([
                     FileUpload::make('path')->label('Gambar')->image()->imagePreset('page_image')->altTextField('alt')
                         ->disk('public')->directory('pages')->visibility('public')
                         ->acceptedFileTypes(['image/png', 'image/jpeg', 'image/webp', 'image/gif'])->maxSize(4096)->required()
@@ -58,7 +110,7 @@ class PageBlocks
                     ]),
                 ]),
 
-                Block::make('gallery')->label('Galeri gambar')->icon('heroicon-o-squares-2x2')->schema([
+                Block::make('gallery')->label(self::summaryLabel('Galeri gambar', 'Galeri', fn (array $s) => self::countFilled($s['images'] ?? []).' gambar · '.($s['columns'] ?? 3).' kolom'))->icon('heroicon-o-squares-2x2')->schema([
                     FileUpload::make('images')->label('Gambar')->image()->imagePreset('page_gallery')->altTextField('alt')->multiple()->reorderable()->appendFiles()
                         ->disk('public')->directory('pages')->visibility('public')
                         ->acceptedFileTypes(['image/png', 'image/jpeg', 'image/webp', 'image/gif'])->maxSize(4096)->required(),
@@ -68,15 +120,47 @@ class PageBlocks
                     ]),
                 ]),
 
-                Block::make('button')->label('Tombol / CTA')->icon('heroicon-o-cursor-arrow-rays')->columns(3)->schema([
+                // Satu blok berisi banyak video + pilihan tata letak, bukan satu blok per video
+                Block::make('embed')->icon('heroicon-o-play')
+                    ->label(self::summaryLabel('Video (satu atau banyak)', 'Video', fn (array $s) => (self::countFilled(array_column((array) ($s['videos'] ?? []), 'url')) ?: 'belum ada').' video · '.(self::VIDEO_LAYOUTS[$s['layout'] ?? '3'] ?? '3 kolom')))
+                    ->schema([
+                        Repeater::make('videos')->label('Daftar video')
+                            ->table([
+                                TableColumn::make('URL video')->markAsRequired(),
+                                TableColumn::make('Judul (tidak tampil, untuk pembaca layar)')->width('35%'),
+                            ])
+                            ->compact()
+                            ->schema([
+                                TextInput::make('url')->label('URL video')->required()->maxLength(500)->placeholder('https://www.tiktok.com/@akun/video/...')
+                                    ->rule(fn (): Closure => function (string $attribute, mixed $value, Closure $fail): void {
+                                        if (! VideoEmbed::isSupported(is_string($value) ? $value : null)) {
+                                            $fail('Masukkan URL video YouTube, Instagram, TikTok, atau Facebook yang valid.');
+                                        }
+                                    }),
+                                TextInput::make('title')->label('Judul (tidak tampil, untuk pembaca layar)')->maxLength(255)->placeholder('Contoh: pesanan pelanggan pertama'),
+                            ])
+                            ->helperText('YouTube, Instagram (post/reel), TikTok, atau Facebook (video/reel). Salin tautan lengkap dari browser, bukan tautan pendek vt.tiktok.com.')
+                            ->reorderableWithDragAndDrop()->minItems(1)->defaultItems(1)->addActionLabel('Tambah video'),
+                        ToggleButtons::make('layout')->label('Tata letak')->options(self::VIDEO_LAYOUTS)->inline()->default('3')->required()->live()
+                            ->helperText('Di HP video tampil paling banyak 2 kolom. "Geser samping" menampilkan video berjajar yang bisa digeser.'),
+                    ]),
+
+                Block::make('button')->label(self::summaryLabel('Tombol / CTA', 'Tombol', fn (array $s) => $s['label'] ?? null))->icon('heroicon-o-cursor-arrow-rays')->columns(3)->schema([
                     TextInput::make('label')->label('Teks tombol')->required()->maxLength(60),
                     Select::make('style')->label('Gaya')->options(['primary' => 'Utama', 'dark' => 'Gelap', 'outline' => 'Garis'])->default('primary'),
                     Select::make('align')->label('Rata')->options(self::ALIGN)->default('left'),
                     ...LinkTarget::fields(),
                 ]),
 
+                Block::make('form')->label(self::summaryLabel('Formulir', 'Formulir', fn (array $s) => filled($s['form_id'] ?? null) ? CustomForm::whereKey($s['form_id'])->value('name') : null))->icon('heroicon-o-clipboard-document-list')->schema([
+                    Select::make('form_id')->label('Formulir')->required()->searchable()
+                        ->options(fn () => CustomForm::embedOptions())
+                        ->helperText('Hanya formulir dengan mode tampil "sematan". Kelola di menu Formulir.'),
+                    Toggle::make('show_title')->label('Tampilkan judul & deskripsi formulir')->default(true),
+                ]),
+
                 // Kumpulan produk + tombol beli di satu marketplace (landing page Shopee/Tokopedia/Lazada/TikTok Shop)
-                Block::make('products')->label('Grid produk marketplace')->icon('heroicon-o-shopping-bag')->columns(2)->schema([
+                Block::make('products')->label(self::summaryLabel('Grid produk marketplace', 'Grid produk', fn (array $s) => $s['heading'] ?? null))->icon('heroicon-o-shopping-bag')->columns(2)->schema([
                     TextInput::make('heading')->label('Judul bagian (H2)')->maxLength(120)
                         ->placeholder('mis. Peralatan Proyek Pilihan di Shopee'),
                     Select::make('channel_id')->label('Tombol beli di')->required()->live()
@@ -107,7 +191,7 @@ class PageBlocks
                 ]),
 
                 // Daftar harga acuan per varian (gaya halaman "daftar harga"), terisi otomatis dari data produk
-                Block::make('price_table')->label('Tabel harga')->icon('heroicon-o-table-cells')->columns(2)->schema([
+                Block::make('price_table')->label(self::summaryLabel('Tabel harga', 'Tabel harga', fn (array $s) => $s['heading'] ?? null))->icon('heroicon-o-table-cells')->columns(2)->schema([
                     TextInput::make('heading')->label('Judul bagian (H2)')->maxLength(120)
                         ->placeholder('mis. Daftar Harga Peralatan Proyek di Shopee'),
                     Select::make('channel_id')->label('Tombol beli di')->required()
@@ -119,61 +203,80 @@ class PageBlocks
                         ->helperText('Tiap varian tampil sebagai satu baris.'),
                 ]),
 
-                Block::make('highlights')->label('Poin unggulan')->icon('heroicon-o-check-badge')->schema([
-                    Repeater::make('items')->label('Poin (maks. 4, singkat)')->schema([TextInput::make('text')->hiddenLabel()->required()->maxLength(80)])
-                        ->reorderableWithDragAndDrop()->defaultItems(3)->maxItems(4)->addActionLabel('Tambah poin'),
-                ]),
-
-                // Tanya-jawab yang bisa dibuka-tutup; teks jawaban tetap ada di HTML sehingga terbaca mesin pencari
-                Block::make('faq')->label('FAQ (tanya-jawab)')->icon('heroicon-o-question-mark-circle')->schema([
-                    TextInput::make('heading')->label('Judul bagian (H2)')->maxLength(120)->default('Pertanyaan yang sering diajukan'),
-                    Repeater::make('items')->label('Pertanyaan')->schema([
-                        TextInput::make('question')->label('Pertanyaan (H3)')->required()->maxLength(200),
-                        Textarea::make('answer')->label('Jawaban')->required()->rows(3)->maxLength(1000),
-                    ])->reorderableWithDragAndDrop()->collapsible()->defaultItems(1)->addActionLabel('Tambah pertanyaan')
-                        ->itemLabel(fn (array $state) => $state['question'] ?? null),
-                ]),
-
-                Block::make('list')->label('Daftar')->icon('heroicon-o-list-bullet')->schema([
-                    Select::make('style')->label('Jenis')->options(['bullet' => 'Berpoin', 'number' => 'Bernomor'])->default('bullet'),
-                    Repeater::make('items')->label('Butir')->schema([TextInput::make('text')->hiddenLabel()->required()->maxLength(500)])
-                        ->reorderableWithDragAndDrop()->defaultItems(2)->addActionLabel('Tambah butir'),
-                ]),
-
-                Block::make('form')->label('Formulir')->icon('heroicon-o-clipboard-document-list')->schema([
-                    Select::make('form_id')->label('Formulir')->required()->searchable()
-                        ->options(fn () => CustomForm::embedOptions())
-                        ->helperText('Hanya formulir dengan mode tampil "sematan". Kelola di menu Formulir.'),
-                    Toggle::make('show_title')->label('Tampilkan judul & deskripsi formulir')->default(true),
-                ]),
-
-                Block::make('divider')->label('Pemisah')->icon('heroicon-o-minus')->schema([
+                Block::make('divider')->label(self::summaryLabel('Pemisah (garis)', 'Pemisah', fn (array $s) => ['sm' => 'rapat', 'md' => 'sedang', 'lg' => 'lebar'][$s['spacing'] ?? 'md'] ?? null))->icon('heroicon-o-minus')->schema([
                     Select::make('spacing')->label('Jarak')->options(['sm' => 'Rapat', 'md' => 'Sedang', 'lg' => 'Lebar'])->default('md'),
                 ]),
 
-                Block::make('spacer')->label('Spasi')->icon('heroicon-o-arrows-up-down')->schema([
+                Block::make('spacer')->label(self::summaryLabel('Spasi kosong', 'Spasi', fn (array $s) => filled($s['height'] ?? null) ? $s['height'].' px' : null))->icon('heroicon-o-arrows-up-down')->schema([
                     TextInput::make('height')->label('Tinggi (px)')->numeric()->minValue(4)->maxValue(400)->default(40)->required(),
                 ]),
 
-                Block::make('embed')->label('Embed video')->icon('heroicon-o-play')->columns(2)->schema([
-                    TextInput::make('url')->label('URL YouTube')->required()->maxLength(500)
-                        ->regex('#^https://(www\.|m\.)?(youtube\.com/(watch\?v=|shorts/|embed/)|youtu\.be/)[\w-]{11}#i')
-                        ->validationMessages(['regex' => 'Masukkan URL video YouTube yang valid.']),
-                    TextInput::make('title')->label('Judul video')->maxLength(255),
-                ]),
-
-                Block::make('html')->label('HTML khusus')->icon('heroicon-o-code-bracket')->schema([
+                Block::make('html')->label(self::summaryLabel('HTML khusus', 'HTML khusus', fn (array $s) => self::plainText($s['html'] ?? null)))->icon('heroicon-o-code-bracket')->schema([
                     CodeEditor::make('html')->label('HTML')->language(Language::Html)
                         ->helperText('Disanitasi saat tampil: skrip, atribut on*, dan iframe dibuang. Untuk JavaScript gunakan bagian Custom HTML (khusus Admin).'),
                 ]),
             ])
             ->addActionLabel('Tambah elemen')
+            // Ikon jenis blok di header agar antarbagian bisa dibedakan sekilas saat blok diciutkan
+            ->blockIcons()
             ->blockPickerColumns(3)
             ->reorderableWithDragAndDrop()
             ->collapsible()
             ->cloneable()
             ->blockNumbers(false)
             ->columnSpanFull();
+    }
+
+    /**
+     * Label blok: nama lengkap di menu "Tambah elemen", ringkasan isi di header blok
+     * (mis. "Judul · H2 · Kenapa pilih kami") agar antarbagian mudah dibedakan tanpa membuka blok.
+     *
+     * @param  Closure(array<string, mixed>): ?string|null  $detail
+     */
+    private static function summaryLabel(string $pickerLabel, string $shortLabel, ?Closure $detail = null): Closure
+    {
+        return function (?array $state) use ($pickerLabel, $shortLabel, $detail): string {
+            if ($state === null) {
+                return $pickerLabel;
+            }
+
+            $summary = $detail ? trim((string) $detail($state)) : '';
+
+            return $summary === '' ? $shortLabel : $shortLabel.' · '.Str::limit($summary, 70);
+        };
+    }
+
+    /** Teks polos untuk ringkasan header: isi editor bisa berupa HTML (tersimpan) atau dokumen JSON (state form). */
+    private static function plainText(mixed $content): string
+    {
+        if (is_array($content)) {
+            $content = self::documentText($content);
+        }
+
+        return is_string($content) ? trim(preg_replace('/\s+/', ' ', html_entity_decode(strip_tags($content)))) : '';
+    }
+
+    /**
+     * Teks dari dokumen editor (JSON): potongan teks bertanda (tebal, tautan) digabung apa adanya,
+     * antarparagraf/judul/butir diberi spasi.
+     *
+     * @param  array<string, mixed>  $node
+     */
+    private static function documentText(array $node): string
+    {
+        if (($node['type'] ?? null) === 'text') {
+            return is_string($node['text'] ?? null) ? $node['text'] : '';
+        }
+
+        $text = implode('', array_map(fn ($child) => is_array($child) ? self::documentText($child) : '', (array) ($node['content'] ?? [])));
+
+        return in_array($node['type'] ?? null, ['paragraph', 'heading', 'listItem', 'blockquote'], true) ? $text.' ' : $text;
+    }
+
+    /** Jumlah item yang terisi di repeater/unggahan, untuk ringkasan seperti "3 poin". */
+    private static function countFilled(mixed $items): int
+    {
+        return count(array_filter((array) $items, fn ($item) => filled(is_array($item) ? array_filter($item, 'filled') : $item)));
     }
 
     private static function richEditor(string $name): RichEditor

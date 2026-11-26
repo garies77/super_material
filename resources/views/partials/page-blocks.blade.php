@@ -299,13 +299,7 @@
             <div aria-hidden="true" style="height:{{ max(4, min(400, (int) ($d['height'] ?? 40))) }}px"></div>
 
         @elseif($type === 'embed')
-            @if($youtubeId = \App\Support\YouTube::videoId($d['url'] ?? null))
-                <div class="aspect-video overflow-hidden rounded-xl bg-ink-100">
-                    <iframe src="{{ \App\Support\YouTube::embedUrl($youtubeId) }}" title="{{ $d['title'] ?? 'Video' }}" loading="lazy"
-                            class="h-full w-full border-0" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowfullscreen
-                            referrerpolicy="strict-origin-when-cross-origin"></iframe>
-                </div>
-            @endif
+            @include('partials.page-videos', ['videos' => \App\Support\VideoEmbed::fromBlock($d), 'layout' => (string) ($d['layout'] ?? '1')])
 
         @elseif($type === 'form')
             <x-custom-form :id="$d['form_id'] ?? 0" :show-title="(bool) ($d['show_title'] ?? true)" class="not-prose rounded-2xl border border-ink-100 bg-white p-5 sm:p-8" />

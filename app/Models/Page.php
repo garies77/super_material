@@ -92,6 +92,34 @@ class Page extends Model
         }, $blocks);
     }
 
+    /**
+     * Blok video format lama (satu `url` + `title`) menjadi daftar video berisi satu item dengan tata letak
+     * satu kolom, sehingga tampilannya sama seperti sebelumnya dan bisa ditambah video lain di editor.
+     *
+     * @param  array<int, array{type?: string, data?: array<string, mixed>}>|null  $blocks
+     * @return array<int, array{type?: string, data?: array<string, mixed>}>|null
+     */
+    public static function upgradeLegacyEmbedBlocks(?array $blocks): ?array
+    {
+        if ($blocks === null) {
+            return null;
+        }
+
+        return array_map(function ($block) {
+            $data = $block['data'] ?? [];
+            if (($block['type'] ?? null) !== 'embed' || array_key_exists('videos', $data)) {
+                return $block;
+            }
+
+            $block['data'] = [
+                'videos' => [['url' => $data['url'] ?? null, 'title' => $data['title'] ?? null]],
+                'layout' => '1',
+            ];
+
+            return $block;
+        }, $blocks);
+    }
+
     public static function renderBlocks(?array $blocks): string
     {
         return view('partials.page-blocks', ['blocks' => $blocks ?? []])->render();

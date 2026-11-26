@@ -22,6 +22,7 @@ class HomeSection extends Model
         'banner' => 'Banner Promosi',
         'cta' => 'Konsultasi WhatsApp',
         'form' => 'Formulir',
+        'html' => 'HTML Custom',
     ];
 
     /** Nama berkas komponen di resources/views/components/home. */
@@ -33,6 +34,7 @@ class HomeSection extends Model
         'banner' => 'promo-banner',
         'cta' => 'cta-consultation',
         'form' => 'form',
+        'html' => 'custom-html',
     ];
 
     public const PRODUCT_MODES = [

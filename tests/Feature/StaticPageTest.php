@@ -2,9 +2,12 @@
 
 use App\Filament\Resources\Pages\Pages\CreatePage;
 use App\Filament\Resources\Pages\Pages\EditPage;
+use App\Filament\Support\PageSectionTemplates;
 use App\Models\Page;
+use App\Models\Setting;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
+use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
@@ -41,7 +44,10 @@ function sampleBlocks(array $override = []): array
         ['type' => 'list', 'data' => ['style' => 'number', 'items' => [['text' => 'Satu'], ['text' => 'Dua']]]],
         ['type' => 'divider', 'data' => ['spacing' => 'md']],
         ['type' => 'spacer', 'data' => ['height' => 48]],
-        ['type' => 'embed', 'data' => ['url' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'title' => 'Video']],
+        ['type' => 'embed', 'data' => ['layout' => '2', 'videos' => [
+            ['url' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'title' => 'Video'],
+            ['url' => 'https://www.tiktok.com/@jayaintero/video/7312345678901234567', 'title' => 'Video TikTok'],
+        ]]],
         ['type' => 'html', 'data' => ['html' => '<div class="kalkulator">Hitung</div><script>alert(1)</script>']],
         ...$override,
     ];
@@ -89,6 +95,7 @@ it('publishes all block types to the public page with sanitized output', functio
         ->toContain('<ol><li>Satu</li><li>Dua</li></ol>')
         ->toContain('style="height:48px"')
         ->toContain('youtube-nocookie.com/embed/dQw4w9WgXcQ')
+        ->toContain('https://www.tiktok.com/player/v1/7312345678901234567')
         ->toContain('<div class="kalkulator">Hitung</div>')
         ->not->toContain('alert(1)');
 });
@@ -135,6 +142,86 @@ it('converts legacy rich-text image blocks to uploaded image blocks', function (
     expect($upgraded[0]['data'])->toBe(['path' => 'pages/a%20b.png', 'alt' => 'Gudang & toko', 'caption' => 'Gudang kami', 'align' => 'right'])
         ->and($upgraded[1])->toBe($legacy[1]) // gambar luar /storage tidak dikonversi dan tetap tampil dengan format lama
         ->and($upgraded[2])->toBe($legacy[2]);
+});
+
+it('summarizes each block content in its editor header', function () {
+    fakeBlockImage();
+    $page = Page::first();
+    $page->update(['draft_blocks' => sampleBlocks()]);
+
+    $this->get("/admin/pages/{$page->id}/edit")->assertOk()
+        ->assertSee('Judul · H2 · Tentang Kami')
+        ->assertSee('Paragraf · Halo dunia')
+        ->assertSee('Gambar · Gudang')
+        ->assertSee('Daftar · 2 butir · bernomor')
+        ->assertSee('Video · 2 video · 2 kolom')
+        ->assertSee('Spasi · 48 px');
+});
+
+it('appends a ready-made section of several blocks at the end of the page', function () {
+    $page = Page::first();
+    $page->update(['draft_blocks' => [['type' => 'heading', 'data' => ['level' => 'h2', 'text' => 'Sudah ada', 'align' => 'left']]]]);
+
+    $component = Livewire::test(EditPage::class, ['record' => $page->id])
+        ->callAction(TestAction::make('addSectionTemplate')->schemaComponent('draft_blocks'), ['template' => 'closing_cta']);
+
+    $blocks = array_values($component->get('data.draft_blocks'));
+
+    expect(array_slice(array_column($blocks, 'type'), 0, 4))->toBe(['heading', 'heading', 'text', 'button'])
+        ->and($blocks[0]['data']['text'])->toBe('Sudah ada')
+        ->and($blocks[3]['data'])->toMatchArray(['label' => 'Lihat semua produk', 'url' => '/produk']);
+});
+
+it('adds a whatsapp button to the closing section only when a number is set', function () {
+    Setting::put('whatsapp_number', '0812-3456-7890');
+
+    $buttons = array_values(array_filter(PageSectionTemplates::blocks('closing_cta'), fn ($block) => $block['type'] === 'button'));
+
+    expect($buttons)->toHaveCount(2)
+        ->and($buttons[1]['data'])->toMatchArray(['label' => 'Tanya via WhatsApp', 'url' => 'https://wa.me/6281234567890', 'link_type' => 'external']);
+});
+
+it('does not save a section template until its empty texts are filled in', function () {
+    $page = Page::first();
+    $page->update(['draft_blocks' => []]);
+
+    Livewire::test(EditPage::class, ['record' => $page->id])
+        ->callAction(TestAction::make('addSectionTemplate')->schemaComponent('draft_blocks'), ['template' => 'intro'])
+        ->call('submitAs', 'draft')
+        ->assertHasFormErrors();
+
+    expect($page->fresh()->draft_blocks)->toBe([]);
+});
+
+it('shows several videos from one block side by side in the chosen layout', function () {
+    $html = Page::renderBlocks([['type' => 'embed', 'data' => ['layout' => '3', 'videos' => [
+        ['url' => 'https://www.tiktok.com/@jayaintero/video/7312345678901234567', 'title' => 'Pesanan pertama'],
+        ['url' => 'https://www.tiktok.com/@jayaintero/video/7312345678901234568', 'title' => 'Pesanan kedua'],
+        ['url' => 'https://contoh.com/bukan-video', 'title' => 'Dilewati'],
+    ]]]]);
+
+    expect($html)
+        ->toContain('grid-cols-2 sm:grid-cols-3')   // video vertikal: 2 kolom di HP, 3 kolom di layar lebar
+        ->toContain('title="Pesanan pertama"')
+        ->toContain('player/v1/7312345678901234568')
+        ->not->toContain('Dilewati');
+});
+
+it('upgrades legacy single-url video blocks without losing the url', function () {
+    $legacy = [['type' => 'embed', 'data' => ['url' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'title' => 'Lama']]];
+
+    expect(Page::upgradeLegacyEmbedBlocks($legacy)[0]['data'])
+        ->toBe(['videos' => [['url' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'title' => 'Lama']], 'layout' => '1'])
+        ->and(Page::renderBlocks($legacy))->toContain('youtube-nocookie.com/embed/dQw4w9WgXcQ');
+
+    $page = Page::first();
+    $page->update(['draft_blocks' => $legacy]);
+
+    Livewire::test(EditPage::class, ['record' => $page->id])
+        ->call('submitAs', 'draft')
+        ->assertHasNoFormErrors();
+
+    expect($page->fresh()->draft_blocks[0]['data']['videos'][0]['url'])->toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
 });
 
 it('still renders legacy image blocks that could not be converted', function () {

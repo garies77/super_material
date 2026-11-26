@@ -7,11 +7,14 @@ use App\Filament\Resources\Articles\Pages\EditArticle;
 use App\Filament\Resources\Articles\Pages\ListArticles;
 use App\Filament\Support\CustomCodeFields;
 use App\Filament\Support\DescriptiveFileName;
+use App\Filament\Support\QuickEdit;
 use App\Filament\Support\ReviewWorkflow;
 use App\Filament\Support\SeoFields;
 use App\Filament\Support\SeoScorePanel;
 use App\Filament\Support\VideoFields;
 use App\Models\Article;
+use App\Models\Category;
+use App\Models\Tag;
 use App\Rules\MinImagePixels;
 use App\Support\SeoScore;
 use BackedEnum;
@@ -40,6 +43,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
 class ArticleResource extends Resource
@@ -261,6 +265,31 @@ class ArticleResource extends Resource
                         $action->success();
                     })
                     ->successNotificationTitle('Artikel dijadikan draf'),
+                // Kontributor tetap lewat halaman edit + "Ajukan untuk ditinjau", tidak menyimpan langsung dari tabel
+                QuickEdit::make(
+                    fn () => [
+                        TextInput::make('title')->label('Judul')->required()->maxLength(255),
+                        TextInput::make('slug')->required()->maxLength(255)->unique(Article::class, 'slug', ignoreRecord: true)
+                            ->helperText('Mengubah slug membuat redirect 301 dari URL lama.'),
+                        Select::make('categories')->label('Kategori')->multiple()->searchable()->preload()
+                            ->options(fn () => Category::orderBy('name')->pluck('name', 'id')),
+                        Select::make('tags')->label('Tag')->multiple()->searchable()->preload()
+                            ->options(fn () => Tag::orderBy('name')->pluck('name', 'id')),
+                        DateTimePicker::make('published_at')->label('Jadwal terbit (WIB)')->seconds(false)->timezone('Asia/Jakarta')
+                            ->helperText('Kosongkan untuk menyimpan sebagai draf.'),
+                        Toggle::make('is_featured')->label('Artikel unggulan'),
+                    ],
+                    fn (Article $r) => [
+                        ...$r->only(['title', 'slug', 'published_at', 'is_featured']),
+                        'categories' => $r->categories()->pluck('categories.id')->all(),
+                        'tags' => $r->tags()->pluck('tags.id')->all(),
+                    ],
+                    function (Article $r, array $data): void {
+                        $r->update(Arr::only($data, ['title', 'slug', 'published_at', 'is_featured']));
+                        $r->categories()->sync($data['categories'] ?? []);
+                        $r->tags()->sync($data['tags'] ?? []);
+                    },
+                )->visible(ReviewWorkflow::canPublish()),
                 EditAction::make(),
             ])
             ->toolbarActions([BulkActionGroup::make([

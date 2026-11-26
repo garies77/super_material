@@ -407,6 +407,12 @@
     max-width: 28rem;
 }
 
+/* Kolom judul tabel yang boleh turun baris (nama produk + kategori di bawahnya): lebar minimum agar tidak
+   terjepit jadi satu kata per baris saat admin memunculkan kolom tambahan. Lebar header (->width) diabaikan browser. */
+.fi-ta-cell.sm-col-title {
+    min-width: 15rem;
+}
+
 /* Pustaka Media: grid pilih gambar di modal "Pilih dari Media" */
 .sm-media-grid {
     display: grid;

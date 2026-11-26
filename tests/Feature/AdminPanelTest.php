@@ -1,5 +1,6 @@
 <?php
 
+use App\Filament\Pages\SiteSettings;
 use App\Filament\Resources\Articles\ArticleResource;
 use App\Filament\Resources\Products\ProductResource;
 use App\Filament\Resources\Users\Pages\ManageUsers;
@@ -174,4 +175,12 @@ it('colors the admin panel and the printable report with the primary color from 
         ->assertSee('border-bottom: 3px solid #342df5', false)
         ->assertSee('background: #342df5; color: #ffffff', false)
         ->assertDontSee('#f59309', false);
+});
+
+it('links to the sitemap of this site from site settings', function () {
+    $this->actingAs(User::factory()->create(['role' => 'admin', 'is_active' => true]));
+
+    Livewire::test(SiteSettings::class)
+        ->assertSee('Buka sitemap')
+        ->assertSeeHtml('href="'.url('/sitemap.xml').'"');
 });

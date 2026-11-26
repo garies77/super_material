@@ -11,6 +11,7 @@ use App\Models\Setting;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
@@ -206,6 +207,47 @@ it('lets an admin reorder, hide, and edit sections from the dashboard', function
     $html = $this->get('/')->getContent();
     expect($html)->toContain('Judul Dari Dashboard')
         ->and(strpos($html, 'Panduan &amp; artikel'))->toBeLessThan(strpos($html, 'Produk pilihan'));
+});
+
+it('saves homepage SEO and renders a custom HTML block with the CSP nonce', function () {
+    $this->actingAs(User::where('email', 'admin@supermaterial.test')->first());
+
+    $page = Livewire::test(ManageHomepage::class)->assertOk();
+    $sections = $page->get('data.sections');
+    $hero = collect($sections)->search(fn ($s) => $s['data']['key'] === 'hero');
+    $sections[$hero]['data']['banner']['active'] = false;
+    $sections['html-block'] = ['type' => 'html', 'data' => ['key' => null, 'title' => 'Widget', 'is_active' => true, 'settings' => [
+        'html' => '<div class="w">Halo beranda</div><script nonce="palsu">window.home=1</script>',
+        'css' => '.w{color:red}',
+        'js' => 'window.homeJs=1',
+        'full_width' => false,
+    ]]];
+
+    $page->set('data.seo.meta_title', 'Toko Bahan Bangunan Online Terlengkap')
+        ->set('data.seo.meta_description', 'Deskripsi beranda khusus untuk Google.')
+        ->set('data.sections', $sections)
+        ->call('save')->assertHasNoFormErrors();
+
+    $scope = 'cc-home-'.Str::slug(HomeSection::where('type', 'html')->value('key'));
+    $response = $this->get('/')->assertOk();
+    preg_match("/'nonce-([^']+)'/", $response->headers->get('Content-Security-Policy'), $m);
+    $html = $response->getContent();
+
+    expect(Setting::get('home_meta_title'))->toBe('Toko Bahan Bangunan Online Terlengkap')
+        ->and($html)->toContain('<title>Toko Bahan Bangunan Online Terlengkap</title>')
+        ->toContain('content="Deskripsi beranda khusus untuk Google."')
+        ->toContain("<div id=\"{$scope}\" class=\"custom-html mt-20 container-x\"><div class=\"w\">Halo beranda</div>")
+        ->toContain("<script nonce=\"{$m[1]}\">window.home=1</script>")
+        ->toContain("<script nonce=\"{$m[1]}\">window.homeJs=1</script>")
+        ->toContain("#{$scope}{ .w{color:red} }")
+        ->not->toContain('nonce="palsu"');
+});
+
+it('keeps the default homepage title and description when SEO is empty', function () {
+    Setting::put('site_description', 'Deskripsi situs bawaan.');
+
+    $this->get('/')->assertSee('content="Deskripsi situs bawaan."', false)
+        ->assertSee('<title>'.config('app.name').' — '.Setting::get('site_tagline', 'Katalog Bahan Bangunan').'</title>', false);
 });
 
 it('keeps the homepage customizer admin-only', function () {
