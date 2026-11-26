@@ -38,6 +38,10 @@ it('rejects MCP requests without a valid token', function () {
         ->assertHeader('WWW-Authenticate', 'Bearer realm="mcp", error="invalid_token"');
 
     $this->withToken('1|salah')->postJson('/mcp', mcpInitializeMessage())->assertUnauthorized();
+
+    // Tanpa header Accept JSON tetap 401, bukan redirect ke rute login yang tidak ada (500)
+    $this->call('POST', '/mcp', server: ['CONTENT_TYPE' => 'application/json'], content: json_encode(mcpInitializeMessage()))
+        ->assertUnauthorized();
 });
 
 it('rejects expired tokens and tokens of deactivated users', function () {
