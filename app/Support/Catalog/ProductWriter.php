@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\ProductLink;
 use App\Models\SalesChannel;
 use App\Support\Api\HtmlSanitizer;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -185,13 +186,17 @@ class ProductWriter
         return array_map(fn ($v) => is_scalar($v) ? (string) $v : json_encode($v), $specs);
     }
 
-    /** @return array<string, array{from: mixed, to: mixed}> */
-    private static function diff(Product $product): array
+    /**
+     * Perubahan yang belum disimpan pada model (produk atau artikel), teks panjang dipotong untuk audit log.
+     *
+     * @return array<string, array{from: mixed, to: mixed}>
+     */
+    public static function diff(Model $model): array
     {
         $short = fn ($v) => is_string($v) && mb_strlen($v) > 200 ? mb_substr($v, 0, 200).'…' : $v;
 
-        return collect($product->getDirty())->except('updated_at')
-            ->map(fn ($value, $key) => ['from' => $short($product->getOriginal($key)), 'to' => $short($value)])
+        return collect($model->getDirty())->except('updated_at')
+            ->map(fn ($value, $key) => ['from' => $short($model->getOriginal($key)), 'to' => $short($value)])
             ->map(fn ($c) => array_map(fn ($v) => $v instanceof \DateTimeInterface ? $v->format(DATE_ATOM) : (is_array($v) ? '[array]' : $v), $c))
             ->all();
     }

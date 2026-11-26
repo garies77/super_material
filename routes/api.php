@@ -46,6 +46,16 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('imports/{import}', [Admin\ImportController::class, 'show'])->name('imports.show');
         });
 
+        Route::middleware('api.ability:articles:read')->group(function () {
+            Route::get('articles', [Admin\ArticleController::class, 'index'])->name('articles.index');
+            Route::get('articles/{article}', [Admin\ArticleController::class, 'show'])->name('articles.show');
+        });
+
+        Route::middleware(['api.ability:articles:write', 'api.idempotent'])->group(function () {
+            Route::post('articles', [Admin\ArticleController::class, 'store'])->name('articles.store');
+            Route::patch('articles/{article}', [Admin\ArticleController::class, 'update'])->name('articles.update');
+        });
+
         Route::middleware('api.ability:reports:read')->group(function () {
             Route::get('reports/clicks', [Admin\ClickReportController::class, 'index'])->name('reports.clicks');
             Route::get('reports/clicks/export', [Admin\ClickReportController::class, 'export'])->name('reports.clicks.export');
