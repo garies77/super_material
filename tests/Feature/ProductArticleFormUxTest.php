@@ -119,6 +119,22 @@ it('updates the article SEO score panel from unsaved form input', function () {
     expect(seoPanelScore($page))->toBeGreaterThan($before);
 });
 
+it('only lists marketplaces in the buy buttons and keeps old whatsapp links when saving', function () {
+    $shopee = SalesChannel::create(['name' => 'Shopee', 'slug' => 'shopee', 'type' => 'marketplace', 'allowed_hosts' => ['shopee.co.id'], 'is_active' => true]);
+    $whatsapp = SalesChannel::create(['name' => 'WhatsApp', 'slug' => 'whatsapp', 'type' => 'whatsapp', 'is_active' => true]);
+    $product = Product::create(['name' => 'Semen 40 kg', 'slug' => 'semen-40-kg', 'is_published' => true]);
+    $product->links()->create(['sales_channel_id' => $shopee->id, 'url' => 'https://shopee.co.id/semen', 'is_active' => true]);
+    $product->links()->create(['sales_channel_id' => $whatsapp->id, 'url' => '0812', 'message' => 'Halo', 'is_active' => true]);
+
+    $form = Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()]);
+
+    expect(array_map('intval', array_column($form->get('data.links'), 'sales_channel_id')))->toBe([$shopee->id]);
+    $form->assertDontSee('Nomor WhatsApp khusus')->assertDontSee('Pesan awal WhatsApp')
+        ->call('save')->assertHasNoFormErrors();
+
+    expect($product->links()->pluck('sales_channel_id')->sort()->values()->all())->toBe([$shopee->id, $whatsapp->id]);
+});
+
 it('duplicates a product with its details as an unpublished draft and opens the copy', function () {
     $channel = SalesChannel::create(['name' => 'Shopee', 'slug' => 'shopee', 'type' => 'marketplace', 'allowed_hosts' => ['shopee.co.id'], 'is_active' => true]);
     $product = Product::create(['name' => 'Semen 40 kg', 'slug' => 'semen-40-kg', 'sku' => 'STR-40', 'is_published' => true,

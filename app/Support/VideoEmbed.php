@@ -55,4 +55,25 @@ class VideoEmbed
     {
         return self::fromUrl($url) !== null;
     }
+
+    /**
+     * Daftar video siap tampil dari data blok "Video" page builder. Format lama (satu `url` + `title`)
+     * tetap dibaca sebagai satu video; tautan yang tidak dikenali dilewati.
+     *
+     * @param  array<string, mixed>  $data
+     * @return list<array{video: array{provider: string, src: string, portrait: bool}, title: string}>
+     */
+    public static function fromBlock(array $data): array
+    {
+        $items = is_array($data['videos'] ?? null) ? $data['videos'] : [['url' => $data['url'] ?? null, 'title' => $data['title'] ?? null]];
+
+        $videos = [];
+        foreach ($items as $item) {
+            if ($video = self::fromUrl(is_array($item) && is_string($item['url'] ?? null) ? $item['url'] : null)) {
+                $videos[] = ['video' => $video, 'title' => filled($item['title'] ?? null) ? (string) $item['title'] : 'Video'];
+            }
+        }
+
+        return $videos;
+    }
 }

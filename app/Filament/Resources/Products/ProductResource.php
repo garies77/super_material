@@ -8,6 +8,7 @@ use App\Filament\Resources\Products\Pages\ListProducts;
 use App\Filament\Support\CustomCodeFields;
 use App\Filament\Support\DescriptiveFileName;
 use App\Filament\Support\MediaPicker;
+use App\Filament\Support\QuickEdit;
 use App\Filament\Support\ReviewWorkflow;
 use App\Filament\Support\SeoFields;
 use App\Filament\Support\SeoScorePanel;
@@ -268,7 +269,6 @@ class ProductResource extends Resource
                         ->helperText('Ditampilkan ke Google bila diisi.'),
                     DatePicker::make('price_valid_until')->label('Harga berlaku sampai')->live()->afterStateUpdated($refreshSeo)
                         ->helperText('Opsional. Kosongkan bila harga tidak punya batas waktu; bila diisi, setelah tanggal ini harga ditandai perlu ditinjau.'),
-                    TextInput::make('whatsapp_number')->label('Nomor WhatsApp khusus')->helperText('Kosong = nomor WhatsApp utama di Pengaturan.'),
                     TextInput::make('shipping_note')->label('Catatan pengiriman')->placeholder('Pengiriman dari Medan · Ongkir terjangkau'),
                     TextInput::make('guarantee_note')->label('Catatan jaminan')->placeholder('100% Original · Garansi Pabrik'),
                     Toggle::make('show_quantity')->label('Tampilkan pilihan jumlah')->default(true),
@@ -281,15 +281,19 @@ class ProductResource extends Resource
                     DatePicker::make('rating_updated_at')->label('Rating diperbarui'),
                 ]),
 
-                Section::make('Tombol beli')->description('Kanal tanpa tautan tidak ditampilkan. WhatsApp otomatis memakai nomor di Pengaturan.')->schema([
-                    Repeater::make('links')->relationship()->label('')->defaultItems(0)->schema([
-                        Select::make('sales_channel_id')->label('Kanal')
-                            ->options(fn () => SalesChannel::orderBy('sort_order')->pluck('name', 'id'))
-                            ->required()->distinct()->disableOptionsWhenSelectedInSiblingRepeaterItems(),
-                        TextInput::make('url')->label('URL marketplace / nomor WA')->required()->maxLength(1000),
-                        TextInput::make('message')->label('Pesan awal WhatsApp')->helperText('Opsional, hanya untuk WhatsApp.'),
-                        Toggle::make('is_active')->label('Aktif')->default(true),
-                    ]),
+                // Tombol WhatsApp selalu tampil otomatis dengan nomor dari Pengaturan situs (Product::buyChannels), jadi
+                // repeater ini hanya untuk tautan marketplace. Tautan WhatsApp lama disaring dari query agar tidak ikut terhapus.
+                Section::make('Tombol beli')->description('Tautan produk di marketplace. Marketplace tanpa tautan tidak ditampilkan. Tombol WhatsApp tampil otomatis dengan nomor di Pengaturan situs.')->schema([
+                    Repeater::make('links')->label('Tautan marketplace')->hiddenLabel()->defaultItems(0)->addActionLabel('Tambah tautan marketplace')
+                        ->relationship(modifyQueryUsing: fn (Builder $query) => $query->whereHas('channel', fn (Builder $channel) => $channel->where('type', '!=', 'whatsapp')))
+                        ->schema([
+                            Select::make('sales_channel_id')->label('Marketplace')
+                                ->options(fn () => SalesChannel::where('type', '!=', 'whatsapp')->orderBy('sort_order')->pluck('name', 'id'))
+                                ->required()->distinct()->disableOptionsWhenSelectedInSiblingRepeaterItems(),
+                            TextInput::make('url')->label('URL produk di marketplace')->required()->maxLength(1000)
+                                ->placeholder('https://shopee.co.id/...'),
+                            Toggle::make('is_active')->label('Aktif')->default(true),
+                        ]),
                 ]),
 
                 Section::make('FAQ')->collapsed()->schema([
@@ -310,22 +314,27 @@ class ProductResource extends Resource
             ->emptyStateHeading('Belum ada produk')
             ->emptyStateDescription('Tambah produk pertama, atau impor banyak sekaligus dari Excel lewat tombol Impor CSV.')
             // Kolom Skor SEO butuh foto & harga varian tiap baris: dimuat sekaligus agar tidak satu query per produk
-            ->modifyQueryUsing(fn (Builder $query) => $query->with(['media', 'variants']))
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['media', 'variants', 'category:id,name']))
             ->columns([
                 // Foto utama dari galeri (product_media), termasuk produk dari API yang kolom image-nya kosong
                 ImageColumn::make('image')->label('')->square()->size(40)->state(fn (Product $record) => $record->imageUrl()),
-                TextColumn::make('name')->label('Nama')->searchable()->sortable()->limit(50),
-                TextColumn::make('badge')->label('Badge')->badge()->color('warning'),
-                TextColumn::make('category.name')->label('Kategori')->sortable(),
-                TextColumn::make('brand.name')->label('Merek')->toggleable(),
-                TextColumn::make('links_count')->counts('links')->label('Kanal'),
+                // Kategori tampil kecil di bawah nama (seperti slug di tabel Halaman), sehingga nama boleh turun baris tanpa terjepit
+                TextColumn::make('name')->label('Nama')->searchable()->sortable()->limit(90)->wrap()
+                    ->description(fn (Product $r) => $r->category?->name)
+                    // Lebar minimum: bila admin memunculkan lagi kolom pelengkap, nama tidak terjepit jadi satu kata per baris
+                    ->extraCellAttributes(['class' => 'sm-col-title']),
+                // Kolom pelengkap disembunyikan secara default agar tabel (dan aksi Edit cepat/Ubah) muat di layar laptop; bisa dimunculkan lewat ikon kolom
+                TextColumn::make('badge')->label('Badge')->badge()->color('warning')->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('category.name')->label('Kategori')->sortable()->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('brand.name')->label('Merek')->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('links_count')->counts('links')->label('Kanal')->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('seo_score')->label('Skor SEO')->badge()
                     ->state(fn (Product $r) => SeoScore::forProduct($r)['score'].'%')
                     ->color(fn (string $state) => (int) $state >= 80 ? 'success' : ((int) $state >= 50 ? 'warning' : 'danger'))
                     ->tooltip(fn (Product $r) => collect(SeoScore::forProduct($r)['checks'])->reject()->keys()->map(fn ($c) => '✗ '.$c)->implode("\n") ?: 'Semua pemeriksaan terpenuhi'),
                 IconColumn::make('price_review_needed')->label('Harga kedaluwarsa')->boolean()
                     ->trueIcon('heroicon-o-exclamation-triangle')->trueColor('danger')
-                    ->falseIcon('heroicon-o-check-circle')->falseColor('gray')->toggleable(),
+                    ->falseIcon('heroicon-o-check-circle')->falseColor('gray')->toggleable(isToggledHiddenByDefault: true),
                 IconColumn::make('is_published')->label('Terbit')->boolean(),
                 ReviewWorkflow::statusColumn(),
                 TextColumn::make('updated_at')->label('Diperbarui')->since()->sortable(),
@@ -339,7 +348,26 @@ class ProductResource extends Resource
                 Filter::make('price_expiring')->label('Masa harga habis ≤ 7 hari')
                     ->query(fn (Builder $query) => $query->whereBetween('price_valid_until', [now(), now()->addDays(7)])),
             ])
-            ->recordActions([EditAction::make(), self::duplicateAction()])
+            ->recordActions([
+                // Kontributor tetap lewat halaman edit + "Ajukan untuk ditinjau", tidak menyimpan langsung dari tabel
+                QuickEdit::make(
+                    fn () => [
+                        TextInput::make('name')->label('Nama')->required()->maxLength(255),
+                        TextInput::make('slug')->required()->maxLength(255)->unique(Product::class, 'slug', ignoreRecord: true)
+                            ->helperText('Mengubah slug membuat redirect 301 dari URL lama.'),
+                        Select::make('category_id')->label('Kategori')->searchable()->preload()
+                            ->options(fn () => Category::orderBy('name')->pluck('name', 'id')),
+                        Select::make('brand_id')->label('Merek')->searchable()->preload()
+                            ->options(fn () => Brand::orderBy('name')->pluck('name', 'id')),
+                        TextInput::make('badge')->label('Label promo')->maxLength(255)->placeholder('Misal: Resmi, Best Seller, SNI'),
+                        Toggle::make('is_published')->label('Terbit'),
+                        Toggle::make('is_featured')->label('Tampilkan di beranda'),
+                    ],
+                    fn (Product $r) => $r->only(['name', 'slug', 'category_id', 'brand_id', 'badge', 'is_published', 'is_featured']),
+                )->visible(ReviewWorkflow::canPublish()),
+                EditAction::make(),
+                self::duplicateAction()->iconButton()->tooltip('Duplikat'),
+            ])
             ->toolbarActions([BulkActionGroup::make([
                 BulkAction::make('publish')->label('Terbitkan')->visible(ReviewWorkflow::canPublish())
                     ->action(fn (Collection $records) => $records->each->update(['is_published' => true]))->deselectRecordsAfterCompletion(),

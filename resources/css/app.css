@@ -10,8 +10,12 @@
     --color-ink-50: #f6f7f9;
     --color-ink-100: #eceef2;
     --color-ink-200: #d5d9e2;
+    /* 300/500/700 sudah dipakai di view; nilainya di antara tetangga. ink-500 kontras ≥4.8:1 di putih dan ink-50 (aman untuk teks kecil) */
+    --color-ink-300: #b0b7c5;
     --color-ink-400: #8b94a7;
+    --color-ink-500: #646d80;
     --color-ink-600: #4b5468;
+    --color-ink-700: #343c4e;
     --color-ink-800: #1e2535;
     --color-ink-900: #121826;
     --color-ink-950: #0b0f19;

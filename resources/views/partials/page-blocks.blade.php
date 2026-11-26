@@ -299,19 +299,7 @@
             <div aria-hidden="true" style="height:{{ max(4, min(400, (int) ($d['height'] ?? 40))) }}px"></div>
 
         @elseif($type === 'embed')
-            @if($video = \App\Support\VideoEmbed::fromUrl($d['url'] ?? null))
-                {{-- Instagram menambah header dan keterangan di dalam iframe, jadi butuh tinggi tetap, bukan rasio --}}
-                <div @class([
-                    'overflow-hidden rounded-xl bg-ink-100',
-                    'aspect-video' => ! $video['portrait'],
-                    'mx-auto w-full max-w-[400px] h-[680px]' => $video['provider'] === 'instagram',
-                    'mx-auto w-full max-w-[340px] aspect-[9/16]' => $video['portrait'] && $video['provider'] !== 'instagram',
-                ])>
-                    <iframe src="{{ $video['src'] }}" title="{{ $d['title'] ?? 'Video' }}" loading="lazy"
-                            class="h-full w-full border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen
-                            referrerpolicy="strict-origin-when-cross-origin"></iframe>
-                </div>
-            @endif
+            @include('partials.page-videos', ['videos' => \App\Support\VideoEmbed::fromBlock($d), 'layout' => (string) ($d['layout'] ?? '1')])
 
         @elseif($type === 'form')
             <x-custom-form :id="$d['form_id'] ?? 0" :show-title="(bool) ($d['show_title'] ?? true)" class="not-prose rounded-2xl border border-ink-100 bg-white p-5 sm:p-8" />

@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Pages\Pages;
 
 use App\Filament\Resources\Pages\PageResource;
 use App\Filament\Support\PageActions;
+use App\Models\Page;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
@@ -25,6 +26,8 @@ class EditPage extends EditRecord
     {
         // Editor membuka salinan kerja; halaman lama tanpa draf memakai versi terbit
         $data['draft_blocks'] ??= $data['blocks'] ?? [];
+        // Blok video lama (satu URL) dibuka sebagai daftar video agar URL-nya tidak hilang saat disimpan
+        $data['draft_blocks'] = Page::upgradeLegacyEmbedBlocks($data['draft_blocks']);
 
         return $data;
     }

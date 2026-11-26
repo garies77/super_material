@@ -7,6 +7,7 @@ use App\Filament\Resources\Pages\Pages\EditPage;
 use App\Filament\Resources\Pages\Pages\ListPages;
 use App\Filament\Support\CustomCodeFields;
 use App\Filament\Support\PageBlocks;
+use App\Filament\Support\QuickEdit;
 use App\Filament\Support\SeoFields;
 use App\Models\Page;
 use BackedEnum;
@@ -108,8 +109,9 @@ class PageResource extends Resource
         return $table
             ->defaultSort('updated_at', 'desc')
             ->columns([
-                TextColumn::make('title')->label('Judul')->searchable()->sortable(),
-                TextColumn::make('slug')->prefix('/'),
+                // Slug tampil kecil di bawah judul (seperti WordPress) agar kolom aksi tetap muat di layar laptop
+                TextColumn::make('title')->label('Judul')->searchable(['title', 'slug'])->sortable()->wrap()
+                    ->description(fn (Page $r) => '/'.$r->slug),
                 TextColumn::make('status')->label('Status')->badge()
                     ->state(fn (Page $r) => ! $r->is_published ? 'Draf' : ($r->hasUnpublishedChanges() ? 'Ada perubahan draf' : 'Terbit'))
                     ->color(fn (string $state) => match ($state) {
@@ -118,10 +120,20 @@ class PageResource extends Resource
                 TextColumn::make('updated_at')->label('Diperbarui')->since()->sortable(),
             ])
             ->recordActions([
-                Action::make('preview')->label('Pratinjau')->icon('heroicon-o-eye')->color('gray')
-                    ->url(fn (Page $r) => route('page.preview', $r))->openUrlInNewTab(),
+                // Halaman terbit langsung dibuka di situs; draf (belum pernah terbit) dibuka lewat pratinjau
+                Action::make('preview')->color('gray')
+                    ->label(fn (Page $r) => $r->is_published ? 'Lihat' : 'Pratinjau')
+                    ->icon(fn (Page $r) => $r->is_published ? 'heroicon-o-arrow-top-right-on-square' : 'heroicon-o-eye')
+                    ->url(fn (Page $r) => $r->is_published ? $r->url() : route('page.preview', $r))->openUrlInNewTab()
+                    ->iconButton()->tooltip(fn (Page $r) => $r->is_published ? 'Lihat di situs' : 'Pratinjau draf'),
+                QuickEdit::make(fn () => [
+                    TextInput::make('title')->label('Judul')->required()->maxLength(255),
+                    TextInput::make('slug')->required()->unique(Page::class, 'slug', ignoreRecord: true)->maxLength(255)
+                        ->regex('/^[a-z0-9]+(?:-[a-z0-9]+)*$/')->prefix(fn () => url('/').'/')
+                        ->helperText('Judul dan slug langsung berlaku di situs. Mengubah slug halaman terbit membuat redirect 301 dari URL lama.'),
+                ], fn (Page $r) => $r->only(['title', 'slug'])),
                 EditAction::make(),
-                DeleteAction::make(),
+                DeleteAction::make()->iconButton()->tooltip('Hapus'),
             ])
             ->toolbarActions([BulkActionGroup::make([DeleteBulkAction::make()])]);
     }
