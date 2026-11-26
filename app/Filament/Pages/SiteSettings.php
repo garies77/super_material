@@ -135,6 +135,13 @@ class SiteSettings extends Page implements HasSchemas
                 TextInput::make('ga4_id')->label('Google Analytics 4 ID')->placeholder('G-XXXXXXXXXX'),
                 TextInput::make('meta_pixel_id')->label('Meta Pixel ID (opsional)'),
             ]),
+            // Situs white label: alamat sitemap selalu mengikuti domain situs ini, jadi mudah ditemukan untuk Google Search Console
+            Section::make('Sitemap & Google')
+                ->description(fn () => 'Alamat sitemap: '.url('/sitemap.xml').'. Daftarkan alamat ini di Google Search Console (menu Sitemap) agar halaman, produk, dan artikel cepat terindeks.')
+                ->afterHeader([
+                    Action::make('openSitemap')->label('Buka sitemap')->icon(Heroicon::OutlinedMap)
+                        ->url(fn () => url('/sitemap.xml'), shouldOpenInNewTab: true),
+                ]),
             Section::make('Konfirmasi')->schema([
                 TextInput::make('confirm_password')->label('Password Anda')->password()->revealable()->dehydrated(false)
                     ->helperText('Wajib diisi bila nama website, nama singkat, atau palet warna diubah (PRD Keamanan 2.2).'),
