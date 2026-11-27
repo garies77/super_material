@@ -8,9 +8,11 @@ use App\Models\AuditLog;
 use App\Models\Media;
 use Filament\Forms\Components\BaseFileUpload;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Throwable;
 
 /**
  * Pustaka media: mendaftarkan berkas gambar di disk publik dan mencegah unggahan ganda.
@@ -155,6 +157,48 @@ class MediaLibrary
      * Hapus berkas pustaka beserta thumbnail-nya. Pemanggil wajib memastikan berkas tidak dipakai
      * (MediaUsage); fungsi ini sendiri tidak memeriksa pemakaian.
      */
+    /**
+     * Ganti nama berkas gambar di server (untuk SEO gambar), lalu perbarui semua konten yang memakainya
+     * (produk, artikel, halaman, beranda, pengaturan, dll. lewat MediaUsage). Berkas tetap di folder yang sama.
+     * Bila konten gagal diperbarui, berkas dikembalikan ke nama lama.
+     */
+    public static function rename(Media $media, string $newName): Media
+    {
+        $directory = dirname($media->path) === '.' ? '' : dirname($media->path);
+        $currentStem = preg_replace('/-\d+$/', '', pathinfo($media->path, PATHINFO_FILENAME));
+
+        // Nama sama (setelah dirapikan jadi slug) = tidak perlu memindahkan berkas
+        if (Str::slug($newName) === '' || Str::slug($newName) === $currentStem) {
+            return $media;
+        }
+
+        $newPath = ltrim($directory.'/'.DescriptiveFileName::named($newName, pathinfo($media->path, PATHINFO_EXTENSION), $directory), '/');
+        $disk = Storage::disk(Media::DISK);
+        $old = clone $media;
+
+        $disk->move($old->path, $newPath);
+
+        try {
+            DB::transaction(function () use ($media, $old, $newPath): void {
+                $media->update([
+                    'path' => $newPath,
+                    'name' => basename($newPath),
+                    // Thumbnail yang menunjuk berkas asli ikut pindah; thumbnail turunan (derivatives/) tetap berlaku
+                    'thumbnail_path' => $media->thumbnail_path === $old->path ? $newPath : $media->thumbnail_path,
+                ]);
+                MediaUsage::replace($old, $media);
+            });
+        } catch (Throwable $e) {
+            $disk->move($newPath, $old->path);
+
+            throw $e;
+        }
+
+        AuditLog::record(request(), 'media.renamed', $media, ['from' => $old->path, 'to' => $newPath]);
+
+        return $media;
+    }
+
     public static function delete(Media $media): void
     {
         $disk = Storage::disk(Media::DISK);

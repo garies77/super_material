@@ -45,7 +45,8 @@
 
     $priceHidden = $product->isPriceHidden();
     $rupiah = fn (?int $amount) => $amount ? 'Rp'.number_format($amount, 0, ',', '.') : null;
-    $priceSuffix = $product->unit ? ' / '.$product->unit : '';
+    // Harga tampil tanpa satuan; satuan tetap ada di detail produk dan pilihan jumlah
+    $priceSuffix = '';
 
     // Harga awal dirender server (tanpa menunggu JavaScript); harga tersembunyi tidak ikut dikirim ke browser
     $initialPrice = ($initialVariant && ! $priceHidden) ? $rupiah($initialVariant->effectivePrice()) : null;

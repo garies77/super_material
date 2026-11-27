@@ -67,8 +67,10 @@ class MediaResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            TextInput::make('name')->label('Nama')->required()->maxLength(250)
-                ->helperText('Untuk pencarian di pustaka. Nama berkas di server tidak berubah.'),
+            // Nama berkas sebenarnya di server (bagus untuk SEO gambar); diganti lewat MediaLibrary::rename saat disimpan
+            TextInput::make('file_name')->label('Nama berkas')->required()->maxLength(80)
+                ->suffix(fn (?Media $record) => $record ? '.'.pathinfo($record->path, PATHINFO_EXTENSION) : null)
+                ->helperText('Contoh: semen-tiga-roda-50-kg. Huruf kecil dan tanda hubung dipakai otomatis. Semua konten yang memakai gambar ini ikut diperbarui; tautan lama ke gambar ini tidak berlaku lagi.'),
             TextInput::make('alt_text')->label('Teks alternatif')->maxLength(255)
                 ->helperText('Deskripsi isi gambar untuk pembaca layar & SEO. Juga bisa dicari di pustaka.'),
         ]);
@@ -133,7 +135,17 @@ class MediaResource extends Resource
                             'usages' => MediaUsage::for($record),
                         ]))
                         ->modalSubmitAction(false)->modalCancelActionLabel('Tutup'),
-                    EditAction::make()->label('Ubah info')->visible(fn (Media $record) => self::canEditMedia($record)),
+                    EditAction::make()->label('Ganti nama & teks alt')->visible(fn (Media $record) => self::canEditMedia($record))
+                        ->modalHeading('Ganti nama & teks alt')
+                        ->mutateRecordDataUsing(fn (array $data, Media $record): array => [
+                            ...$data,
+                            'file_name' => preg_replace('/-\d+$/', '', pathinfo($record->path, PATHINFO_FILENAME)),
+                        ])
+                        ->using(function (Media $record, array $data): Media {
+                            $record->update(['alt_text' => $data['alt_text'] ?? null]);
+
+                            return MediaLibrary::rename($record, (string) $data['file_name']);
+                        }),
                     Action::make('focus')->label('Titik fokus')->icon(Heroicon::OutlinedViewfinderCircle)
                         ->visible(fn (Media $record) => $record->isCroppable() && self::canEditMedia($record))
                         ->modalHeading('Tandai bagian penting gambar')

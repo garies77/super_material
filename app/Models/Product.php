@@ -315,7 +315,8 @@ class Product extends Model
             $label .= ' – '.$fmt($max);
         }
 
-        return $label.($this->unit ? ' / '.$this->unit : '');
+        // Hanya harga; satuan/isi paket (mis. "3 product", "1 kotak") cukup disebut di deskripsi dan detail produk
+        return $label;
     }
 
     public function maxDiscountPercentage(): ?int
