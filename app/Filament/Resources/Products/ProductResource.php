@@ -22,12 +22,14 @@ use App\Models\ProductMedia;
 use App\Models\ProductVariant;
 use App\Models\SalesChannel;
 use App\Rules\MinImagePixels;
+use App\Support\Catalog\MarketplaceExport;
 use App\Support\Catalog\ProductDuplicator;
 use App\Support\Catalog\ProductRules;
 use App\Support\SeoScore;
 use App\Support\YouTube;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -102,6 +104,42 @@ class ProductResource extends Resource
             ->all()));
 
         return SeoScore::forProduct($product) + ['pending' => SeoScorePanel::hasPendingUpload($get('photos'))];
+    }
+
+    /** Unduh semua foto satu produk dalam format marketplace (ZIP JPG 1024×1024). */
+    public static function downloadPhotosAction(): Action
+    {
+        return Action::make('downloadPhotos')->label('Unduh foto marketplace (ZIP)')->icon(Heroicon::OutlinedPhoto)
+            ->action(fn (Product $record) => self::downloadPhotos(new Collection([$record])));
+    }
+
+    /**
+     * ZIP foto marketplace untuk satu atau beberapa produk. Dibatasi per unduhan karena setiap foto diproses ulang.
+     *
+     * @param  Collection<int, Product>  $products
+     */
+    public static function downloadPhotos(Collection $products): mixed
+    {
+        if ($products->count() > MarketplaceExport::MAX_PRODUCTS) {
+            Notification::make()->warning()->title('Terlalu banyak produk')
+                ->body('Pilih maksimal '.MarketplaceExport::MAX_PRODUCTS.' produk per unduhan foto.')->send();
+
+            return null;
+        }
+
+        @set_time_limit(300);
+        $zip = MarketplaceExport::photosZip($products->load('media'));
+
+        if ($zip === null) {
+            Notification::make()->warning()->title('Tidak ada foto untuk diunduh')
+                ->body('Produk ini belum punya foto, atau berkas fotonya tidak ditemukan.')->send();
+
+            return null;
+        }
+
+        $name = $products->count() === 1 ? $products->first()->slug.'-foto-marketplace.zip' : 'foto-marketplace-'.now()->format('Ymd-His').'.zip';
+
+        return response()->download($zip, $name)->deleteFileAfterSend();
     }
 
     /** Salin produk sebagai draf lalu buka halaman edit salinannya (dipakai di daftar & halaman edit). */
@@ -368,9 +406,21 @@ class ProductResource extends Resource
                     fn (Product $r) => $r->only(['name', 'slug', 'category_id', 'brand_id', 'badge', 'is_published', 'is_featured']),
                 )->visible(ReviewWorkflow::canPublish()),
                 EditAction::make(),
-                self::duplicateAction()->iconButton()->tooltip('Duplikat'),
+                // Aksi sekunder di menu ⋮ agar tabel tetap muat di layar laptop
+                ActionGroup::make([
+                    self::downloadPhotosAction(),
+                    self::duplicateAction(),
+                ])->tooltip('Aksi lain'),
             ])
             ->toolbarActions([BulkActionGroup::make([
+                // Bahan unggah ke marketplace untuk produk yang dicentang (bisa dibagikan ke tim)
+                BulkAction::make('downloadPhotos')->label('Unduh foto marketplace (ZIP)')->icon(Heroicon::OutlinedPhoto)
+                    ->action(fn (Collection $records) => self::downloadPhotos($records))->deselectRecordsAfterCompletion(),
+                BulkAction::make('downloadSpreadsheet')->label('Unduh Excel marketplace')->icon(Heroicon::OutlinedTableCells)
+                    ->action(fn (Collection $records) => response()->download(
+                        MarketplaceExport::spreadsheet($records->load(['category', 'brand', 'variants', 'media', 'links.channel'])),
+                        'produk-marketplace-'.now()->format('Ymd-His').'.xlsx',
+                    )->deleteFileAfterSend())->deselectRecordsAfterCompletion(),
                 BulkAction::make('publish')->label('Terbitkan')->visible(ReviewWorkflow::canPublish())
                     ->action(fn (Collection $records) => $records->each->update(['is_published' => true]))->deselectRecordsAfterCompletion(),
                 BulkAction::make('unpublish')->label('Sembunyikan')->visible(ReviewWorkflow::canPublish())
