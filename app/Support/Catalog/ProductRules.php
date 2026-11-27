@@ -17,6 +17,12 @@ class ProductRules
 
     public const AVAILABILITY = ['InStock', 'LimitedAvailability', 'PreOrder', 'OutOfStock'];
 
+    /** Harga terendah yang masuk akal dalam rupiah; di bawah ini hampir pasti salah ketik (mis. 32 untuk 32.000). */
+    public const MIN_PRICE = 100;
+
+    /** Perubahan harga lebih dari persentase ini dari harga lama memunculkan peringatan. */
+    public const PRICE_CHANGE_WARNING_PERCENT = 70;
+
     /** @return array<string, mixed> */
     public static function product(?Product $product = null): array
     {
@@ -36,8 +42,8 @@ class ProductRules
             'description' => ['sometimes', 'nullable', 'string', 'max:100000'],
             'specifications' => ['sometimes', 'nullable', 'array', 'max:100'],
             'price_display' => ['sometimes', Rule::in(['show', 'hidden'])],
-            'price_min' => ['sometimes', 'nullable', 'integer', 'min:0'],
-            'price_max' => ['sometimes', 'nullable', 'integer', 'min:0', 'gte:price_min'],
+            'price_min' => ['sometimes', 'nullable', 'integer', 'min:'.self::MIN_PRICE],
+            'price_max' => ['sometimes', 'nullable', 'integer', 'min:'.self::MIN_PRICE, 'gte:price_min'],
             'availability' => ['sometimes', 'nullable', Rule::in(self::AVAILABILITY)],
             'price_valid_until' => ['sometimes', 'nullable', 'date'],
             'whatsapp_number' => ['sometimes', 'nullable', 'string', 'max:30', 'regex:/^[0-9+\-\s]+$/'],
@@ -67,7 +73,7 @@ class ProductRules
             '*.slug' => ['nullable', 'string', 'max:255', 'regex:'.self::SLUG_PATTERN],
             '*.option_group' => ['nullable', 'string', 'max:100'],
             '*.sku' => ['nullable', 'string', 'max:100'],
-            '*.price' => ['required', 'integer', 'min:1'],
+            '*.price' => ['required', 'integer', 'min:'.self::MIN_PRICE],
             '*.compare_at_price' => ['nullable', 'integer', 'gt:{prefix}*.price'],
             '*.discount_starts_at' => ['nullable', 'required_with:{prefix}*.compare_at_price', 'date'],
             '*.discount_ends_at' => ['nullable', 'required_with:{prefix}*.compare_at_price', 'date', 'after_or_equal:{prefix}*.discount_starts_at'],
@@ -107,6 +113,35 @@ class ProductRules
         }
 
         return $out;
+    }
+
+    /**
+     * Peringatan (bukan penolakan) bila harga acuan baru jauh dari harga lama, agar asisten AI
+     * meminta konfirmasi pengguna sebelum menganggap perubahan itu benar.
+     *
+     * @param  array<string, mixed>  $data  Data tervalidasi yang akan disimpan.
+     * @return array<int, string>
+     */
+    public static function priceChangeWarnings(Product $product, array $data): array
+    {
+        $labels = ['price_min' => 'Harga terendah', 'price_max' => 'Harga tertinggi'];
+        $warnings = [];
+
+        foreach ($labels as $field => $label) {
+            $old = (int) $product->getOriginal($field);
+            $new = $data[$field] ?? null;
+            if ($old <= 0 || $new === null) {
+                continue;
+            }
+
+            $percent = (int) round(abs($new - $old) / $old * 100);
+            if ($percent > self::PRICE_CHANGE_WARNING_PERCENT) {
+                $warnings[] = sprintf('%s berubah %d%% (Rp%s → Rp%s). Pastikan ini bukan salah ketik.',
+                    $label, $percent, number_format($old, 0, ',', '.'), number_format((int) $new, 0, ',', '.'));
+            }
+        }
+
+        return $warnings;
     }
 
     /**

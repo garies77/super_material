@@ -12,6 +12,7 @@ use App\Filament\Support\QuickEdit;
 use App\Filament\Support\ReviewWorkflow;
 use App\Filament\Support\SeoFields;
 use App\Filament\Support\SeoScorePanel;
+use App\Filament\Support\SlugInput;
 use App\Filament\Support\VideoFields;
 use App\Models\AuditLog;
 use App\Models\Brand;
@@ -22,6 +23,7 @@ use App\Models\ProductVariant;
 use App\Models\SalesChannel;
 use App\Rules\MinImagePixels;
 use App\Support\Catalog\ProductDuplicator;
+use App\Support\Catalog\ProductRules;
 use App\Support\SeoScore;
 use App\Support\YouTube;
 use BackedEnum;
@@ -173,13 +175,13 @@ class ProductResource extends Resource
                 Section::make('Informasi produk')->columns(2)->schema([
                     TextInput::make('name')->label('Nama')->required()->maxLength(255)->live(onBlur: true)
                         ->afterStateUpdated(fn (Set $set, ?string $state, string $operation) => $operation === 'create' ? $set('slug', Str::slug($state)) : null),
-                    TextInput::make('slug')->required()->unique(ignoreRecord: true)
+                    SlugInput::rules(TextInput::make('slug')->required()->unique(ignoreRecord: true))
                         ->helperText('Mengubah slug otomatis membuat redirect 301 dari URL lama.'),
                     Select::make('category_id')->label('Kategori')->relationship('category', 'name')->searchable()->preload(),
                     Select::make('brand_id')->label('Merek')->relationship('brand', 'name')->searchable()->preload()->live()->afterStateUpdated($refreshSeo)
                         ->createOptionForm([
                             TextInput::make('name')->required(),
-                            TextInput::make('slug')->required()->unique('brands', 'slug'),
+                            SlugInput::rules(TextInput::make('slug')->required()->unique('brands', 'slug')),
                         ]),
                     TextInput::make('sku')->label('Kode produk (SKU)')->helperText('Kode unik produk Anda; Google memakainya untuk mengelompokkan varian.')->placeholder('cth: STR-50')->maxLength(100)->live(onBlur: true)->afterStateUpdated($refreshSeo),
                     TextInput::make('badge')->label('Label promo')->placeholder('Misal: Resmi, Best Seller, SNI'),
@@ -215,9 +217,9 @@ class ProductResource extends Resource
                         TextInput::make('option_group')->label('Grup')->default('Varian')->placeholder('cth: Ukuran / Warna')->required(),
                         TextInput::make('name')->label('Nama varian')->placeholder('cth: 40 kg, Putih 60x60')->required()->live(onBlur: true)
                             ->afterStateUpdated(fn (Set $set, ?string $state, string $operation) => $operation === 'create' ? $set('slug', Str::slug($state)) : null),
-                        TextInput::make('slug')->label('Alamat varian (slug)')->required(),
+                        SlugInput::rules(TextInput::make('slug')->label('Alamat varian (slug)')->required()),
                         TextInput::make('sku')->label('SKU'),
-                        TextInput::make('price')->label('Harga jual')->numeric()->prefix('Rp')->required(),
+                        TextInput::make('price')->label('Harga jual')->numeric()->minValue(ProductRules::MIN_PRICE)->prefix('Rp')->required(),
                         TextInput::make('compare_at_price')->label('Harga sebelum diskon')->numeric()->prefix('Rp'),
                         DateTimePicker::make('discount_starts_at')->label('Diskon mulai')
                             ->requiredWith('compare_at_price')
@@ -256,8 +258,8 @@ class ProductResource extends Resource
                             'show' => 'Tampilkan Harga (Acuan/Varian)',
                             'hidden' => 'Sembunyikan ("Hubungi kami untuk harga")',
                         ])->default('show')->required(),
-                    TextInput::make('price_min')->label('Harga terendah')->numeric()->prefix('Rp')->live(onBlur: true)->afterStateUpdated($refreshSeo),
-                    TextInput::make('price_max')->label('Harga tertinggi')->numeric()->prefix('Rp'),
+                    TextInput::make('price_min')->label('Harga terendah')->numeric()->minValue(ProductRules::MIN_PRICE)->prefix('Rp')->live(onBlur: true)->afterStateUpdated($refreshSeo),
+                    TextInput::make('price_max')->label('Harga tertinggi')->numeric()->minValue(ProductRules::MIN_PRICE)->prefix('Rp'),
                     Select::make('availability')->label('Status stok')->live()->afterStateUpdated($refreshSeo)
                         ->options([
                             'InStock' => 'Tersedia (InStock)',
@@ -353,7 +355,7 @@ class ProductResource extends Resource
                 QuickEdit::make(
                     fn () => [
                         TextInput::make('name')->label('Nama')->required()->maxLength(255),
-                        TextInput::make('slug')->required()->maxLength(255)->unique(Product::class, 'slug', ignoreRecord: true)
+                        SlugInput::rules(TextInput::make('slug')->required()->maxLength(255)->unique(Product::class, 'slug', ignoreRecord: true))
                             ->helperText('Mengubah slug membuat redirect 301 dari URL lama.'),
                         Select::make('category_id')->label('Kategori')->searchable()->preload()
                             ->options(fn () => Category::orderBy('name')->pluck('name', 'id')),

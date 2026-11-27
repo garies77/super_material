@@ -11,6 +11,7 @@ use App\Filament\Support\QuickEdit;
 use App\Filament\Support\ReviewWorkflow;
 use App\Filament\Support\SeoFields;
 use App\Filament\Support\SeoScorePanel;
+use App\Filament\Support\SlugInput;
 use App\Filament\Support\VideoFields;
 use App\Models\Article;
 use App\Models\Category;
@@ -131,7 +132,7 @@ class ArticleResource extends Resource
                 Section::make('Isi artikel')->columns(2)->schema([
                     TextInput::make('title')->label('Judul')->required()->maxLength(255)->live(onBlur: true)
                         ->afterStateUpdated(fn (Set $set, ?string $state, string $operation) => $operation === 'create' ? $set('slug', Str::slug($state)) : null),
-                    TextInput::make('slug')->required()->unique(ignoreRecord: true)
+                    SlugInput::rules(TextInput::make('slug')->required()->unique(ignoreRecord: true))
                         ->helperText('Mengubah slug otomatis membuat redirect 301 dari URL lama.'),
                     Textarea::make('summary')->label('Ringkasan')->rows(2)->columnSpanFull()
                         ->helperText('Dipakai sebagai meta description dan ringkasan kartu artikel.')
@@ -168,7 +169,7 @@ class ArticleResource extends Resource
                         ->dehydrated()
                         ->createOptionForm(fn () => auth()->user()?->writesAsOwnAuthor() ? null : [
                             TextInput::make('name')->label('Nama lengkap')->required()->maxLength(150),
-                            TextInput::make('slug')->required()->maxLength(150)->unique('authors', 'slug'),
+                            SlugInput::rules(TextInput::make('slug')->required()->maxLength(150)->unique('authors', 'slug')),
                             TextInput::make('job_title')->label('Jabatan / keahlian')->maxLength(100),
                         ])
                         ->helperText(fn () => auth()->user()?->writesAsOwnAuthor()
@@ -192,7 +193,7 @@ class ArticleResource extends Resource
                     Select::make('tags')->label('Tag')->relationship('tags', 'name')->multiple()->searchable()->preload()->live()->afterStateUpdated($refreshSeo)
                         ->createOptionForm([
                             TextInput::make('name')->label('Nama Tag')->required(),
-                            TextInput::make('slug')->label('Slug')->unique('tags', 'slug'),
+                            SlugInput::rules(TextInput::make('slug')->label('Slug')->unique('tags', 'slug')),
                         ]),
                     Select::make('relatedArticles')->label('Artikel terkait')->relationship('relatedArticles', 'title')->multiple()->searchable()->preload(),
                     Select::make('products')->label('Produk yang dibahas')->relationship('products', 'name')->multiple()->searchable()->preload(),
@@ -269,7 +270,7 @@ class ArticleResource extends Resource
                 QuickEdit::make(
                     fn () => [
                         TextInput::make('title')->label('Judul')->required()->maxLength(255),
-                        TextInput::make('slug')->required()->maxLength(255)->unique(Article::class, 'slug', ignoreRecord: true)
+                        SlugInput::rules(TextInput::make('slug')->required()->maxLength(255)->unique(Article::class, 'slug', ignoreRecord: true))
                             ->helperText('Mengubah slug membuat redirect 301 dari URL lama.'),
                         Select::make('categories')->label('Kategori')->multiple()->searchable()->preload()
                             ->options(fn () => Category::orderBy('name')->pluck('name', 'id')),
