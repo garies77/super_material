@@ -5,10 +5,15 @@ namespace App\Mcp\Concerns;
 use App\Http\Resources\Api\AdminArticleResource;
 use App\Models\Article;
 use App\Models\AuditLog;
+use App\Rules\MinImagePixels;
 use App\Support\Content\ArticleRules;
+use App\Support\ImageDerivatives;
+use App\Support\MediaLibrary;
+use App\Support\RemoteFile;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\JsonSchema\Types\Type;
+use Illuminate\Support\Facades\Validator;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 
@@ -55,6 +60,36 @@ trait WritesArticles
     }
 
     /**
+     * Unduh foto utama dari argumen "image_url" dan simpan lewat Pustaka Media dengan aturan yang sama
+     * seperti unggahan panel (jpg/png/webp, minimal 50.000 piksel, turunan 16:9, 4:3, 1:1).
+     * Dipanggil sebelum artikel disimpan agar gambar yang gagal tidak meninggalkan perubahan setengah jadi.
+     *
+     * @return string|null path di disk publik, atau null bila image_url tidak dikirim
+     */
+    protected function storeArticleImage(Request $request, string $nameSource): ?string
+    {
+        $url = trim((string) $request->get('image_url'));
+        if ($url === '') {
+            return null;
+        }
+
+        $file = RemoteFile::download($url, (int) config('api.uploads.image_max_kb'), 'image_url');
+
+        try {
+            Validator::make(['image_url' => $file], [
+                'image_url' => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:'.config('api.uploads.image_max_kb'), new MinImagePixels(50000)],
+            ])->validate();
+
+            $path = MediaLibrary::storeUploadedFile($file, 'articles', $nameSource);
+            ImageDerivatives::multiRatioUrls(storage_path('app/public/'.$path));
+
+            return $path;
+        } finally {
+            @unlink($file->getPathname());
+        }
+    }
+
+    /**
      * Kolom artikel yang boleh dikirim; semuanya opsional (judul & isi wajib saat membuat).
      *
      * @return array<string, Type>
@@ -73,7 +108,8 @@ trait WritesArticles
             'categories' => $schema->array()->items($schema->string())->description('Slug kategori dari list-categories; mengganti seluruh kategori lama.'),
             'tags' => $schema->array()->items($schema->string())->description('Nama tag; tag yang belum ada dibuat otomatis. Mengganti seluruh tag lama.'),
             'products' => $schema->array()->items($schema->string())->description('Slug produk yang dibahas (dari search-products); mengganti daftar lama.'),
-            'image_caption' => $schema->string()->description('Keterangan foto utama. Foto utama sendiri diunggah lewat panel admin.'),
+            'image_url' => $schema->string()->description('URL https foto utama (jpg, png, webp; minimal 50.000 piksel, disarankan 1200×675). Diunduh server dan didaftarkan ke Pustaka Media; mengganti foto utama lama.'),
+            'image_caption' => $schema->string()->description('Keterangan foto utama; sebutkan isi foto.'),
             'image_credit' => $schema->string(),
             'is_featured' => $schema->boolean()->description('Tampilkan sebagai artikel unggulan.'),
             'meta_title' => $schema->string()->description('Judul SEO, maks. 70 karakter.'),

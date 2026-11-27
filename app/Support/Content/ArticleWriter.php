@@ -22,7 +22,7 @@ use Illuminate\Support\Str;
 class ArticleWriter
 {
     private const SCALAR_FIELDS = [
-        'title', 'slug', 'summary', 'schema_type', 'image_caption', 'image_credit', 'is_featured',
+        'title', 'slug', 'summary', 'schema_type', 'image', 'image_caption', 'image_credit', 'is_featured',
         'meta_title', 'meta_description', 'canonical_url', 'noindex', 'nofollow',
     ];
 
