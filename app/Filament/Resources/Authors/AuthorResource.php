@@ -6,6 +6,7 @@ use App\Filament\Resources\Authors\Pages\CreateAuthor;
 use App\Filament\Resources\Authors\Pages\EditAuthor;
 use App\Filament\Resources\Authors\Pages\ListAuthors;
 use App\Filament\Support\SeoScorePanel;
+use App\Filament\Support\SlugInput;
 use App\Models\Author;
 use App\Rules\MinImagePixels;
 use BackedEnum;
@@ -128,7 +129,7 @@ class AuthorResource extends Resource
                             ->live(onBlur: true)
                             ->afterStateUpdated(fn (Set $set, ?string $state, string $operation) => $operation === 'create' ? $set('slug', Str::slug($state)) : null)
                             ->rule(self::pureNameRule()),
-                        TextInput::make('slug')
+                        SlugInput::rules(TextInput::make('slug'))
                             ->label('Slug URL')
                             ->required()
                             ->unique(ignoreRecord: true)

@@ -5,12 +5,14 @@ namespace App\Filament\Resources\Articles;
 use App\Filament\Resources\Articles\Pages\CreateArticle;
 use App\Filament\Resources\Articles\Pages\EditArticle;
 use App\Filament\Resources\Articles\Pages\ListArticles;
+use App\Filament\Support\ArchiveActions;
 use App\Filament\Support\CustomCodeFields;
 use App\Filament\Support\DescriptiveFileName;
 use App\Filament\Support\QuickEdit;
 use App\Filament\Support\ReviewWorkflow;
 use App\Filament\Support\SeoFields;
 use App\Filament\Support\SeoScorePanel;
+use App\Filament\Support\SlugInput;
 use App\Filament\Support\VideoFields;
 use App\Models\Article;
 use App\Models\Category;
@@ -21,7 +23,6 @@ use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\FileUpload;
@@ -43,6 +44,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
@@ -95,7 +97,8 @@ class ArticleResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
+        // Artikel arsip ikut dimuat agar filter Arsip, Pulihkan, dan halaman edit artikel arsip berfungsi
+        $query = parent::getEloquentQuery()->withoutGlobalScopes([SoftDeletingScope::class]);
         $user = auth()->user();
 
         return $user?->writesAsOwnAuthor() ? $query->whereHas('author', fn ($q) => $q->where('user_id', $user->id)) : $query;
@@ -131,7 +134,7 @@ class ArticleResource extends Resource
                 Section::make('Isi artikel')->columns(2)->schema([
                     TextInput::make('title')->label('Judul')->required()->maxLength(255)->live(onBlur: true)
                         ->afterStateUpdated(fn (Set $set, ?string $state, string $operation) => $operation === 'create' ? $set('slug', Str::slug($state)) : null),
-                    TextInput::make('slug')->required()->unique(ignoreRecord: true)
+                    SlugInput::rules(TextInput::make('slug')->required()->unique(ignoreRecord: true))
                         ->helperText('Mengubah slug otomatis membuat redirect 301 dari URL lama.'),
                     Textarea::make('summary')->label('Ringkasan')->rows(2)->columnSpanFull()
                         ->helperText('Dipakai sebagai meta description dan ringkasan kartu artikel.')
@@ -168,7 +171,7 @@ class ArticleResource extends Resource
                         ->dehydrated()
                         ->createOptionForm(fn () => auth()->user()?->writesAsOwnAuthor() ? null : [
                             TextInput::make('name')->label('Nama lengkap')->required()->maxLength(150),
-                            TextInput::make('slug')->required()->maxLength(150)->unique('authors', 'slug'),
+                            SlugInput::rules(TextInput::make('slug')->required()->maxLength(150)->unique('authors', 'slug')),
                             TextInput::make('job_title')->label('Jabatan / keahlian')->maxLength(100),
                         ])
                         ->helperText(fn () => auth()->user()?->writesAsOwnAuthor()
@@ -192,7 +195,7 @@ class ArticleResource extends Resource
                     Select::make('tags')->label('Tag')->relationship('tags', 'name')->multiple()->searchable()->preload()->live()->afterStateUpdated($refreshSeo)
                         ->createOptionForm([
                             TextInput::make('name')->label('Nama Tag')->required(),
-                            TextInput::make('slug')->label('Slug')->unique('tags', 'slug'),
+                            SlugInput::rules(TextInput::make('slug')->label('Slug')->unique('tags', 'slug')),
                         ]),
                     Select::make('relatedArticles')->label('Artikel terkait')->relationship('relatedArticles', 'title')->multiple()->searchable()->preload(),
                     Select::make('products')->label('Produk yang dibahas')->relationship('products', 'name')->multiple()->searchable()->preload(),
@@ -247,7 +250,7 @@ class ArticleResource extends Resource
                 TextColumn::make('published_at')->label('Terbit (WIB)')->dateTime('d M Y H:i', 'Asia/Jakarta')->sortable(),
                 ReviewWorkflow::statusColumn(),
             ])
-            ->filters([ReviewWorkflow::statusFilter()])
+            ->filters([ReviewWorkflow::statusFilter(), ArchiveActions::filter()])
             ->recordActions([
                 Action::make('publishNow')->label('Terbitkan')->icon('heroicon-o-paper-airplane')->color('success')
                     ->visible(fn (Article $r) => ReviewWorkflow::canPublish() && (! $r->published_at || $r->published_at->isFuture()))
@@ -269,7 +272,7 @@ class ArticleResource extends Resource
                 QuickEdit::make(
                     fn () => [
                         TextInput::make('title')->label('Judul')->required()->maxLength(255),
-                        TextInput::make('slug')->required()->maxLength(255)->unique(Article::class, 'slug', ignoreRecord: true)
+                        SlugInput::rules(TextInput::make('slug')->required()->maxLength(255)->unique(Article::class, 'slug', ignoreRecord: true))
                             ->helperText('Mengubah slug membuat redirect 301 dari URL lama.'),
                         Select::make('categories')->label('Kategori')->multiple()->searchable()->preload()
                             ->options(fn () => Category::orderBy('name')->pluck('name', 'id')),
@@ -291,12 +294,15 @@ class ArticleResource extends Resource
                     },
                 )->visible(ReviewWorkflow::canPublish()),
                 EditAction::make(),
+                ArchiveActions::restore(),
+                ArchiveActions::forceDelete()->iconButton()->tooltip('Hapus permanen'),
             ])
             ->toolbarActions([BulkActionGroup::make([
                 BulkAction::make('publishNow')->label('Terbitkan sekarang')->icon('heroicon-o-paper-airplane')->requiresConfirmation()
                     ->visible(ReviewWorkflow::canPublish())
                     ->action(fn ($records) => $records->each->update(['published_at' => now()]))->deselectRecordsAfterCompletion(),
-                DeleteBulkAction::make()->visible(ReviewWorkflow::canPublish()),
+                ArchiveActions::archiveBulk(),
+                ...ArchiveActions::bulk(),
             ])]);
     }
 

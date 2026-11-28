@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Brands;
 
 use App\Filament\Resources\Brands\Pages\ManageBrands;
+use App\Filament\Support\SlugInput;
 use App\Models\Brand;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
@@ -44,7 +45,7 @@ class BrandResource extends Resource
         return $schema->components([
             TextInput::make('name')->label('Nama merek')->required()->maxLength(255)->live(onBlur: true)
                 ->afterStateUpdated(fn (Set $set, ?string $state, string $operation) => $operation === 'create' ? $set('slug', Str::slug($state)) : null),
-            TextInput::make('slug')->required()->unique(ignoreRecord: true)->maxLength(255),
+            SlugInput::rules(TextInput::make('slug')->required()->unique(ignoreRecord: true))->maxLength(255),
             FileUpload::make('logo')->label('Logo merek')->image()->disk('public')->directory('brands')->visibility('public')->columnSpanFull()
                 ->helperText('Opsional. PNG atau WebP berlatar transparan.'),
         ]);

@@ -3,10 +3,10 @@
 namespace App\Filament\Resources\Products\Pages;
 
 use App\Filament\Resources\Products\ProductResource;
+use App\Filament\Support\ArchiveActions;
 use App\Filament\Support\PageActions;
 use App\Filament\Support\ReviewWorkflow;
 use App\Support\Catalog\ProductPhotos;
-use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Support\Enums\Width;
 
@@ -45,11 +45,13 @@ class EditProduct extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            ArchiveActions::restore()->button(),
             ...ReviewWorkflow::pageActions($this),
             PageActions::viewOnSite(fn () => $this->record->url()),
             PageActions::more([
                 ProductResource::duplicateAction(),
-                DeleteAction::make()->visible(ReviewWorkflow::canPublish()),
+                ArchiveActions::archive(),
+                ArchiveActions::forceDelete(),
             ]),
         ];
     }

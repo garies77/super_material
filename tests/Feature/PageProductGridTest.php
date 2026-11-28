@@ -198,7 +198,8 @@ it('renders a numbered price table with one row per variant and a tracked buy li
 
     $this->get('/daftar-harga-shopee')->assertOk()
         ->assertSee('Daftar harga di Shopee')
-        ->assertSeeInOrder(['1. Alat Proyek', '2. Semen', '1. Harga Alat Proyek', 'Bor Listrik', 'Rp450.000', '2. Harga Semen', 'Sak 25 kg', 'Rp45.000', '/ sak', 'Sak 40 kg', 'Rp70.000', 'Rp62.000', '/ sak'])
+        ->assertSeeInOrder(['1. Alat Proyek', '2. Semen', '1. Harga Alat Proyek', 'Bor Listrik', 'Rp450.000', '2. Harga Semen', 'Sak 25 kg', 'Rp45.000', 'Sak 40 kg', 'Rp70.000', 'Rp62.000'])
+        ->assertDontSee('/ sak')
         ->assertSee('/go/mortar-instan/shopee?utm_source=landing-page&amp;utm_medium=page&amp;utm_campaign=daftar-harga-shopee&amp;variant=sak-40-kg', false)
         ->assertSee('href="#harga-semen"', false)
         ->assertDontSee('Ukuran lama')->assertDontSee('Palu Godam');
@@ -216,7 +217,8 @@ it('merges thin category groups into one table with category labels, as in a sma
     ]]);
 
     $this->get('/daftar-harga-shopee')->assertOk()
-        ->assertSeeInOrder(['Alat Proyek', 'Pahat Beton 8 Inch', 'Rp21.000', 'Cetok', 'Cetok Stainless Gagang Kayu Jati', 'Rp13.100', '/ 12 pcs', 'Dynabolt', 'Dynabolt Baut Tanam Beton M8 M10 M12', 'Rp206.200', '/ 1 kotak'])
+        ->assertSeeInOrder(['Alat Proyek', 'Pahat Beton 8 Inch', 'Rp21.000', 'Cetok', 'Cetok Stainless Gagang Kayu Jati', 'Rp13.100', 'Dynabolt', 'Dynabolt Baut Tanam Beton M8 M10 M12', 'Rp206.200'])
+        ->assertDontSee('/ 1 kotak')
         ->assertDontSee('1. Harga')->assertDontSee('aria-label="Isi daftar harga"', false);
 });
 

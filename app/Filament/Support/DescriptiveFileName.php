@@ -33,6 +33,14 @@ class DescriptiveFileName
         return self::unique(Str::limit($base, 80, ''), $suffix, self::extension($file), $directory);
     }
 
+    /** Nama berkas baru untuk gambar yang sudah ada (ganti nama di Pustaka Media), dengan pola nama yang sama seperti unggahan. */
+    public static function named(string $source, string $extension, string $directory): string
+    {
+        $base = Str::slug($source) ?: 'gambar';
+
+        return self::unique(Str::limit($base, 80, ''), null, strtolower($extension) === 'jpeg' ? 'jpg' : strtolower($extension), $directory);
+    }
+
     private static function extension(UploadedFile $file): string
     {
         // Ekstensi mengikuti jenis file sebenarnya, bukan nama asli (PRD 9.10.1 poin 3)

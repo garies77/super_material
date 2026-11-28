@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Products;
 use App\Filament\Resources\Products\Pages\CreateProduct;
 use App\Filament\Resources\Products\Pages\EditProduct;
 use App\Filament\Resources\Products\Pages\ListProducts;
+use App\Filament\Support\ArchiveActions;
 use App\Filament\Support\CustomCodeFields;
 use App\Filament\Support\DescriptiveFileName;
 use App\Filament\Support\MediaPicker;
@@ -12,6 +13,7 @@ use App\Filament\Support\QuickEdit;
 use App\Filament\Support\ReviewWorkflow;
 use App\Filament\Support\SeoFields;
 use App\Filament\Support\SeoScorePanel;
+use App\Filament\Support\SlugInput;
 use App\Filament\Support\VideoFields;
 use App\Models\AuditLog;
 use App\Models\Brand;
@@ -21,14 +23,16 @@ use App\Models\ProductMedia;
 use App\Models\ProductVariant;
 use App\Models\SalesChannel;
 use App\Rules\MinImagePixels;
+use App\Support\Catalog\MarketplaceExport;
 use App\Support\Catalog\ProductDuplicator;
+use App\Support\Catalog\ProductRules;
 use App\Support\SeoScore;
 use App\Support\YouTube;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
@@ -58,6 +62,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -100,6 +105,42 @@ class ProductResource extends Resource
             ->all()));
 
         return SeoScore::forProduct($product) + ['pending' => SeoScorePanel::hasPendingUpload($get('photos'))];
+    }
+
+    /** Unduh semua foto satu produk dalam format marketplace (ZIP JPG 1024×1024). */
+    public static function downloadPhotosAction(): Action
+    {
+        return Action::make('downloadPhotos')->label('Unduh foto marketplace (ZIP)')->icon(Heroicon::OutlinedPhoto)
+            ->action(fn (Product $record) => self::downloadPhotos(new Collection([$record])));
+    }
+
+    /**
+     * ZIP foto marketplace untuk satu atau beberapa produk. Dibatasi per unduhan karena setiap foto diproses ulang.
+     *
+     * @param  Collection<int, Product>  $products
+     */
+    public static function downloadPhotos(Collection $products): mixed
+    {
+        if ($products->count() > MarketplaceExport::MAX_PRODUCTS) {
+            Notification::make()->warning()->title('Terlalu banyak produk')
+                ->body('Pilih maksimal '.MarketplaceExport::MAX_PRODUCTS.' produk per unduhan foto.')->send();
+
+            return null;
+        }
+
+        @set_time_limit(300);
+        $zip = MarketplaceExport::photosZip($products->load('media'));
+
+        if ($zip === null) {
+            Notification::make()->warning()->title('Tidak ada foto untuk diunduh')
+                ->body('Produk ini belum punya foto, atau berkas fotonya tidak ditemukan.')->send();
+
+            return null;
+        }
+
+        $name = $products->count() === 1 ? $products->first()->slug.'-foto-marketplace.zip' : 'foto-marketplace-'.now()->format('Ymd-His').'.zip';
+
+        return response()->download($zip, $name)->deleteFileAfterSend();
     }
 
     /** Salin produk sebagai draf lalu buka halaman edit salinannya (dipakai di daftar & halaman edit). */
@@ -173,13 +214,13 @@ class ProductResource extends Resource
                 Section::make('Informasi produk')->columns(2)->schema([
                     TextInput::make('name')->label('Nama')->required()->maxLength(255)->live(onBlur: true)
                         ->afterStateUpdated(fn (Set $set, ?string $state, string $operation) => $operation === 'create' ? $set('slug', Str::slug($state)) : null),
-                    TextInput::make('slug')->required()->unique(ignoreRecord: true)
+                    SlugInput::rules(TextInput::make('slug')->required()->unique(ignoreRecord: true))
                         ->helperText('Mengubah slug otomatis membuat redirect 301 dari URL lama.'),
                     Select::make('category_id')->label('Kategori')->relationship('category', 'name')->searchable()->preload(),
                     Select::make('brand_id')->label('Merek')->relationship('brand', 'name')->searchable()->preload()->live()->afterStateUpdated($refreshSeo)
                         ->createOptionForm([
                             TextInput::make('name')->required(),
-                            TextInput::make('slug')->required()->unique('brands', 'slug'),
+                            SlugInput::rules(TextInput::make('slug')->required()->unique('brands', 'slug')),
                         ]),
                     TextInput::make('sku')->label('Kode produk (SKU)')->helperText('Kode unik produk Anda; Google memakainya untuk mengelompokkan varian.')->placeholder('cth: STR-50')->maxLength(100)->live(onBlur: true)->afterStateUpdated($refreshSeo),
                     TextInput::make('badge')->label('Label promo')->placeholder('Misal: Resmi, Best Seller, SNI'),
@@ -215,9 +256,9 @@ class ProductResource extends Resource
                         TextInput::make('option_group')->label('Grup')->default('Varian')->placeholder('cth: Ukuran / Warna')->required(),
                         TextInput::make('name')->label('Nama varian')->placeholder('cth: 40 kg, Putih 60x60')->required()->live(onBlur: true)
                             ->afterStateUpdated(fn (Set $set, ?string $state, string $operation) => $operation === 'create' ? $set('slug', Str::slug($state)) : null),
-                        TextInput::make('slug')->label('Alamat varian (slug)')->required(),
+                        SlugInput::rules(TextInput::make('slug')->label('Alamat varian (slug)')->required()),
                         TextInput::make('sku')->label('SKU'),
-                        TextInput::make('price')->label('Harga jual')->numeric()->prefix('Rp')->required(),
+                        TextInput::make('price')->label('Harga jual')->numeric()->minValue(ProductRules::MIN_PRICE)->prefix('Rp')->required(),
                         TextInput::make('compare_at_price')->label('Harga sebelum diskon')->numeric()->prefix('Rp'),
                         DateTimePicker::make('discount_starts_at')->label('Diskon mulai')
                             ->requiredWith('compare_at_price')
@@ -256,8 +297,8 @@ class ProductResource extends Resource
                             'show' => 'Tampilkan Harga (Acuan/Varian)',
                             'hidden' => 'Sembunyikan ("Hubungi kami untuk harga")',
                         ])->default('show')->required(),
-                    TextInput::make('price_min')->label('Harga terendah')->numeric()->prefix('Rp')->live(onBlur: true)->afterStateUpdated($refreshSeo),
-                    TextInput::make('price_max')->label('Harga tertinggi')->numeric()->prefix('Rp'),
+                    TextInput::make('price_min')->label('Harga terendah')->numeric()->minValue(ProductRules::MIN_PRICE)->prefix('Rp')->live(onBlur: true)->afterStateUpdated($refreshSeo),
+                    TextInput::make('price_max')->label('Harga tertinggi')->numeric()->minValue(ProductRules::MIN_PRICE)->prefix('Rp'),
                     Select::make('availability')->label('Status stok')->live()->afterStateUpdated($refreshSeo)
                         ->options([
                             'InStock' => 'Tersedia (InStock)',
@@ -306,6 +347,12 @@ class ProductResource extends Resource
         ]);
     }
 
+    /** Produk arsip ikut dimuat agar filter Arsip, Pulihkan, dan halaman edit produk arsip berfungsi. */
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->withoutGlobalScopes([SoftDeletingScope::class]);
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -345,6 +392,7 @@ class ProductResource extends Resource
                 ReviewWorkflow::statusFilter(),
                 TernaryFilter::make('is_published')->label('Terbit'),
                 TernaryFilter::make('price_review_needed')->label('Perlu tinjau harga'),
+                ArchiveActions::filter(),
                 Filter::make('price_expiring')->label('Masa harga habis ≤ 7 hari')
                     ->query(fn (Builder $query) => $query->whereBetween('price_valid_until', [now(), now()->addDays(7)])),
             ])
@@ -353,7 +401,7 @@ class ProductResource extends Resource
                 QuickEdit::make(
                     fn () => [
                         TextInput::make('name')->label('Nama')->required()->maxLength(255),
-                        TextInput::make('slug')->required()->maxLength(255)->unique(Product::class, 'slug', ignoreRecord: true)
+                        SlugInput::rules(TextInput::make('slug')->required()->maxLength(255)->unique(Product::class, 'slug', ignoreRecord: true))
                             ->helperText('Mengubah slug membuat redirect 301 dari URL lama.'),
                         Select::make('category_id')->label('Kategori')->searchable()->preload()
                             ->options(fn () => Category::orderBy('name')->pluck('name', 'id')),
@@ -366,9 +414,23 @@ class ProductResource extends Resource
                     fn (Product $r) => $r->only(['name', 'slug', 'category_id', 'brand_id', 'badge', 'is_published', 'is_featured']),
                 )->visible(ReviewWorkflow::canPublish()),
                 EditAction::make(),
-                self::duplicateAction()->iconButton()->tooltip('Duplikat'),
+                ArchiveActions::restore(),
+                // Aksi sekunder di menu ⋮ agar tabel tetap muat di layar laptop
+                ActionGroup::make([
+                    self::downloadPhotosAction(),
+                    self::duplicateAction(),
+                    ArchiveActions::forceDelete(),
+                ])->tooltip('Aksi lain'),
             ])
             ->toolbarActions([BulkActionGroup::make([
+                // Bahan unggah ke marketplace untuk produk yang dicentang (bisa dibagikan ke tim)
+                BulkAction::make('downloadPhotos')->label('Unduh foto marketplace (ZIP)')->icon(Heroicon::OutlinedPhoto)
+                    ->action(fn (Collection $records) => self::downloadPhotos($records))->deselectRecordsAfterCompletion(),
+                BulkAction::make('downloadSpreadsheet')->label('Unduh Excel marketplace')->icon(Heroicon::OutlinedTableCells)
+                    ->action(fn (Collection $records) => response()->download(
+                        MarketplaceExport::spreadsheet($records->load(['category', 'brand', 'variants', 'media', 'links.channel'])),
+                        'produk-marketplace-'.now()->format('Ymd-His').'.xlsx',
+                    )->deleteFileAfterSend())->deselectRecordsAfterCompletion(),
                 BulkAction::make('publish')->label('Terbitkan')->visible(ReviewWorkflow::canPublish())
                     ->action(fn (Collection $records) => $records->each->update(['is_published' => true]))->deselectRecordsAfterCompletion(),
                 BulkAction::make('unpublish')->label('Sembunyikan')->visible(ReviewWorkflow::canPublish())
@@ -393,7 +455,8 @@ class ProductResource extends Resource
                     ->schema([Select::make('brand_id')->label('Merek baru')->options(fn () => Brand::orderBy('name')->pluck('name', 'id'))->searchable()->required()])
                     ->action(fn (Collection $records, array $data) => self::bulkUpdate($records, ['brand_id' => $data['brand_id']], 'merek diubah'))
                     ->deselectRecordsAfterCompletion(),
-                DeleteBulkAction::make()->visible(ReviewWorkflow::canPublish())
+                ...ArchiveActions::bulk(),
+                ArchiveActions::archiveBulk()
                     ->before(fn (Collection $records) => AuditLog::record(request(), 'product.bulk_deleted', null, ['ids' => $records->modelKeys(), 'names' => $records->pluck('name')->all()])),
             ])]);
     }

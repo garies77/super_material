@@ -6,6 +6,7 @@ use App\Models\Concerns\GuardsCustomCode;
 use App\Models\Concerns\HasReviewWorkflow;
 use App\Models\Concerns\HasSeo;
 use App\Models\Concerns\TracksPublicUrl;
+use App\Support\WebhookEvents;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -13,11 +14,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
 class Article extends Model
 {
-    use GuardsCustomCode, HasReviewWorkflow, HasSeo, TracksPublicUrl;
+    use GuardsCustomCode, HasReviewWorkflow, HasSeo, SoftDeletes, TracksPublicUrl;
 
     public const PUBLIC_ROUTE = 'article.show';
 
@@ -46,12 +48,16 @@ class Article extends Model
         });
 
         static::deleted(fn (Article $article) => $article->videos()->delete());
+
+        // Webhook keluar article.published untuk artikel yang sudah tayang; yang terjadwal lewat webhooks:announce-scheduled
+        static::saved(fn (Article $article) => WebhookEvents::announceArticle($article));
     }
 
     protected function casts(): array
     {
         return [
             'published_at' => 'datetime',
+            'announced_at' => 'datetime',
             'content_updated_at' => 'datetime',
             'noindex' => 'boolean',
             'nofollow' => 'boolean',

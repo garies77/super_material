@@ -6,6 +6,7 @@ use App\Filament\Support\StrictFileUpload;
 use App\Models\AuditLog;
 use App\Models\Setting;
 use App\Rules\OpenGraphImage;
+use App\Support\AiGuides;
 use App\Support\SudoMode;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -141,6 +142,18 @@ class SiteSettings extends Page implements HasSchemas
                 ->afterHeader([
                     Action::make('openSitemap')->label('Buka sitemap')->icon(Heroicon::OutlinedMap)
                         ->url(fn () => url('/sitemap.xml'), shouldOpenInNewTab: true),
+                ]),
+            // Dibaca asisten AI lewat MCP (resource supermaterial://pedoman/*), jadi aturan tidak diulang di tiap percakapan
+            Section::make('Pedoman asisten AI')
+                ->description('Aturan yang dibaca asisten AI (Claude lewat MCP) sebelum menulis artikel atau merapikan produk. Kosongkan untuk memakai pedoman bawaan yang tampil samar di kotak.')
+                ->collapsed()
+                ->schema([
+                    Textarea::make(AiGuides::WRITING_KEY)->label('Gaya tulis')->rows(10)
+                        ->placeholder(fn () => AiGuides::defaultWriting())
+                        ->helperText('Siapa pembacanya, nada bahasa, istilah yang dipakai, dan hal yang harus dihindari. Boleh pakai daftar berpoin.'),
+                    Textarea::make(AiGuides::SEO_KEY)->label('Aturan SEO')->rows(10)
+                        ->placeholder(fn () => AiGuides::defaultSeo())
+                        ->helperText('Panjang judul dan meta, struktur subjudul, jumlah kata, jumlah tautan produk, FAQ, dan sejenisnya.'),
                 ]),
             Section::make('Konfirmasi')->schema([
                 TextInput::make('confirm_password')->label('Password Anda')->password()->revealable()->dehydrated(false)

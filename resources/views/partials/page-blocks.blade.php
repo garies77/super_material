@@ -217,9 +217,6 @@
                                                         <s class="block text-xs text-ink-400">{{ $row['compare'] }}</s>
                                                     @endif
                                                     <span class="font-bold text-ink-950">{{ $row['price'] ?? 'Cek di '.$priceChannel->name }}</span>
-                                                    @if($row['unit'])
-                                                        <span class="block text-xs text-ink-500 sm:ml-1 sm:inline">{{ $row['unit'] }}</span>
-                                                    @endif
                                                 </td>
                                                 <td class="py-3 pl-1 pr-3 text-right align-middle sm:px-3">
                                                     <a href="{{ \App\Support\PageProductGrid::buyUrl($row['product'], $priceChannel, $priceCampaign) }}{{ $row['variant'] ? '&variant='.urlencode($row['variant']->slug) : '' }}"

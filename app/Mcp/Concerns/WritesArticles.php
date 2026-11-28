@@ -6,6 +6,7 @@ use App\Http\Resources\Api\AdminArticleResource;
 use App\Models\Article;
 use App\Models\AuditLog;
 use App\Support\Content\ArticleRules;
+use App\Support\RemoteImage;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\JsonSchema\Types\Type;
@@ -55,6 +56,23 @@ trait WritesArticles
     }
 
     /**
+     * Unduh foto utama dari argumen "image_url" dan simpan lewat Pustaka Media dengan aturan yang sama
+     * seperti unggahan panel (jpg/png/webp, minimal 50.000 piksel, turunan 16:9, 4:3, 1:1).
+     * Dipanggil sebelum artikel disimpan agar gambar yang gagal tidak meninggalkan perubahan setengah jadi.
+     *
+     * @return string|null path di disk publik, atau null bila image_url tidak dikirim
+     */
+    protected function storeArticleImage(Request $request, string $nameSource): ?string
+    {
+        $url = trim((string) $request->get('image_url'));
+        if ($url === '') {
+            return null;
+        }
+
+        return RemoteImage::store($url, 'image_url', 'articles', $nameSource, minPixels: 50000, withDerivatives: true);
+    }
+
+    /**
      * Kolom artikel yang boleh dikirim; semuanya opsional (judul & isi wajib saat membuat).
      *
      * @return array<string, Type>
@@ -73,7 +91,8 @@ trait WritesArticles
             'categories' => $schema->array()->items($schema->string())->description('Slug kategori dari list-categories; mengganti seluruh kategori lama.'),
             'tags' => $schema->array()->items($schema->string())->description('Nama tag; tag yang belum ada dibuat otomatis. Mengganti seluruh tag lama.'),
             'products' => $schema->array()->items($schema->string())->description('Slug produk yang dibahas (dari search-products); mengganti daftar lama.'),
-            'image_caption' => $schema->string()->description('Keterangan foto utama. Foto utama sendiri diunggah lewat panel admin.'),
+            'image_url' => $schema->string()->description('URL https foto utama (jpg, png, webp; minimal 50.000 piksel, disarankan 1200×675). Diunduh server dan didaftarkan ke Pustaka Media; mengganti foto utama lama.'),
+            'image_caption' => $schema->string()->description('Keterangan foto utama; sebutkan isi foto.'),
             'image_credit' => $schema->string(),
             'is_featured' => $schema->boolean()->description('Tampilkan sebagai artikel unggulan.'),
             'meta_title' => $schema->string()->description('Judul SEO, maks. 70 karakter.'),

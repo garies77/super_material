@@ -7,6 +7,7 @@ use App\Filament\Resources\Categories\Pages\EditCategory;
 use App\Filament\Resources\Categories\Pages\ListCategories;
 use App\Filament\Support\DescriptiveFileName;
 use App\Filament\Support\SeoFields;
+use App\Filament\Support\SlugInput;
 use App\Models\Category;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
@@ -65,7 +66,7 @@ class CategoryResource extends Resource
                 Section::make('Konten kategori')->description('Nama, alamat URL, dan teks yang tampil di halaman kategori.')->columns(2)->schema([
                     TextInput::make('name')->label('Nama kategori')->required()->maxLength(255)->live(onBlur: true)
                         ->afterStateUpdated(fn (Set $set, ?string $state, string $operation) => $operation === 'create' ? $set('slug', Str::slug($state)) : null),
-                    TextInput::make('slug')->required()->unique(ignoreRecord: true)
+                    SlugInput::rules(TextInput::make('slug')->required()->unique(ignoreRecord: true))
                         ->helperText('Mengubah slug otomatis membuat redirect 301 dari URL lama.'),
                     Textarea::make('intro')->label('Teks pengantar (di atas daftar produk)')->rows(3)->columnSpanFull(),
                     RichEditor::make('bottom_content')->label('Teks pendukung (di bawah daftar produk)')->columnSpanFull(),

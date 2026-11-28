@@ -16,7 +16,7 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tools\Annotations\IsDestructive;
 use Laravel\Mcp\Server\Tools\Annotations\IsIdempotent;
 
-#[Description('Mengubah artikel yang sudah ada (termasuk draf). Hanya kolom yang dikirim yang berubah; categories, tags, products, dan faqs mengganti seluruh daftar lama. status="published" menerbitkan, status="draft" menarik dari situs. Penulis hanya dapat mengubah artikel miliknya.')]
+#[Description('Mengubah artikel yang sudah ada (termasuk draf). Hanya kolom yang dikirim yang berubah; categories, tags, products, dan faqs mengganti seluruh daftar lama. status="published" menerbitkan, status="draft" menarik dari situs. Penulis hanya dapat mengubah artikel miliknya. image_url mengganti foto utama.')]
 #[IsDestructive]
 #[IsIdempotent]
 class UpdateArticle extends AbilityTool
@@ -38,6 +38,9 @@ class UpdateArticle extends AbilityTool
         }
 
         $data = Validator::validate($input, ArticleRules::article($article));
+        if ($image = $this->storeArticleImage($request, $article->slug)) {
+            $data['image'] = $image;
+        }
         $changes = ArticleWriter::update($article, $data, $request->user());
 
         if ($changes) {

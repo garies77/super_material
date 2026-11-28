@@ -57,7 +57,7 @@ class ProductDuplicator
         $base = Str::limit($slug, 230, '').'-salinan';
         $candidate = $base;
 
-        for ($n = 2; Product::where('slug', $candidate)->exists(); $n++) {
+        for ($n = 2; Product::withTrashed()->where('slug', $candidate)->exists(); $n++) {
             $candidate = "{$base}-{$n}";
         }
 

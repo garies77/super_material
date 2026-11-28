@@ -22,7 +22,7 @@ use Illuminate\Support\Str;
 class ArticleWriter
 {
     private const SCALAR_FIELDS = [
-        'title', 'slug', 'summary', 'schema_type', 'image_caption', 'image_credit', 'is_featured',
+        'title', 'slug', 'summary', 'schema_type', 'image', 'image_caption', 'image_credit', 'is_featured',
         'meta_title', 'meta_description', 'canonical_url', 'noindex', 'nofollow',
     ];
 
@@ -71,7 +71,8 @@ class ArticleWriter
     {
         $base = Str::slug($title) ?: 'artikel';
         $slug = $base;
-        for ($n = 2; Article::where('slug', $slug)->exists(); $n++) {
+        // withTrashed: slug artikel arsip tetap terpakai di indeks unik
+        for ($n = 2; Article::withTrashed()->where('slug', $slug)->exists(); $n++) {
             $slug = "{$base}-{$n}";
         }
 

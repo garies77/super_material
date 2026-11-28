@@ -47,6 +47,10 @@ class ProductImporter
             }
 
             $errors = self::validate($row, $channels);
+            $slug = ($row['slug'] ?? '') !== '' ? (string) $row['slug'] : Str::slug((string) ($row['nama'] ?? ''));
+            if (! $errors && $slug !== '' && Product::onlyTrashed()->where('slug', $slug)->exists()) {
+                $errors = ['slug' => ["Produk dengan slug \"{$slug}\" sedang diarsipkan; pulihkan dulu dari filter Arsip di menu Produk."]];
+            }
             if ($errors) {
                 $result['failed'][] = ['row' => $line, 'errors' => $errors];
 
@@ -68,8 +72,8 @@ class ProductImporter
             'slug' => ['nullable', 'string', 'max:255', 'regex:'.ProductRules::SLUG_PATTERN],
             'kategori' => ['nullable', 'string', 'max:255'],
             'merek' => ['nullable', 'string', 'max:255'],
-            'harga_min' => ['nullable', 'integer', 'min:0'],
-            'harga_max' => ['nullable', 'integer', 'min:0'],
+            'harga_min' => ['nullable', 'integer', 'min:'.ProductRules::MIN_PRICE],
+            'harga_max' => ['nullable', 'integer', 'min:'.ProductRules::MIN_PRICE],
             'satuan' => ['nullable', 'string', 'max:50'],
             'badge' => ['nullable', 'string', 'max:255'],
             'whatsapp_message' => ['nullable', 'string', 'max:255'],

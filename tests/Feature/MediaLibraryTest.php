@@ -477,6 +477,40 @@ it('replaces an image everywhere it is used, including JSON and article HTML', f
         ->and(AuditLog::where('action', 'media.replaced')->value('changes'))->toMatchArray(['updated' => 4]);
 });
 
+it('renames an image file and its alt text and updates every place that uses it', function () {
+    $media = libraryImage('products/img-1234.png', UploadedFile::fake()->image('IMG_1234.png', 400, 400));
+    $product = Product::create(['name' => 'Raskam', 'slug' => 'raskam', 'image' => $media->path]);
+    $product->media()->create(['type' => 'image', 'provider' => 'upload', 'path' => $media->path, 'alt_text' => 'Raskam']);
+    $article = Article::create(['title' => 'Artikel', 'slug' => 'artikel', 'content' => '<p><img src="/storage/products/img-1234.png" alt="x"></p>']);
+
+    Livewire::test(ManageMedia::class)
+        ->callTableAction('edit', $media, ['file_name' => 'Bundling Raskam FURANO & Cetok', 'alt_text' => 'Raskam FURANO dan cetok'])
+        ->assertHasNoTableActionErrors();
+
+    $media->refresh();
+    expect($media->only(['path', 'name', 'alt_text']))
+        ->toBe(['path' => 'products/bundling-raskam-furano-cetok-1.png', 'name' => 'bundling-raskam-furano-cetok-1.png', 'alt_text' => 'Raskam FURANO dan cetok'])
+        ->and(Storage::disk('public')->exists('products/bundling-raskam-furano-cetok-1.png'))->toBeTrue()
+        ->and(Storage::disk('public')->exists('products/img-1234.png'))->toBeFalse()
+        ->and($product->refresh()->image)->toBe($media->path)
+        ->and($product->media()->value('path'))->toBe($media->path)
+        ->and($article->refresh()->content)->toContain('/storage/products/bundling-raskam-furano-cetok-1.png')
+        ->and(AuditLog::where('action', 'media.renamed')->exists())->toBeTrue();
+});
+
+it('keeps the file in place when only the alt text changes', function () {
+    $media = libraryImage('products/semen-tiga-roda-1.png', UploadedFile::fake()->image('semen.png', 400, 400));
+
+    Livewire::test(ManageMedia::class)
+        ->mountTableAction('edit', $media)
+        ->assertTableActionDataSet(['file_name' => 'semen-tiga-roda'])
+        ->setTableActionData(['alt_text' => 'Semen Tiga Roda 50 kg'])
+        ->callMountedTableAction()
+        ->assertHasNoTableActionErrors();
+
+    expect($media->refresh()->only(['path', 'alt_text']))->toBe(['path' => 'products/semen-tiga-roda-1.png', 'alt_text' => 'Semen Tiga Roda 50 kg']);
+});
+
 it('crops the replacement to the ratio of the image it replaces', function () {
     $old = libraryImage('products/persegi.png', UploadedFile::fake()->image('a.png', 400, 400));
     $wide = libraryImage('articles/lebar.png', UploadedFile::fake()->image('b.png', 1600, 900));

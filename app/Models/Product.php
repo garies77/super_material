@@ -7,17 +7,19 @@ use App\Models\Concerns\HasReviewWorkflow;
 use App\Models\Concerns\HasSeo;
 use App\Models\Concerns\TracksPublicUrl;
 use App\Support\GoogleMerchant\ProductSync;
+use App\Support\WebhookEvents;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
 
 class Product extends Model
 {
-    use GuardsCustomCode, HasReviewWorkflow, HasSeo, TracksPublicUrl;
+    use GuardsCustomCode, HasReviewWorkflow, HasSeo, SoftDeletes, TracksPublicUrl;
 
     public const PUBLIC_ROUTE = 'product.show';
 
@@ -34,6 +36,8 @@ class Product extends Model
 
         // Setiap perubahan produk ikut dikirim ke Google Merchant Center setelah respons
         static::saved(fn (Product $product) => app(ProductSync::class)->queue($product->id));
+        // Webhook keluar: product.published dan product.price_changed
+        static::saved(fn (Product $product) => WebhookEvents::productSaved($product));
         static::deleted(fn (Product $product) => app(ProductSync::class)
             ->queueRemoval((array) ($product->google_merchant_offer_ids ?? [])));
     }
@@ -315,7 +319,8 @@ class Product extends Model
             $label .= ' – '.$fmt($max);
         }
 
-        return $label.($this->unit ? ' / '.$this->unit : '');
+        // Hanya harga; satuan/isi paket (mis. "3 product", "1 kotak") cukup disebut di deskripsi dan detail produk
+        return $label;
     }
 
     public function maxDiscountPercentage(): ?int

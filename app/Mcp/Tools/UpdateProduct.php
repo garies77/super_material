@@ -15,7 +15,7 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tools\Annotations\IsDestructive;
 use Laravel\Mcp\Server\Tools\Annotations\IsIdempotent;
 
-#[Description('Mengubah produk yang sudah ada. Hanya kolom yang dikirim yang berubah; kolom lain tetap. Untuk varian dan tautan marketplace pakai replace-product-variants dan set-product-links. Mengubah status ke "published" membuat produk tampil di situs.')]
+#[Description('Mengubah produk yang sudah ada. Hanya kolom yang dikirim yang berubah; kolom lain tetap. Bila harga acuan berubah jauh dari harga lama, respons berisi warnings: sampaikan ke pengguna dan minta konfirmasi. Untuk varian dan tautan marketplace pakai replace-product-variants dan set-product-links. Mengubah status ke "published" membuat produk tampil di situs.')]
 #[IsDestructive]
 #[IsIdempotent]
 class UpdateProduct extends AbilityTool
@@ -41,6 +41,7 @@ class UpdateProduct extends AbilityTool
             ? ['price_min' => $product->price_min] : [];
 
         $data = $this->validateProductInput($input + $compare, ProductRules::product($product));
+        $warnings = ProductRules::priceChangeWarnings($product, $data);
         $changes = ProductWriter::update($product, array_diff_key($data, $compare));
 
         if ($changes) {
@@ -50,7 +51,7 @@ class UpdateProduct extends AbilityTool
         return Response::structured([
             'changed' => array_keys($changes),
             'product' => $this->productDetail($product->refresh()),
-        ]);
+        ] + ($warnings ? ['warnings' => $warnings] : []));
     }
 
     /** @return array<string, Type> */

@@ -56,6 +56,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::patch('articles/{article}', [Admin\ArticleController::class, 'update'])->name('articles.update');
         });
 
+        Route::middleware(['api.ability:taxonomy:write', 'api.idempotent'])->group(function () {
+            Route::post('categories', [Admin\CategoryController::class, 'store'])->name('categories.store');
+            Route::patch('categories/{category}', [Admin\CategoryController::class, 'update'])->name('categories.update');
+            Route::post('brands', [Admin\BrandController::class, 'store'])->name('brands.store');
+            Route::patch('brands/{brand}', [Admin\BrandController::class, 'update'])->name('brands.update');
+        });
+
         Route::middleware('api.ability:reports:read')->group(function () {
             Route::get('reports/clicks', [Admin\ClickReportController::class, 'index'])->name('reports.clicks');
             Route::get('reports/clicks/export', [Admin\ClickReportController::class, 'export'])->name('reports.clicks.export');
