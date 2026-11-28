@@ -47,6 +47,10 @@ class ProductImporter
             }
 
             $errors = self::validate($row, $channels);
+            $slug = ($row['slug'] ?? '') !== '' ? (string) $row['slug'] : Str::slug((string) ($row['nama'] ?? ''));
+            if (! $errors && $slug !== '' && Product::onlyTrashed()->where('slug', $slug)->exists()) {
+                $errors = ['slug' => ["Produk dengan slug \"{$slug}\" sedang diarsipkan; pulihkan dulu dari filter Arsip di menu Produk."]];
+            }
             if ($errors) {
                 $result['failed'][] = ['row' => $line, 'errors' => $errors];
 

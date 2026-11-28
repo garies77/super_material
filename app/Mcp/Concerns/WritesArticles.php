@@ -5,15 +5,11 @@ namespace App\Mcp\Concerns;
 use App\Http\Resources\Api\AdminArticleResource;
 use App\Models\Article;
 use App\Models\AuditLog;
-use App\Rules\MinImagePixels;
 use App\Support\Content\ArticleRules;
-use App\Support\ImageDerivatives;
-use App\Support\MediaLibrary;
-use App\Support\RemoteFile;
+use App\Support\RemoteImage;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\JsonSchema\Types\Type;
-use Illuminate\Support\Facades\Validator;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 
@@ -73,20 +69,7 @@ trait WritesArticles
             return null;
         }
 
-        $file = RemoteFile::download($url, (int) config('api.uploads.image_max_kb'), 'image_url');
-
-        try {
-            Validator::make(['image_url' => $file], [
-                'image_url' => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:'.config('api.uploads.image_max_kb'), new MinImagePixels(50000)],
-            ])->validate();
-
-            $path = MediaLibrary::storeUploadedFile($file, 'articles', $nameSource);
-            ImageDerivatives::multiRatioUrls(storage_path('app/public/'.$path));
-
-            return $path;
-        } finally {
-            @unlink($file->getPathname());
-        }
+        return RemoteImage::store($url, 'image_url', 'articles', $nameSource, minPixels: 50000, withDerivatives: true);
     }
 
     /**

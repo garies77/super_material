@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Products;
 use App\Filament\Resources\Products\Pages\CreateProduct;
 use App\Filament\Resources\Products\Pages\EditProduct;
 use App\Filament\Resources\Products\Pages\ListProducts;
+use App\Filament\Support\ArchiveActions;
 use App\Filament\Support\CustomCodeFields;
 use App\Filament\Support\DescriptiveFileName;
 use App\Filament\Support\MediaPicker;
@@ -32,7 +33,6 @@ use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
@@ -62,6 +62,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -346,6 +347,12 @@ class ProductResource extends Resource
         ]);
     }
 
+    /** Produk arsip ikut dimuat agar filter Arsip, Pulihkan, dan halaman edit produk arsip berfungsi. */
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->withoutGlobalScopes([SoftDeletingScope::class]);
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -385,6 +392,7 @@ class ProductResource extends Resource
                 ReviewWorkflow::statusFilter(),
                 TernaryFilter::make('is_published')->label('Terbit'),
                 TernaryFilter::make('price_review_needed')->label('Perlu tinjau harga'),
+                ArchiveActions::filter(),
                 Filter::make('price_expiring')->label('Masa harga habis ≤ 7 hari')
                     ->query(fn (Builder $query) => $query->whereBetween('price_valid_until', [now(), now()->addDays(7)])),
             ])
@@ -406,10 +414,12 @@ class ProductResource extends Resource
                     fn (Product $r) => $r->only(['name', 'slug', 'category_id', 'brand_id', 'badge', 'is_published', 'is_featured']),
                 )->visible(ReviewWorkflow::canPublish()),
                 EditAction::make(),
+                ArchiveActions::restore(),
                 // Aksi sekunder di menu ⋮ agar tabel tetap muat di layar laptop
                 ActionGroup::make([
                     self::downloadPhotosAction(),
                     self::duplicateAction(),
+                    ArchiveActions::forceDelete(),
                 ])->tooltip('Aksi lain'),
             ])
             ->toolbarActions([BulkActionGroup::make([
@@ -445,7 +455,8 @@ class ProductResource extends Resource
                     ->schema([Select::make('brand_id')->label('Merek baru')->options(fn () => Brand::orderBy('name')->pluck('name', 'id'))->searchable()->required()])
                     ->action(fn (Collection $records, array $data) => self::bulkUpdate($records, ['brand_id' => $data['brand_id']], 'merek diubah'))
                     ->deselectRecordsAfterCompletion(),
-                DeleteBulkAction::make()->visible(ReviewWorkflow::canPublish())
+                ...ArchiveActions::bulk(),
+                ArchiveActions::archiveBulk()
                     ->before(fn (Collection $records) => AuditLog::record(request(), 'product.bulk_deleted', null, ['ids' => $records->modelKeys(), 'names' => $records->pluck('name')->all()])),
             ])]);
     }

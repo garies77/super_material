@@ -7,7 +7,9 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Support\Catalog\ProductRules;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
 /**
@@ -30,7 +32,7 @@ class NormalizeCatalogSlugs extends Command
         $rows = [];
 
         foreach (self::MODELS as $label => $modelClass) {
-            $modelClass::query()->orderBy('id')->each(function (Model $record) use ($label, $modelClass, $dryRun, &$rows) {
+            self::queryIncludingArchived($modelClass)->orderBy('id')->each(function (Model $record) use ($label, $modelClass, $dryRun, &$rows) {
                 if (preg_match(ProductRules::SLUG_PATTERN, (string) $record->slug)) {
                     return;
                 }
@@ -59,13 +61,26 @@ class NormalizeCatalogSlugs extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * Produk arsip ikut dirapikan agar slug-nya tetap valid saat dipulihkan, dan ikut dicek saat mencari slug unik.
+     *
+     * @param  class-string<Model>  $modelClass
+     * @return Builder<Model>
+     */
+    private static function queryIncludingArchived(string $modelClass): Builder
+    {
+        $query = $modelClass::query();
+
+        return in_array(SoftDeletes::class, class_uses_recursive($modelClass), true) ? $query->withTrashed() : $query;
+    }
+
     /** @param  class-string<Model>  $modelClass */
     private function uniqueSlug(string $modelClass, Model $record): string
     {
         $base = Str::slug((string) $record->slug) ?: Str::slug((string) $record->name) ?: 'item-'.$record->getKey();
         $slug = $base;
 
-        for ($suffix = 2; $modelClass::query()->where('slug', $slug)->whereKeyNot($record->getKey())->exists(); $suffix++) {
+        for ($suffix = 2; self::queryIncludingArchived($modelClass)->where('slug', $slug)->whereKeyNot($record->getKey())->exists(); $suffix++) {
             $slug = "{$base}-{$suffix}";
         }
 

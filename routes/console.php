@@ -15,6 +15,9 @@ Schedule::command('deploy:finish')->everyMinute()->withoutOverlapping(15)->evenI
 
 Schedule::command('seo:flag-expired-prices')->dailyAt('01:00')->timezone('Asia/Jakarta');
 
+// Webhook article.published untuk artikel terjadwal (yang terbit langsung sudah terkirim saat disimpan)
+Schedule::command('webhooks:announce-scheduled')->everyMinute()->withoutOverlapping(5);
+
 // Potret kesehatan katalog untuk tren mingguan di laporan Kesehatan Katalog
 Schedule::command('reports:snapshot-catalog')->dailyAt('01:30')->timezone('Asia/Jakarta');
 

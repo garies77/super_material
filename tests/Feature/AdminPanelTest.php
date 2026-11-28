@@ -71,7 +71,7 @@ it('orders the sidebar by operational priority and supports the collapsed icon r
         'Kampanye', 'Formulir', 'Link Bio', 'Jawaban formulir',
         'Pusat laporan', 'Kinerja tim', 'Kesehatan katalog', 'Laporan klik', 'Laporan kampanye', 'Laporan Link Bio', 'Riwayat XP',
         'Beranda', 'Menu navigasi', 'Footer situs',
-        'Pengaturan situs', 'Pengguna', 'Token API', 'Pengalihan URL',
+        'Pengaturan situs', 'Pengguna', 'Token API', 'Pengalihan URL', 'Webhook',
     ])->and($html)->not->toContain('Penggunas');
 });
 

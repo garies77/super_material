@@ -50,15 +50,17 @@ return [
         'reports:read' => 'Membaca laporan (klik, ringkasan, produk, trafik)',
         'articles:read' => 'Membaca artikel termasuk draf',
         'articles:write' => 'Membuat dan mengubah artikel (Penulis hanya artikel miliknya)',
+        'taxonomy:write' => 'Membuat dan mengubah kategori dan merek, serta menggabungkan tag',
+        'audit:read' => 'Membaca riwayat perubahan (audit log) produk, artikel, kategori, merek, dan impor',
     ],
 
     // Ability tulis meminta konfirmasi password saat token dibuat
-    'write_abilities' => ['catalog:write', 'import:write', 'articles:write'],
+    'write_abilities' => ['catalog:write', 'import:write', 'articles:write', 'taxonomy:write'],
 
     // Peran pengguna → ability yang boleh dipakai, mengikuti hak akses panel Filament
     'role_abilities' => [
-        'admin' => ['catalog:read', 'catalog:write', 'import:write', 'reports:read', 'articles:read', 'articles:write'],
-        'editor' => ['catalog:read', 'catalog:write', 'import:write', 'articles:read', 'articles:write'],
+        'admin' => ['catalog:read', 'catalog:write', 'import:write', 'reports:read', 'articles:read', 'articles:write', 'taxonomy:write', 'audit:read'],
+        'editor' => ['catalog:read', 'catalog:write', 'import:write', 'articles:read', 'articles:write', 'taxonomy:write'],
         'author' => ['articles:read', 'articles:write'],
     ],
 

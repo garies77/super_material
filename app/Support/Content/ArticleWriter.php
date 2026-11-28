@@ -71,7 +71,8 @@ class ArticleWriter
     {
         $base = Str::slug($title) ?: 'artikel';
         $slug = $base;
-        for ($n = 2; Article::where('slug', $slug)->exists(); $n++) {
+        // withTrashed: slug artikel arsip tetap terpakai di indeks unik
+        for ($n = 2; Article::withTrashed()->where('slug', $slug)->exists(); $n++) {
             $slug = "{$base}-{$n}";
         }
 

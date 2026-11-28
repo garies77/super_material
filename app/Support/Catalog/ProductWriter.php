@@ -134,7 +134,8 @@ class ProductWriter
     {
         $base = Str::slug($name) ?: 'produk';
         $slug = $base;
-        for ($n = 2; Product::where('slug', $slug)->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))->exists(); $n++) {
+        // withTrashed: slug produk arsip tetap terpakai di indeks unik
+        for ($n = 2; Product::withTrashed()->where('slug', $slug)->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))->exists(); $n++) {
             $slug = "{$base}-{$n}";
         }
 

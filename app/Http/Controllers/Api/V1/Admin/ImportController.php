@@ -45,7 +45,7 @@ class ImportController extends ApiController
         AuditLog::record($request, 'import.queued', $import, ['file' => $import->original_name]);
         ProcessProductImport::dispatch($import->id);
 
-        return response()->json(['data' => $this->present($import->refresh())], 201)
+        return response()->json(['data' => self::summary($import->refresh())], 201)
             ->header('Location', route('api.v1.admin.imports.show', $import));
     }
 
@@ -58,11 +58,11 @@ class ImportController extends ApiController
     {
         abort_unless($import->user_id === $request->user()->id || $request->user()->isAdmin(), 404);
 
-        return response()->json(['data' => $this->present($import)]);
+        return response()->json(['data' => self::summary($import)]);
     }
 
     /** @return array<string, mixed> */
-    private function present(ProductImport $import): array
+    public static function summary(ProductImport $import): array
     {
         return [
             'id' => $import->id,
